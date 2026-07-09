@@ -42,7 +42,6 @@ export default function DashboardPage() {
     password?: string;
   } | null>(null);
 
-  // Form Data (මෙහි Duration එක තනිවම තබා නොගෙන පැය සහ විනාඩි වෙන් කර ඇත)
   const [formData, setFormData] = useState({
     topic: "",
     date: "",
@@ -79,11 +78,10 @@ export default function DashboardPage() {
     e.preventDefault();
     setLoading(true);
 
-    // පැය සහ විනාඩි දෙක එකතු කරලා මුළු විනාඩි ගණන (Total Minutes) හදනවා මචං
     const totalMinutes = (Number(formData.durationHours) * 60) + Number(formData.durationMinutes);
     
     if (totalMinutes === 0) {
-      alert("කරුණාකර පන්තියේ කාලය (Duration) නිවැරදිව තෝරන්න!");
+      alert("कරුණාකර පන්තියේ කාලය (Duration) නිවැරදිව තෝරන්න!");
       setLoading(false);
       return;
     }
@@ -106,7 +104,7 @@ export default function DashboardPage() {
         id: Date.now(),
         topic: formData.topic,
         start_time: startDateTime,
-        duration: totalMinutes, // මෙන්න මෙතනට ඇත්තම විනාඩි ගණන වැටෙනවා
+        duration: totalMinutes,
         meeting_id: generatedMeetingId,
         passcode: generatedPass,
         start_url: "https://zoom.us/s/mock_meeting_id",
@@ -122,7 +120,6 @@ export default function DashboardPage() {
     const meetingDate = new Date(meeting.start_time).toLocaleDateString();
     const meetingTime = new Date(meeting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    // Copy වෙද්දී පැය සහ විනාඩි ලස්සනට පේන්න හදන කෑල්ල
     const hrs = Math.floor(meeting.duration / 60);
     const mins = meeting.duration % 60;
     const durationString = hrs > 0 ? `${hrs} Hrs ${mins > 0 ? `${mins} Mins` : ""}` : `${mins} Mins`;
@@ -158,7 +155,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* |ප්‍රධාන Layout එක */}
+      {/* ප්‍රධාන Layout එක */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
         {/* වම් පැත්ත: Zoom Form එක */}
@@ -184,7 +181,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Duration වෙනස් කල Dropdown 2 කෑල්ල */}
+                {/* Duration Dropdowns (දැන් පැය 12ක් වෙනකන් තියෙනවා මචං) */}
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Hours)</label>
@@ -195,6 +192,13 @@ export default function DashboardPage() {
                       <option value="3">03 Hr</option>
                       <option value="4">04 Hr</option>
                       <option value="5">05 Hr</option>
+                      <option value="6">06 Hr</option>
+                      <option value="7">07 Hr</option>
+                      <option value="8">08 Hr</option>
+                      <option value="9">09 Hr</option>
+                      <option value="10">10 Hr</option>
+                      <option value="11">11 Hr</option>
+                      <option value="12">12 Hr</option>
                     </select>
                   </div>
                   <div className="flex-1">
