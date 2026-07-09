@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// 🚀 අපේ අලුත් සූම් පන්ති සාදන ෆෝම් එක මෙතනින් ඉම්පෝට් කරගන්නවා මචං
-import CreateClassForm from "../components/CreateClassForm";
+// 🚀 Next.js වල පාර වැරදෙන්නේ නැති වෙන්න @/ පාවිච්චි කරලා නූලටම ඉම්පෝට් කරා මචං
+import CreateClassForm from "@/components/CreateClassForm";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,6 @@ export default function DashboardPage() {
 
   // පේජ් එක ලෝඩ් වෙද්දී රන් වන කෑල්ල
   useEffect(() => {
-    // මෙතනදී පස්සේ කාලෙක පේජ් එක ලෝඩ් වෙද්දීම ඩේටාබේස් එකෙන් ඩේටා අදින ලොජික් එක දාන්න පුළුවන්
     setPageLoading(false);
   }, []);
 
