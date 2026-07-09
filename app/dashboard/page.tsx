@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// 🚀 Next.js වල පාර වැරදෙන්නේ නැති වෙන්න @/ පාවිච්චි කරලා නූලටම ඉම්පෝට් කරා මචං
+// 🚀 n8n සූම් ෆෝම් එක ඉම්පෝට් කරගන්නවා
 import CreateClassForm from "@/components/CreateClassForm";
 
 export default function DashboardPage() {
@@ -10,7 +10,7 @@ export default function DashboardPage() {
   const [teacherId, setTeacherId] = useState("teach_01g8x92n");
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
 
-  // ටෙස්ට් කිරීමට Mock Data (පසුව මෙවා n8n/Google Sheet හරහා API එකෙන් ගමු)
+  // පරණ ඩෑෂ්බෝඩ් එකේ තිබ්බ Mock Data ටික මම ඒ විදිහටම හැදුවා මචං
   const [meetings, setMeetings] = useState<any[]>([
     {
       id: 1,
@@ -34,7 +34,6 @@ export default function DashboardPage() {
     },
   ]);
 
-  // පේජ් එක ලෝඩ් වෙද්දී රන් වන කෑල්ල
   useEffect(() => {
     setPageLoading(false);
   }, []);
@@ -48,58 +47,69 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* 📋 Header කොටස */}
-      <div className="max-w-5xl mx-auto mb-8 flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">ආයුබෝවන්, {teacherName} 👋</h1>
-          <p className="text-sm text-gray-500 mt-1">Digimart LMS කළමනාකරණ පද්ධතියට සාදරයෙන් පිළිගනිමු.</p>
-        </div>
-        <div className="text-right">
-          <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border border-blue-100">
-            ID: {teacherId}
-          </span>
-        </div>
-      </div>
-
-      {/* 🛠️ ප්‍රධාන Grid එක (වම් පැත්තේ Form එක, දකුණු පැත්තේ පන්ති ලැයිස්තුව) */}
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+    // 🎨 ඔයාගේ පරණ ඩෑෂ්බෝඩ් එකේ තිබ්බ Wrapper CSS එක මම ආපහු හැදුවා මචං Layout එක ලස්සනට තියාගන්න
+    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* 1. නව පන්තියක් සාදන Form එක (Col 1) */}
-        <div className="md:col-span-1">
-          <CreateClassForm />
-        </div>
-
-        {/* 2. පවතින පන්ති සහ රෙකෝඩින් ලැයිස්තුව (Col 2 & 3) */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              📅 ඔබගේ පන්ති කාලසටහන (Schedule)
-            </h2>
-            
-            <div className="space-y-4">
-              {meetings.map((meeting) => (
-                <div key={meeting.id} className="p-4 bg-gray-50 rounded-md border border-gray-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">{meeting.topic}</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      🗓️ {new Date(meeting.start_time).toLocaleDateString()} | ⏰ {new Date(meeting.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({meeting.duration} Mins)
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      <strong>ID:</strong> {meeting.meeting_id} | <strong>PW:</strong> {meeting.passcode}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <a href={meeting.join_url} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium text-center transition-colors">
-                      Join Class
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* 📋 Header Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 flex items-center gap-2">
+              ආයුබෝවන්, {teacherName} <span className="animate-bounce">👋</span>
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">Digimart LMS කළමනාකරණ පද්ධතියට සාදරයෙන් පිළිගනිමු.</p>
+          </div>
+          <div className="bg-blue-50 border border-blue-100 px-4 py-2 rounded-xl">
+            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Teacher ID</p>
+            <p className="text-sm font-bold text-blue-700">{teacherId}</p>
           </div>
         </div>
 
+        {/* 🛠️ Main Responsive Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* 1. වම් පැත්තේ අපේ අලුත් සූම් ෆෝම් එක (Cols 5) */}
+          <div className="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+            <CreateClassForm />
+          </div>
+
+          {/* 2. දකුණු පැත්තේ ඔයාගේ පරණ පන්ති ලැයිස්තුව (Cols 7) */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-xl">📅</span>
+                <h2 className="text-lg font-bold text-slate-800 tracking-tight">
+                  ඔබගේ පන්ති කාලසටහන (Schedule)
+                </h2>
+              </div>
+              
+              <div className="space-y-4">
+                {meetings.map((meeting) => (
+                  <div key={meeting.id} className="p-5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-800 text-base">{meeting.topic}</h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span className="flex items-center gap-1">🗓️ {new Date(meeting.start_time).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1">⏰ {new Date(meeting.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        <span className="bg-slate-200/60 px-2 py-0.5 rounded text-slate-600 font-medium">⏳ {meeting.duration} Mins</span>
+                      </div>
+                      <p className="text-xs text-slate-600 pt-1">
+                        <span className="bg-slate-100 px-2 py-1 rounded"><strong>ID:</strong> {meeting.meeting_id}</span>
+                        <span className="bg-slate-100 px-2 py-1 rounded ml-2"><strong>PW:</strong> {meeting.passcode}</span>
+                      </p>
+                    </div>
+                    <div className="flex sm:justify-end">
+                      <a href={meeting.join_url} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold tracking-wide shadow-sm shadow-blue-200 transition-colors inline-block text-center whitespace-nowrap">
+                        Join Class
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
