@@ -1,13 +1,16 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Vercel Hosting එක සාර්ථකයි මචං! ඊළඟ පියවරෙන් n8n වෙබ්හුක් එක සෙට් කරමු.");
+    // කිසිම කරදරයක් නැතුව කෙලින්ම Dashboard එකට රීඩිරෙක්ට් වෙනවා මචං
+    router.push("/dashboard");
   };
 
   return (
