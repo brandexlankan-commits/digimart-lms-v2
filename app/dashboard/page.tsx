@@ -9,8 +9,26 @@ export default function DashboardPage() {
   
   // ටෙස්ට් කිරීමට Mock Data (පසුව මේවා n8n/Google Sheet හරහා API එකෙන් ගමු)
   const [meetings, setMeetings] = useState<any[]>([
-    { id: 1, topic: "Combined Maths - Pure Theory Class", start_time: "2026-07-12T18:30:00", duration: 120, meeting_id: "845 2931 4920", passcode: "123456", start_url: "#" },
-    { id: 2, topic: "Combined Maths - Applied Revision", start_time: "2026-07-15T15:00:00", duration: 90, meeting_id: "812 4021 3912", passcode: "998877", start_url: "#" }
+    { 
+      id: 1, 
+      topic: "Combined Maths - Pure Theory Class", 
+      start_time: "2026-07-12T18:30:00", 
+      duration: 120, 
+      meeting_id: "845 2931 4920", 
+      passcode: "123456", 
+      start_url: "#",
+      join_url: "https://zoom.us/j/84529314920" 
+    },
+    { 
+      id: 2, 
+      topic: "Combined Maths - Applied Revision", 
+      start_time: "2026-07-15T15:00:00", 
+      duration: 90, 
+      meeting_id: "812 4021 3912", 
+      passcode: "998877", 
+      start_url: "#",
+      join_url: "https://zoom.us/j/81240213912" 
+    }
   ]);
   const [recordings, setRecordings] = useState<any[]>([
     { id: 1, date: "2026-07-08", title: "Combined Maths - Integration (Class 02)", r2_url: "https://r2.digimartlms.com/video1.mp4" },
@@ -37,10 +55,9 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // ඩෑෂ්බෝඩ් එක ලෝඩ් වීමේ ඇනිමේෂන් එකක් පමණි
     const timer = setTimeout(() => {
       setPageLoading(false);
-      setTeacherName("නුවන් සමීර"); // මෙතනට ඔයාගේ නම ලස්සනට දැම්මා මචං
+      setTeacherName("නුවන් සමීර");
     }, 800);
     return () => clearTimeout(timer);
   }, []);
@@ -59,13 +76,16 @@ export default function DashboardPage() {
 
     const startDateTime = `${formData.date}T${formData.time}:00`;
     
-    // දැනට n8n වෙබ්හුක් එක කනෙක්ට් කරනකන් ටෙස්ට් සක්සස් එකක් පෙන්වීමට
     setTimeout(() => {
+      const generatedMeetingId = "876 5432 1098";
+      const generatedPass = formData.passcode || "995511";
+      const generatedJoinUrl = "https://zoom.us/j/87654321098";
+
       setLinks({ 
         start_url: "https://zoom.us/s/mock_meeting_id", 
-        join_url: "https://zoom.us/j/mock_meeting_id",
-        meeting_id: "876 5432 1098",
-        password: formData.passcode || "995511"
+        join_url: generatedJoinUrl,
+        meeting_id: generatedMeetingId,
+        password: generatedPass
       });
 
       const newMeeting = {
@@ -73,14 +93,26 @@ export default function DashboardPage() {
         topic: formData.topic,
         start_time: startDateTime,
         duration: Number(formData.duration),
-        meeting_id: "876 5432 1098",
-        passcode: formData.passcode || "995511",
-        start_url: "https://zoom.us/s/mock_meeting_id"
+        meeting_id: generatedMeetingId,
+        passcode: generatedPass,
+        start_url: "https://zoom.us/s/mock_meeting_id",
+        join_url: generatedJoinUrl
       };
 
       setMeetings((prev) => [...prev, newMeeting]);
       setLoading(false);
     }, 1500);
+  };
+
+  // ලස්සනට විස්තර ටික Copy කරගන්නා Function එක
+  const copyInvitation = (meeting: any) => {
+    const meetingDate = new Date(meeting.start_time).toLocaleDateString();
+    const meetingTime = new Date(meeting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const invitationText = `📢 *NEW ZOOM CLASS* 📢\n\n📌 *Topic:* ${meeting.topic}\n📅 *Date:* ${meetingDate}\n⏰ *Time:* ${meetingTime}\n⏳ *Duration:* ${meeting.duration} Mins\n\n👨‍🎓 *Student Join Link:*\n${meeting.join_url || '#'}\n\n🆔 *Meeting ID:* ${meeting.meeting_id}\n🔑 *Passcode:* ${meeting.passcode}\n\nThank You!\nPowered by Digimart LMS`;
+    
+    navigator.clipboard.writeText(invitationText);
+    alert(`"${meeting.topic}" පන්තියේ WhatsApp Invitation එක සාර්ථකව Copy කරගත්තා! 💬`);
   };
 
   if (pageLoading) {
@@ -233,9 +265,20 @@ export default function DashboardPage() {
                       <p>🆔 ID: {meeting.meeting_id}</p>
                       <p>🔑 Pass: {meeting.passcode}</p>
                     </div>
-                    <a href={meeting.start_url} target="_blank" rel="noreferrer" className="block w-full bg-slate-800 hover:bg-slate-700 text-center py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/40">
-                      ▶️ Start Class
-                    </a>
+                    
+                    {/* බටන් 2 කෑල්ල: එකක් Start කරන්න, අනෙක Invitation එක Copy කරන්න */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <a href={meeting.start_url} target="_blank" rel="noreferrer" className="bg-slate-800 hover:bg-slate-700 text-center py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/40">
+                        ▶️ Start Class
+                      </a>
+                      <button 
+                        type="button" 
+                        onClick={() => copyInvitation(meeting)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-600/10"
+                      >
+                        📋 Copy Details
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
