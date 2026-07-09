@@ -42,11 +42,13 @@ export default function DashboardPage() {
     password?: string;
   } | null>(null);
 
+  // Form Data (මෙහි Duration එක තනිවම තබා නොගෙන පැය සහ විනාඩි වෙන් කර ඇත)
   const [formData, setFormData] = useState({
     topic: "",
     date: "",
     time: "",
-    duration: 60,
+    durationHours: "1", // Default පැය 1
+    durationMinutes: "0", // Default විනාඩි 0
     passcode: "",
     waiting_room: true,
     host_video: true,
@@ -62,17 +64,29 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData({ ...formData, [name]: checked });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // පැය සහ විනාඩි දෙක එකතු කරලා මුළු විනාඩි ගණන (Total Minutes) හදනවා මචං
+    const totalMinutes = (Number(formData.durationHours) * 60) + Number(formData.durationMinutes);
+    
+    if (totalMinutes === 0) {
+      alert("කරුණාකර පන්තියේ කාලය (Duration) නිවැරදිව තෝරන්න!");
+      setLoading(false);
+      return;
+    }
 
     const startDateTime = `${formData.date}T${formData.time}:00`;
     
@@ -92,7 +106,7 @@ export default function DashboardPage() {
         id: Date.now(),
         topic: formData.topic,
         start_time: startDateTime,
-        duration: Number(formData.duration),
+        duration: totalMinutes, // මෙන්න මෙතනට ඇත්තම විනාඩි ගණන වැටෙනවා
         meeting_id: generatedMeetingId,
         passcode: generatedPass,
         start_url: "https://zoom.us/s/mock_meeting_id",
@@ -104,12 +118,16 @@ export default function DashboardPage() {
     }, 1500);
   };
 
-  // ලස්සනට විස්තර ටික Copy කරගන්නා Function එක
   const copyInvitation = (meeting: any) => {
     const meetingDate = new Date(meeting.start_time).toLocaleDateString();
     const meetingTime = new Date(meeting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    const invitationText = `📢 *NEW ZOOM CLASS* 📢\n\n📌 *Topic:* ${meeting.topic}\n📅 *Date:* ${meetingDate}\n⏰ *Time:* ${meetingTime}\n⏳ *Duration:* ${meeting.duration} Mins\n\n👨‍🎓 *Student Join Link:*\n${meeting.join_url || '#'}\n\n🆔 *Meeting ID:* ${meeting.meeting_id}\n🔑 *Passcode:* ${meeting.passcode}\n\nThank You!\nPowered by Digimart LMS`;
+    // Copy වෙද්දී පැය සහ විනාඩි ලස්සනට පේන්න හදන කෑල්ල
+    const hrs = Math.floor(meeting.duration / 60);
+    const mins = meeting.duration % 60;
+    const durationString = hrs > 0 ? `${hrs} Hrs ${mins > 0 ? `${mins} Mins` : ""}` : `${mins} Mins`;
+
+    const invitationText = `📢 *NEW ZOOM CLASS* 📢\n\n📌 *Topic:* ${meeting.topic}\n📅 *Date:* ${meetingDate}\n⏰ *Time:* ${meetingTime}\n⏳ *Duration:* ${durationString}\n\n👨‍🎓 *Student Join Link:*\n${meeting.join_url || '#'}\n\n🆔 *Meeting ID:* ${meeting.meeting_id}\n🔑 *Passcode:* ${meeting.passcode}\n\nThank You!\nPowered by Digimart LMS`;
     
     navigator.clipboard.writeText(invitationText);
     alert(`"${meeting.topic}" පන්තියේ WhatsApp Invitation එක සාර්ථකව Copy කරගත්තා! 💬`);
@@ -140,7 +158,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ප්‍රධාන Layout එක */}
+      {/* |ප්‍රධාන Layout එක */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
         {/* වම් පැත්ත: Zoom Form එක */}
@@ -166,15 +184,33 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Duration වෙනස් කල Dropdown 2 කෑල්ල */}
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Min)</label>
-                    <input type="number" name="duration" min="15" required value={formData.duration} onChange={handleChange} className="w-full p-2.5 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Hours)</label>
+                    <select name="durationHours" value={formData.durationHours} onChange={handleChange} className="w-full p-2.5 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 appearance-none">
+                      <option value="0">00 Hr</option>
+                      <option value="1">01 Hr</option>
+                      <option value="2">02 Hr</option>
+                      <option value="3">03 Hr</option>
+                      <option value="4">04 Hr</option>
+                      <option value="5">05 Hr</option>
+                    </select>
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Passcode</label>
-                    <input type="text" name="passcode" value={formData.passcode} onChange={handleChange} className="w-full p-2.5 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Auto" />
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Minutes)</label>
+                    <select name="durationMinutes" value={formData.durationMinutes} onChange={handleChange} className="w-full p-2.5 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 appearance-none">
+                      <option value="0">00 Min</option>
+                      <option value="15">15 Min</option>
+                      <option value="30">30 Min</option>
+                      <option value="45">45 Min</option>
+                    </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1">Passcode</label>
+                  <input type="text" name="passcode" value={formData.passcode} onChange={handleChange} className="w-full p-2.5 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Auto" />
                 </div>
 
                 <div className="space-y-2 pt-2">
@@ -219,7 +255,12 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => {
                     const finalPass = links.password || "None";
-                    const invitationText = `📢 *NEW ZOOM CLASS* 📢\n\n📌 *Topic:* ${formData.topic}\n📅 *Date:* ${formData.date}\n⏰ *Time:* ${formData.time}\n⏳ *Duration:* ${formData.duration} Mins\n\n👨‍🎓 *Student Join Link:*\n${links.join_url}\n\n🆔 *Meeting ID:* ${links.meeting_id}\n🔑 *Passcode:* ${finalPass}\n\nThank You!\nPowered by Digimart LMS`;
+                    const totalMins = (Number(formData.durationHours) * 60) + Number(formData.durationMinutes);
+                    const hrs = Math.floor(totalMins / 60);
+                    const mins = totalMins % 60;
+                    const durationString = hrs > 0 ? `${hrs} Hrs ${mins > 0 ? `${mins} Mins` : ""}` : `${mins} Mins`;
+
+                    const invitationText = `📢 *NEW ZOOM CLASS* 📢\n\n📌 *Topic:* ${formData.topic}\n📅 *Date:* ${formData.date}\n⏰ *Time:* ${formData.time}\n⏳ *Duration:* ${durationString}\n\n👨‍🎓 *Student Join Link:*\n${links.join_url}\n\n🆔 *Meeting ID:* ${links.meeting_id}\n🔑 *Passcode:* ${finalPass}\n\nThank You!\nPowered by Digimart LMS`;
                     navigator.clipboard.writeText(invitationText);
                     alert("WhatsApp Invitation එක Copy කරගත්තා!");
                   }}
@@ -251,36 +292,41 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {meetings.map((meeting) => (
-                  <div key={meeting.id} className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 hover:border-slate-700 transition-all shadow-md">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full font-semibold">
-                        {new Date(meeting.start_time).toLocaleDateString()}
-                      </span>
-                      <span className="text-xs text-gray-400">⏳ {meeting.duration} Mins</span>
+                {meetings.map((meeting) => {
+                  const hrs = Math.floor(meeting.duration / 60);
+                  const mins = meeting.duration % 60;
+                  const displayDuration = hrs > 0 ? `${hrs}h ${mins > 0 ? `${mins}m` : ""}` : `${mins} Mins`;
+
+                  return (
+                    <div key={meeting.id} className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-3 hover:border-slate-700 transition-all shadow-md">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full font-semibold">
+                          {new Date(meeting.start_time).toLocaleDateString()}
+                        </span>
+                        <span className="text-xs text-gray-400">⏳ {displayDuration}</span>
+                      </div>
+                      <h3 className="text-sm font-bold text-white truncate">{meeting.topic}</h3>
+                      <div className="text-[11px] text-gray-400 font-mono space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-850">
+                        <p>⏰ Time: {new Date(meeting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p>🆔 ID: {meeting.meeting_id}</p>
+                        <p>🔑 Pass: {meeting.passcode}</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <a href={meeting.start_url} target="_blank" rel="noreferrer" className="bg-slate-800 hover:bg-slate-700 text-center py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/40">
+                          ▶️ Start Class
+                        </a>
+                        <button 
+                          type="button" 
+                          onClick={() => copyInvitation(meeting)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-600/10"
+                        >
+                          📋 Copy Details
+                        </button>
+                      </div>
                     </div>
-                    <h3 className="text-sm font-bold text-white truncate">{meeting.topic}</h3>
-                    <div className="text-[11px] text-gray-400 font-mono space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-850">
-                      <p>⏰ Time: {new Date(meeting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                      <p>🆔 ID: {meeting.meeting_id}</p>
-                      <p>🔑 Pass: {meeting.passcode}</p>
-                    </div>
-                    
-                    {/* බටන් 2 කෑල්ල: එකක් Start කරන්න, අනෙක Invitation එක Copy කරන්න */}
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      <a href={meeting.start_url} target="_blank" rel="noreferrer" className="bg-slate-800 hover:bg-slate-700 text-center py-2 rounded-xl text-xs font-bold transition-all border border-slate-700/40">
-                        ▶️ Start Class
-                      </a>
-                      <button 
-                        type="button" 
-                        onClick={() => copyInvitation(meeting)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition-all shadow-md shadow-emerald-600/10"
-                      >
-                        📋 Copy Details
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
