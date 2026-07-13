@@ -9,6 +9,7 @@ interface Meeting {
   duration: string;
   zoom_id?: string;
   passcode: string;
+  start_url?: string; // Host වරප්‍රසාද සඳහා
   join_url?: string;
 }
 
@@ -77,7 +78,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Zoom Class එකක් සෑදීමේ ශ්‍රිතය (මෙය n8n හෝ backend එකකට යා හැක)
+  // Zoom Class එකක් සෑදීමේ ශ්‍රිතය
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -299,7 +300,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <a 
-                          href={item.join_url || "#"} 
+                          href={item.start_url || "#"} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors text-center block"
