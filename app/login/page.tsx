@@ -8,14 +8,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🚀 n8n එක හරහා Google Sheet එකෙන් ලොගින් සත්‍යාපනය කරන ෆන්ක්ෂන් එක
+  // 🚀 Next.js API Route එක හරහා ආරක්ෂිතව ලොගින් සත්‍යාපනය කරන ෆන්ක්ෂන් එක
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 🎯 n8n Login Webhook එකට රික්වෙස්ට් එක යවනවා
-      const response = await fetch("https://n8n.epanthiya.com/webhook/login", {
+      // 🎯 කෙලින්ම n8n එකට නොයා, අපේම Next.js API Route එකට රික්වෙස්ට් එක යවනවා
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -25,22 +25,22 @@ export default function LoginPage() {
 
       const data = await response.json();
 
-      // n8n එකෙන් සාර්ථකයි (success) කියලා එවුවොත්
+      // n8n බැක්එන්ඩ් එකෙන් සත්‍යාපනය සාර්ථකයි (success) කියලා එවුවොත්
       if (data.status === "success") {
         // 💾 ගුරුවරයාගේ සැබෑ දත්ත ටික බ්‍රවුසර් එකේ සේව් කරගන්නවා
         localStorage.setItem("teacher_id", data.teacher_id);
         localStorage.setItem("teacher_name", data.teacher_name);
 
         alert(`👋 සාදරයෙන් පිළිගනිමු ${data.teacher_name} ගුරුතුමනි!`);
-        // කෙලින්ම ඩෑෂ්බෝඩ් එකට රීඩිරෙක්ට් වෙනවා
+        // කෙලින්ම ඩෑෂ්බෝඩ් එකට ਰੀਡිරෙක්ට් වෙනවා
         router.push("/dashboard");
       } else {
-        // n8n එකෙන් ලොගින් වැරදියි කිව්වොත් (status === "failed")
+        // ලොගින් වැරදි නම් හෝ පේමන්ට් බ්ලොක් නම් n8n එකෙන් එවන මැසේජ් එක පෙන්වනවා
         alert(`❌ ${data.message || "ඇතුලත් කළ Username හෝ Password වැරදියි බං!"}`);
       }
     } catch (error) {
       console.error("Login Error:", error);
-      alert("❌ n8n ලොගින් වෙබ්හුක් එකට කනෙක්ට් වෙන්න බැරි වුණා මචං!");
+      alert("❌ සර්වර් එක සමඟ සම්බන්ද වීමට නොහැකි විය. නැවත උත්සාහ කරන්න මචං!");
     } finally {
       setLoading(false);
     }
