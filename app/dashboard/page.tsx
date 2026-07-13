@@ -2,15 +2,35 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+interface Meeting {
+  topic: string;
+  date: string;
+  time: string;
+  duration: string;
+  zoom_id?: string;
+  passcode: string;
+  join_url?: string;
+}
+
+interface Recording {
+  date: string;
+  title: string;
+  link: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   
-  // ගුරුවරයාගේ දත්ත සඳහා වන States
+  // ගුරුවරයාගේ දත්ත සහ පැනලයේ තත්ත්වයන් (Teacher data and loading states)
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
-  const [teacherId, setTeacherId] = useState("පූරණය වෙමින්...");
+  const [teacherId, setTeacherId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // පෝරමයේ දත්ත සඳහා වන States (Form States)
+  // ගුරුවරයාට අදාළ දත්ත ලැයිස්තු (Teacher-specific dynamic data)
+  const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  
+  // පෝරමයේ දත්ත (Form States)
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("2026-07-12");
   const [time, setTime] = useState("07:37 AM");
@@ -27,21 +47,37 @@ export default function DashboardPage() {
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    // බ්‍රවුසර් එකෙහි සුරැකි ගුරු විස්තර ලබා ගැනීම
     const storedName = localStorage.getItem("teacher_name");
     const storedId = localStorage.getItem("teacher_id");
 
-    // ආරක්ෂක පියවර: ලොග් නොවී කෙලින්ම ඩෑෂ්බෝඩ් පැමිණියහොත් ලොගින් පේජ් එකට යොමු කිරීම
     if (!storedId) {
       router.push("/login");
     } else {
       setTeacherName(storedName || "ගුරුතුමනි");
       setTeacherId(storedId);
-      setLoading(false);
+      
+      // Next.js API Route එක හරහා ගුරුවරයාට අදාළ දත්ත පමණක් ලබා ගැනීම
+      fetchTeacherData(storedId);
     }
   }, [router]);
 
-  // Zoom Class එක සෑදීම සඳහා n8n වෙබ්හුක් එකට දත්ත යවන ශ්‍රිතය (Function)
+  // Next.js API එකෙන් ගුරුවරයාගේ ID එකට අදාළ දත්ත Fetch කරන ශ්‍රිතය
+  const fetchTeacherData = async (id: string) => {
+    try {
+      const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlannedClasses(data.plannedClasses || []);
+        setRecordings(data.recordings || []);
+      }
+    } catch (error) {
+      console.error("දත්ත ලබා ගැනීමේදී දෝෂයක් සිදු විය:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Zoom Class එකක් සෑදීමේ ශ්‍රිතය (මෙය n8n හෝ backend එකකට යා හැක)
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -51,7 +87,7 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teacher_id: teacherId, // දැනට ලොග් වී සිටින ගුරුවරයාගේ සැබෑ ID එක
+          teacher_id: teacherId,
           topic,
           date,
           time,
@@ -68,18 +104,19 @@ export default function DashboardPage() {
       if (response.ok) {
         alert("📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.");
         setTopic("");
+        // දත්ත ඇතුලත් වූ පසු ලැයිස්තුව නැවත Refresh කිරීම
+        fetchTeacherData(teacherId);
       } else {
-        alert("❌ පන්තිය සැකසීමට නොහැකි විය. කරුණාකර පද්ධති පරිපාලක අමතන්න.");
+        alert("❌ පන්තිය සැකසීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
       }
     } catch (error) {
       console.error(error);
-      alert("❌ සූම් සේවාදායකය සමඟ සම්බන්ධ වීමට නොහැකි විය.");
+      alert("❌ සේවාදායකය සමඟ සම්බන්ධ වීමට නොහැකි විය.");
     } finally {
       setFormLoading(false);
     }
   };
 
-  // පද්ධතියෙන් ඉවත් වීමේ ශ්‍රිතය (Sign Out Function)
   const handleLogout = () => {
     localStorage.removeItem("teacher_id");
     localStorage.removeItem("teacher_name");
@@ -89,7 +126,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#070b19] flex items-center justify-center text-white font-sans">
-        <p className="text-sm animate-pulse">⚙️ පාලන පැනලය සූදානම් වෙමින් පවතියි, කරුණාකර රැඳී සිටින්න...</p>
+        <p className="text-sm animate-pulse">⚙️ ඔබගේ පාලන පැනලය සහ දත්ත සූදානම් වෙමින් පවතියි, කරුණාකර රැඳී සිටින්න...</p>
       </div>
     );
   }
@@ -204,7 +241,6 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* CHECKBOX CONFIGURATIONS */}
               <div className="space-y-2.5 pt-2 border-t border-slate-900">
                 <label className="flex items-center gap-3 text-xs text-gray-300 cursor-pointer select-none">
                   <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="w-4 h-4 rounded border-slate-800 bg-slate-900 text-blue-600 focus:ring-0" />
@@ -234,87 +270,101 @@ export default function DashboardPage() {
             </form>
           </div>
 
-          {/* RIGHT COLUMN: PLANNED CLASSES & CLOUDFLARE R2 RECORDINGS */}
+          {/* RIGHT COLUMN: DYNAMIC PLANNED CLASSES & RECORDINGS */}
           <div className="lg:col-span-8 space-y-8">
             
-            {/* SECTION 1: PLANNED CLASSES LIST */}
+            {/* SECTION 1: GURUBARAYATA ADALA PLANNED CLASSES LIST */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold tracking-wide text-gray-300 flex items-center gap-2">
-                <span>📅</span> සැලසුම් කර ඇති පන්ති <span className="bg-slate-900 text-blue-400 text-xs px-2 py-0.5 rounded-full border border-slate-800">2</span>
+                <span>📅</span> සැලසුම් කර ඇති පන්ති <span className="bg-slate-900 text-blue-400 text-xs px-2 py-0.5 rounded-full border border-slate-800">{plannedClasses.length}</span>
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Class Card 1 */}
-                <div className="bg-[#0b132b]/50 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">12/07/2026</span>
-                    <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ 2h</span>
-                  </div>
-                  <h3 className="text-xs font-bold tracking-wide text-slate-200">Combined Maths - Pure Theory Class</h3>
-                  <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
-                    <p>⏰ Time: 18:30</p>
-                    <p>🆔 ID: 845 2931 4920</p>
-                    <p>🔑 Pass: 123456</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <button className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors">▶️ Start Class</button>
-                    <button className="py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-[10px] font-bold tracking-wide transition-colors">📋 Copy Details</button>
-                  </div>
+              {plannedClasses.length === 0 ? (
+                <div className="p-8 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
+                  ඔබ වෙනුවෙන් මෙතෙක් කිසිදු පන්තියක් සැලසුම් කර නොමැත.
                 </div>
-
-                {/* Class Card 2 */}
-                <div className="bg-[#0b132b]/50 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">15/07/2026</span>
-                    <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ 1h 30m</span>
-                  </div>
-                  <h3 className="text-xs font-bold tracking-wide text-slate-200">Combined Maths - Applied Revision</h3>
-                  <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
-                    <p>⏰ Time: 15:00</p>
-                    <p>🆔 ID: 812 4021 3912</p>
-                    <p>🔑 Pass: 998877</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <button className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors">▶️ Start Class</button>
-                    <button className="py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-[10px] font-bold tracking-wide transition-colors">📋 Copy Details</button>
-                  </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {plannedClasses.map((item, idx) => (
+                    <div key={idx} className="bg-[#0b132b]/50 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
+                        <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ {item.duration}</span>
+                      </div>
+                      <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
+                      <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
+                        <p>⏰ Time: {item.time}</p>
+                        <p>🆔 ID: {item.zoom_id || "පූරණය වෙමින්..."}</p>
+                        <p>🔑 Pass: {item.passcode}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <a 
+                          href={item.join_url || "#"} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors text-center block"
+                        >
+                          ▶️ Start Class
+                        </a>
+                        <button 
+                          onClick={() => {
+                            const details = `Topic: ${item.topic}\nDate: ${item.date}\nTime: ${item.time}\nMeeting ID: ${item.zoom_id}\nPasscode: ${item.passcode}\nJoin Link: ${item.join_url}`;
+                            navigator.clipboard.writeText(details);
+                            alert("පන්තියේ විස්තර සාර්ථකව පිටපත් කර ගන්නා ලදී.");
+                          }}
+                          className="py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-[10px] font-bold tracking-wide transition-colors"
+                        >
+                          📋 Copy Details
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* SECTION 2: CLOUDFLARE R2 RECORDINGS TABLE */}
+            {/* SECTION 2: GURUBARAYATA ADALA RECORDINGS TABLE */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold tracking-wide text-gray-300 flex items-center gap-2">
-                <span>🎬</span> පන්ති පටිගත කිරීම් <span className="text-xs font-normal text-gray-500">(Cloudflare R2)</span>
+                <span>🎬</span> ඔබගේ පන්ති පටිගත කිරීම් <span className="text-xs font-normal text-gray-500">(Cloudflare R2)</span>
               </h2>
               
-              <div className="bg-[#0b132b]/30 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-900 bg-slate-950/40 text-gray-400 font-medium">
-                      <th className="p-4 w-[25%]">DATE</th>
-                      <th className="p-4 w-[55%]">CLASS TITLE</th>
-                      <th className="p-4 w-[20%] text-right">ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    <tr className="hover:bg-slate-900/20 transition-colors">
-                      <td className="p-4 font-mono text-gray-400">2026-07-08</td>
-                      <td className="p-4 font-bold text-slate-200">Combined Maths - Integration (Class 02)</td>
-                      <td className="p-4 text-right">
-                        <button className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold text-[10px] transition-colors">📋 Copy Link</button>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-slate-900/20 transition-colors">
-                      <td className="p-4 font-mono text-gray-400">2026-07-05</td>
-                      <td className="p-4 font-bold text-slate-200">Combined Maths - Integration (Class 01)</td>
-                      <td className="p-4 text-right">
-                        <button className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold text-[10px] transition-colors">📋 Copy Link</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              {recordings.length === 0 ? (
+                <div className="p-8 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
+                  පටිගත කරන ලද පන්ති දර්ශන කිසිවක් හමුනොවීය.
+                </div>
+              ) : (
+                <div className="bg-[#0b132b]/30 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-900 bg-slate-950/40 text-gray-400 font-medium">
+                        <th className="p-4 w-[25%]">DATE</th>
+                        <th className="p-4 w-[55%]">CLASS TITLE</th>
+                        <th className="p-4 w-[20%] text-right">ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900/60 text-slate-300">
+                      {recordings.map((rec, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/20 transition-colors">
+                          <td className="p-4 font-mono text-gray-400">{rec.date}</td>
+                          <td className="p-4 font-bold text-slate-200">{rec.title}</td>
+                          <td className="p-4 text-right">
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(rec.link);
+                                alert("පටිගත කිරීමේ සබැඳිය සාර්ථකව පිටපත් කර ගන්නා ලදී.");
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold text-[10px] transition-colors"
+                            >
+                              📋 Copy Link
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
           </div>
