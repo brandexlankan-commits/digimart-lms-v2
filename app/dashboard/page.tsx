@@ -22,29 +22,24 @@ interface Recording {
 export default function DashboardPage() {
   const router = useRouter();
   
-  // ගුරුවරයාගේ දත්ත සහ පැනලයේ තත්ත්වයන්
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
   const [teacherId, setTeacherId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // ගුරුවරයාට අදාළ දත්ත ලැයිස්තු
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
-  // පෝරමයේ දත්ත (Form States)
   const [topic, setTopic] = useState("");
-  const [date, setDate] = useState("2026-07-12");
+  const [date, setDate] = useState("2026-07-13");
   
-  // ⏰ වෙලාව ඩ්‍රොප්ඩවුන් වලින් ලස්සනට තේරීමට වෙන වෙනම States සකස් කිරීම
-  const [selectedHour, setSelectedHour] = useState("08");
-  const [selectedMinute, setSelectedMinute] = useState("30");
-  const [selectedAmPm, setSelectedAmPm] = useState("AM");
+  const [selectedHour, setSelectedHour] = useState("12");
+  const [selectedMinute, setSelectedMinute] = useState("35");
+  const [selectedAmPm, setSelectedAmPm] = useState("PM");
 
   const [durationHours, setDurationHours] = useState("01 Hr");
   const [durationMinutes, setDurationMinutes] = useState("00 Min");
   const [passcode, setPasscode] = useState("Auto");
   
-  // පන්ති සැකසුම් (Checkboxes)
   const [waitingRoom, setWaitingRoom] = useState(true);
   const [hostVideo, setHostVideo] = useState(true);
   const [participantVideo, setParticipantVideo] = useState(false);
@@ -80,12 +75,29 @@ export default function DashboardPage() {
     }
   };
 
-  // Zoom Class එකක් සෑදීමේ ශ්‍රිතය
+  // 24-hour time String එකක් 12-hour AM/PM Format එකට හරවන ශ්‍රිතය
+  const display12HourTime = (timeString: string) => {
+    if (!timeString) return "නොමැත";
+    if (timeString.includes("AM") || timeString.includes("PM")) return timeString;
+    
+    const parts = timeString.split(":");
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1] || "00";
+    
+    if (isNaN(hours)) return timeString;
+    
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; 
+    const formattedHours = hours < 10 ? `0${hours}` : hours;
+    return `${formattedHours}:${minutes} ${ampm}`;
+  };
+
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
 
-    // ඩ්‍රොප්ඩවුන් 3න්ම එකතු කරලා "08:30 AM" format එකට වෙලාව සකසා ගැනීම
+    // n8n එකට යැවීමට වෙලාව සකසා ගැනීම
     const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
     try {
@@ -198,7 +210,6 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-gray-400 mb-1.5">Time</label>
-                  {/* ⏰ ටයිප් කිරීම සම්පූර්ණයෙන්ම ඉවත් කර Select Dropdowns 3ක් එක් කිරීම */}
                   <div className="grid grid-cols-3 gap-1">
                     <select 
                       value={selectedHour} 
@@ -329,7 +340,7 @@ export default function DashboardPage() {
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
-                        <p>⏰ Time: {item.time}</p>
+                        <p>⏰ Time: {display12HourTime(item.time)}</p>
                         <p>🆔 ID: {item.zoom_id || "පූරණය වෙමින්..."}</p>
                         <p>🔑 Pass: {item.passcode}</p>
                       </div>
@@ -344,7 +355,8 @@ export default function DashboardPage() {
                         </a>
                         <button 
                           onClick={() => {
-                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                            const formatted12H = display12HourTime(item.time);
+                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${formatted12H}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
                           }}

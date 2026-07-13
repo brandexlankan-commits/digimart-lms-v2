@@ -9,33 +9,49 @@ export async function GET(request: Request) {
   }
 
   try {
-    // ගූගල් ෂීට් එකෙන් ලයිව් දත්ත ලබා ගැනීම
     const res = await fetch("https://docs.google.com/spreadsheets/d/1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM/gviz/tq?tqx=out:json&sheet=Meetings", { cache: 'no-store' });
     const text = await res.text();
     const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
     const data = JSON.parse(jsonString);
     const rows = data.table.rows;
     
-    // දැනට ලොග් වී සිටින ගුරුවරයාගේ ID එකට අනුව දත්ත පෙරහන් කිරීම
     const filteredRows = rows.filter((row: any) => row.c[1]?.v === teacherId);
 
     const plannedClasses: any[] = [];
     const recordings: any[] = [];
 
     filteredRows.forEach((row: any) => {
+      const rawDateTime = row.c[3]?.v ? String(row.c[3].v).trim() : "";
+      let finalDate = "";
+      let finalTime = "";
+
+      // 🛠️ ISO Format (2026-07-13T12:35) හෝ සාමාන්‍ය Space Format නිවැරදිව වෙන් කරගැනීම
+      if (rawDateTime) {
+        if (rawDateTime.includes('T')) {
+          const parts = rawDateTime.split('T');
+          finalDate = parts[0];
+          finalTime = parts[1].substring(0, 5); // තත්පර කෑල්ල තිබුණොත් අයින් කිරීමට (HH:MM)
+        } else if (rawDateTime.includes(' ')) {
+          const parts = rawDateTime.split(' ');
+          finalDate = parts[0];
+          finalTime = parts[1];
+        } else {
+          finalDate = rawDateTime;
+        }
+      }
+
       const rowData = {
         topic: row.c[2]?.v,
-        date: row.c[3]?.v ? row.c[3].v.split(' ')[0] : "",
-        time: row.c[3]?.v ? row.c[3].v.split(' ')[1] : "",
+        date: finalDate,
+        time: finalTime,
         duration: row.c[4]?.v,
         zoom_id: row.c[5]?.v,
         passcode: row.c[6]?.v,
-        start_url: row.c[7]?.v, // H Column එක (ගුරුතුමාට Host විදිහට පන්තිය ආරම්භ කිරීමට)
-        join_url: row.c[8]?.v,  // I Column එක (සිසුන්ට සම්බන්ධ වීමට)
-        recording_url: row.c[9]?.v, // J Column එක
+        start_url: row.c[7]?.v, 
+        join_url: row.c[8]?.v,  
+        recording_url: row.c[9]?.v, 
       };
 
-      // Recording URL එකක් තිබේ නම් එය පටිගත කිරීම් ලැයිස්තුවට වැටේ, නැතහොත් සැලසුම් කළ පන්තිවලට වැටේ
       if (rowData.recording_url) {
         recordings.push({ date: rowData.date, title: rowData.topic, link: rowData.recording_url });
       } else {
@@ -47,6 +63,6 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error("API Error:", error);
-    return NextResponse.json({ error: 'දත්ත ලබා ගැනීමේ සේවාදායක දෝෂයකි' }, { status: 500 });
+    return NextResponse.json({ error: 'සේවාදායක දෝෂයකි' }, { status: 500 });
   }
 }
