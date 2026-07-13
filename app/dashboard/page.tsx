@@ -9,7 +9,7 @@ interface Meeting {
   duration: string;
   zoom_id?: string;
   passcode: string;
-  start_url?: string; // Host වරප්‍රසාද සඳහා
+  start_url?: string;
   join_url?: string;
 }
 
@@ -22,19 +22,24 @@ interface Recording {
 export default function DashboardPage() {
   const router = useRouter();
   
-  // ගුරුවරයාගේ දත්ත සහ පැනලයේ තත්ත්වයන් (Teacher data and loading states)
+  // ගුරුවරයාගේ දත්ත සහ පැනලයේ තත්ත්වයන්
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
   const [teacherId, setTeacherId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // ගුරුවරයාට අදාළ දත්ත ලැයිස්තු (Teacher-specific dynamic data)
+  // ගුරුවරයාට අදාළ දත්ත ලැයිස්තු
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
   // පෝරමයේ දත්ත (Form States)
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("2026-07-12");
-  const [time, setTime] = useState("18:30"); // 24-hour time input එක සඳහා පෙරනිමි අගය
+  
+  // ⏰ වෙලාව ඩ්‍රොප්ඩවුන් වලින් ලස්සනට තේරීමට වෙන වෙනම States සකස් කිරීම
+  const [selectedHour, setSelectedHour] = useState("08");
+  const [selectedMinute, setSelectedMinute] = useState("30");
+  const [selectedAmPm, setSelectedAmPm] = useState("AM");
+
   const [durationHours, setDurationHours] = useState("01 Hr");
   const [durationMinutes, setDurationMinutes] = useState("00 Min");
   const [passcode, setPasscode] = useState("Auto");
@@ -56,13 +61,10 @@ export default function DashboardPage() {
     } else {
       setTeacherName(storedName || "ගුරුතුමනි");
       setTeacherId(storedId);
-      
-      // Next.js API Route එක හරහා ගුරුවරයාට අදාළ දත්ත පමණක් ලබා ගැනීම
       fetchTeacherData(storedId);
     }
   }, [router]);
 
-  // Next.js API එකෙන් ගුරුවරයාගේ ID එකට අදාළ දත්ත Fetch කරන ශ්‍රිතය
   const fetchTeacherData = async (id: string) => {
     try {
       const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
@@ -78,26 +80,13 @@ export default function DashboardPage() {
     }
   };
 
-  // 12-hour AM/PM Format එකට වෙලාව පරිවර්තනය කරන ශ්‍රිතය (n8n එකට යැවීමට සහ දර්ශනය කිරීමට)
-  const formatTimeTo12Hour = (timeString: string) => {
-    if (!timeString) return "";
-    const [hoursStr, minutesStr] = timeString.split(":");
-    let hours = parseInt(hoursStr, 10);
-    const minutes = minutesStr;
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12; // 0 පැය 12 ලෙස දැක්වීම
-    const formattedHours = hours < 10 ? `0${hours}` : hours;
-    return `${formattedHours}:${minutes} ${ampm}`;
-  };
-
   // Zoom Class එකක් සෑදීමේ ශ්‍රිතය
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
 
-    // 24-hour time එක 12-hour AM/PM format එකට හැරවීම
-    const formattedTime = formatTimeTo12Hour(time);
+    // ඩ්‍රොප්ඩවුන් 3න්ම එකතු කරලා "08:30 AM" format එකට වෙලාව සකසා ගැනීම
+    const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
     try {
       const response = await fetch("https://n8n.epanthiya.com/webhook/create-zoom-class", {
@@ -121,7 +110,6 @@ export default function DashboardPage() {
       if (response.ok) {
         alert("📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.");
         setTopic("");
-        // දත්ත ඇතුලත් වූ පසු ලැයිස්තුව නැවත Refresh කිරීම
         fetchTeacherData(teacherId);
       } else {
         alert("❌ පන්තිය සැකසීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
@@ -210,21 +198,41 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-gray-400 mb-1.5">Time</label>
-                  {/* ⏰ ටයිප් කිරීම වෙනුවට වෙලාව පහසුවෙන් තේරීමට Time Picker එකක් සෙට් කිරීම */}
-                  <input 
-                    type="time"
-                    required
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 color-scheme-dark"
-                  />
+                  {/* ⏰ ටයිප් කිරීම සම්පූර්ණයෙන්ම ඉවත් කර Select Dropdowns 3ක් එක් කිරීම */}
+                  <div className="grid grid-cols-3 gap-1">
+                    <select 
+                      value={selectedHour} 
+                      onChange={(e) => setSelectedHour(e.target.value)}
+                      className="p-3 bg-slate-900/90 border border-slate-800 rounded-l-xl text-xs focus:outline-none focus:border-blue-500 appearance-none text-center"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                    <select 
+                      value={selectedMinute} 
+                      onChange={(e) => setSelectedMinute(e.target.value)}
+                      className="p-3 bg-slate-900/90 border-y border-slate-800 text-xs focus:outline-none focus:border-blue-500 appearance-none text-center"
+                    >
+                      {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                    <select 
+                      value={selectedAmPm} 
+                      onChange={(e) => setSelectedAmPm(e.target.value)}
+                      className="p-3 bg-slate-900/90 border border-slate-800 rounded-r-xl text-xs focus:outline-none focus:border-blue-500 appearance-none text-center font-bold text-blue-400"
+                    >
+                      <option value="AM">AM</option>
+                      <option value="PM">PM</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-medium text-gray-400 mb-1.5">Duration (Hours)</label>
-                  {/* 🕒 පැය 12ක් දක්වා දීර්ඝ කරන ලද Duration Selector එක */}
                   <select 
                     value={durationHours}
                     onChange={(e) => setDurationHours(e.target.value)}
@@ -309,7 +317,7 @@ export default function DashboardPage() {
               
               {plannedClasses.length === 0 ? (
                 <div className="p-8 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
-                  ඔබ වෙනුවෙන් මෙතෙක් කිසිදු පන්තියක් සැලසුම් කර නොමැත.
+                  👋 ඔබ වෙනුවෙන් මෙතෙක් කිසිදු පන්තියක් සැලසුම් කර නොමැත.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -336,7 +344,6 @@ export default function DashboardPage() {
                         </a>
                         <button 
                           onClick={() => {
-                            // 📑 අතිශය පැහැදිලි සහ Professional විදිහට සකස් කරන ලද Copy Message Template එක
                             const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
