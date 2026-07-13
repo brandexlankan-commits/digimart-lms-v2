@@ -32,8 +32,8 @@ export default function DashboardPage() {
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("2026-07-13");
   
-  const [selectedHour, setSelectedHour] = useState("12");
-  const [selectedMinute, setSelectedMinute] = useState("35");
+  const [selectedHour, setSelectedHour] = useState("05");
+  const [selectedMinute, setSelectedMinute] = useState("30");
   const [selectedAmPm, setSelectedAmPm] = useState("PM");
 
   const [durationHours, setDurationHours] = useState("01 Hr");
@@ -75,29 +75,10 @@ export default function DashboardPage() {
     }
   };
 
-  // 24-hour time String එකක් 12-hour AM/PM Format එකට හරවන ශ්‍රිතය
-  const display12HourTime = (timeString: string) => {
-    if (!timeString) return "නොමැත";
-    if (timeString.includes("AM") || timeString.includes("PM")) return timeString;
-    
-    const parts = timeString.split(":");
-    let hours = parseInt(parts[0], 10);
-    const minutes = parts[1] || "00";
-    
-    if (isNaN(hours)) return timeString;
-    
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12; 
-    const formattedHours = hours < 10 ? `0${hours}` : hours;
-    return `${formattedHours}:${minutes} ${ampm}`;
-  };
-
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
 
-    // n8n එකට යැවීමට වෙලාව සකසා ගැනීම
     const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
     try {
@@ -340,7 +321,7 @@ export default function DashboardPage() {
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
-                        <p>⏰ Time: {display12HourTime(item.time)}</p>
+                        <p>⏰ Time: {item.time}</p>
                         <p>🆔 ID: {item.zoom_id || "පූරණය වෙමින්..."}</p>
                         <p>🔑 Pass: {item.passcode}</p>
                       </div>
@@ -355,8 +336,7 @@ export default function DashboardPage() {
                         </a>
                         <button 
                           onClick={() => {
-                            const formatted12H = display12HourTime(item.time);
-                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${formatted12H}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
                           }}

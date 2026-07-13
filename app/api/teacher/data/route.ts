@@ -25,25 +25,42 @@ export async function GET(request: Request) {
       let finalDate = "";
       let finalTime = "";
 
-      // 🛠️ ISO Format (2026-07-13T12:35) හෝ සාමාන්‍ය Space Format නිවැරදිව වෙන් කරගැනීම
       if (rawDateTime) {
-        if (rawDateTime.includes('T')) {
-          const parts = rawDateTime.split('T');
-          finalDate = parts[0];
-          finalTime = parts[1].substring(0, 5); // තත්පර කෑල්ල තිබුණොත් අයින් කිරීමට (HH:MM)
-        } else if (rawDateTime.includes(' ')) {
-          const parts = rawDateTime.split(' ');
-          finalDate = parts[0];
-          finalTime = parts[1];
-        } else {
-          finalDate = rawDateTime;
+        // 🛠️ Regex එකක් මඟින් YYYY-MM-DD format එකේ Date එක තනියම වෙන් කරගැනීම
+        const dateMatch = rawDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (dateMatch) {
+          finalDate = dateMatch[1];
+        }
+
+        // 🛠️ String එක ඇතුලේ AM හෝ PM තියෙනවාද කියා බැලීම
+        const isPM = rawDateTime.toUpperCase().includes("PM");
+        const isAM = rawDateTime.toUpperCase().includes("AM");
+
+        // 🛠️ වෙලාව (HH:MM) කොටස පමණක් නූලටම ගලවා ගැනීම
+        const timeMatch = rawDateTime.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          const hours = timeMatch[1].padStart(2, "0");
+          const minutes = timeMatch[2];
+          
+          if (isPM) {
+            finalTime = `${hours}:${minutes} PM`;
+          } else if (isAM) {
+            finalTime = `${hours}:${minutes} AM`;
+          } else {
+            // යම් හෙයකින් 24-hour format එකෙන් තිබුණහොත් (උදා: 18:30)
+            let h = parseInt(hours, 10);
+            const ampm = h >= 12 ? "PM" : "AM";
+            h = h % 12;
+            h = h ? h : 12;
+            finalTime = `${String(h).padStart(2, "0")}:${minutes} ${ampm}`;
+          }
         }
       }
 
       const rowData = {
         topic: row.c[2]?.v,
-        date: finalDate,
-        time: finalTime,
+        date: finalDate || rawDateTime.split('T')[0] || rawDateTime.split(' ')[0],
+        time: finalTime || "12:00 PM",
         duration: row.c[4]?.v,
         zoom_id: row.c[5]?.v,
         passcode: row.c[6]?.v,
