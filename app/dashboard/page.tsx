@@ -34,7 +34,7 @@ export default function DashboardPage() {
   // පෝරමයේ දත්ත (Form States)
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("2026-07-12");
-  const [time, setTime] = useState("07:37 AM");
+  const [time, setTime] = useState("18:30"); // 24-hour time input එක සඳහා පෙරනිමි අගය
   const [durationHours, setDurationHours] = useState("01 Hr");
   const [durationMinutes, setDurationMinutes] = useState("00 Min");
   const [passcode, setPasscode] = useState("Auto");
@@ -78,10 +78,26 @@ export default function DashboardPage() {
     }
   };
 
+  // 12-hour AM/PM Format එකට වෙලාව පරිවර්තනය කරන ශ්‍රිතය (n8n එකට යැවීමට සහ දර්ශනය කිරීමට)
+  const formatTimeTo12Hour = (timeString: string) => {
+    if (!timeString) return "";
+    const [hoursStr, minutesStr] = timeString.split(":");
+    let hours = parseInt(hoursStr, 10);
+    const minutes = minutesStr;
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 පැය 12 ලෙස දැක්වීම
+    const formattedHours = hours < 10 ? `0${hours}` : hours;
+    return `${formattedHours}:${minutes} ${ampm}`;
+  };
+
   // Zoom Class එකක් සෑදීමේ ශ්‍රිතය
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
+
+    // 24-hour time එක 12-hour AM/PM format එකට හැරවීම
+    const formattedTime = formatTimeTo12Hour(time);
 
     try {
       const response = await fetch("https://n8n.epanthiya.com/webhook/create-zoom-class", {
@@ -91,7 +107,7 @@ export default function DashboardPage() {
           teacher_id: teacherId,
           topic,
           date,
-          time,
+          time: formattedTime,
           durationHours: durationHours.replace(/[^0-9]/g, ""), 
           durationMinutes: durationMinutes.replace(/[^0-9]/g, ""),
           passcode: passcode === "Auto" ? Math.floor(100000 + Math.random() * 900000).toString() : passcode,
@@ -194,12 +210,13 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-gray-400 mb-1.5">Time</label>
+                  {/* ⏰ ටයිප් කිරීම වෙනුවට වෙලාව පහසුවෙන් තේරීමට Time Picker එකක් සෙට් කිරීම */}
                   <input 
-                    type="text"
+                    type="time"
                     required
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 color-scheme-dark"
                   />
                 </div>
               </div>
@@ -207,6 +224,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-medium text-gray-400 mb-1.5">Duration (Hours)</label>
+                  {/* 🕒 පැය 12ක් දක්වා දීර්ඝ කරන ලද Duration Selector එක */}
                   <select 
                     value={durationHours}
                     onChange={(e) => setDurationHours(e.target.value)}
@@ -215,6 +233,15 @@ export default function DashboardPage() {
                     <option>01 Hr</option>
                     <option>02 Hrs</option>
                     <option>03 Hrs</option>
+                    <option>04 Hrs</option>
+                    <option>05 Hrs</option>
+                    <option>06 Hrs</option>
+                    <option>07 Hrs</option>
+                    <option>08 Hrs</option>
+                    <option>09 Hrs</option>
+                    <option>10 Hrs</option>
+                    <option>11 Hrs</option>
+                    <option>12 Hrs</option>
                   </select>
                 </div>
                 <div>
@@ -290,7 +317,7 @@ export default function DashboardPage() {
                     <div key={idx} className="bg-[#0b132b]/50 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
-                        <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ {item.duration}</span>
+                        <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ {item.duration} Min</span>
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
@@ -309,9 +336,10 @@ export default function DashboardPage() {
                         </a>
                         <button 
                           onClick={() => {
-                            const details = `Topic: ${item.topic}\nDate: ${item.date}\nTime: ${item.time}\nMeeting ID: ${item.zoom_id}\nPasscode: ${item.passcode}\nJoin Link: ${item.join_url}`;
+                            // 📑 අතිශය පැහැදිලි සහ Professional විදිහට සකස් කරන ලද Copy Message Template එක
+                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
-                            alert("පන්තියේ විස්තර සාර්ථකව පිටපත් කර ගන්නා ලදී.");
+                            alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
                           }}
                           className="py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-[10px] font-bold tracking-wide transition-colors"
                         >
