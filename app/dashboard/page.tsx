@@ -11,6 +11,7 @@ interface Meeting {
   passcode: string;
   start_url?: string;
   join_url?: string;
+  zoom_account_id?: string;
 }
 
 interface Recording {
@@ -30,14 +31,14 @@ export default function DashboardPage() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
   const [topic, setTopic] = useState("");
-  const [date, setDate] = useState("2026-07-13");
+  const [date, setDate] = useState("2026-07-14");
   
-  const [selectedHour, setSelectedHour] = useState("05");
+  const [selectedHour, setSelectedHour] = useState("07");
   const [selectedMinute, setSelectedMinute] = useState("30");
   const [selectedAmPm, setSelectedAmPm] = useState("PM");
 
-  const [durationHours, setDurationHours] = useState("01 Hr");
-  const [durationMinutes, setDurationMinutes] = useState("00 Min");
+  const [durationHours, setDurationHours] = useState("03 Hr");
+  const [durationMinutes, setDurationMinutes] = useState("30 Min");
   const [passcode, setPasscode] = useState("Auto");
   
   const [waitingRoom, setWaitingRoom] = useState(true);
@@ -82,7 +83,7 @@ export default function DashboardPage() {
     const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
     try {
-      const response = await fetch("https://n8n.epanthiya.com/webhook/create-zoom-class", {
+      const response = await fetch("https://n8n.epanthiya.com/webhook/create-zoom-class-v2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -100,16 +101,24 @@ export default function DashboardPage() {
         })
       });
 
-      if (response.ok) {
+      // රික්වෙස්ට් එක සාර්ථක නැත්නම් හෝ JSON එක කියවන්න බැරි වුණොත් Catch එකට යැවීම
+      if (!response.ok) {
+        throw new Error("HTTP_ERROR");
+      }
+
+      const data = await response.json();
+
+      if (data.status === "success") {
         alert("📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.");
         setTopic("");
         fetchTeacherData(teacherId);
       } else {
         alert("❌ පන්තිය සැකසීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("❌ සේවාදායකය සමඟ සම්බන්ධ වීමට නොහැකි විය.");
+      // n8n එකේ Node එකේ Throw කරපු Error මැසේජ් එක හෝ සාමාන්‍ය Fail එකක් දැයි බැලීම
+      alert("⚠️ ඔබ තෝරාගත් වේලාව තුළ සියලුම Zoom ගිණුම් කාර්යබහුල වීමට ඉඩ ඇත හෝ සේවාදායකයේ දෝෂයකි. කරුණාකර වෙනත් වේලාවක් තෝරාගන්න.");
     } finally {
       setFormLoading(false);
     }
@@ -230,18 +239,9 @@ export default function DashboardPage() {
                     onChange={(e) => setDurationHours(e.target.value)}
                     className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500"
                   >
-                    <option>01 Hr</option>
-                    <option>02 Hrs</option>
-                    <option>03 Hrs</option>
-                    <option>04 Hrs</option>
-                    <option>05 Hrs</option>
-                    <option>06 Hrs</option>
-                    <option>07 Hrs</option>
-                    <option>08 Hrs</option>
-                    <option>09 Hrs</option>
-                    <option>10 Hrs</option>
-                    <option>11 Hrs</option>
-                    <option>12 Hrs</option>
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
+                      <option key={h} value={`${h} ${parseInt(h) === 1 ? 'Hr' : 'Hrs'}`}>{h} {parseInt(h) === 1 ? 'Hr' : 'Hrs'}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
           {/* RIGHT COLUMN: DYNAMIC PLANNED CLASSES & RECORDINGS */}
           <div className="lg:col-span-8 space-y-8">
             
-            {/* SECTION 1: GURUBARAYATA ADALA PLANNED CLASSES LIST */}
+            {/* SECTION 1: PLANNED CLASSES LIST */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold tracking-wide text-gray-300 flex items-center gap-2">
                 <span>📅</span> සැලසුම් කර ඇති පන්ති <span className="bg-slate-900 text-blue-400 text-xs px-2 py-0.5 rounded-full border border-slate-800">{plannedClasses.length}</span>
@@ -324,6 +324,7 @@ export default function DashboardPage() {
                         <p>⏰ Time: {item.time}</p>
                         <p>🆔 ID: {item.zoom_id || "පූරණය වෙමින්..."}</p>
                         <p>🔑 Pass: {item.passcode}</p>
+                        <p className="text-[10px] text-slate-500">⚙️ Acc: {item.zoom_account_id || "Pool Account"}</p>
                       </div>
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <a 
@@ -351,7 +352,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* SECTION 2: GURUBARAYATA ADALA RECORDINGS TABLE */}
+            {/* SECTION 2: RECORDINGS TABLE */}
             <div className="space-y-4">
               <h2 className="text-sm font-bold tracking-wide text-gray-300 flex items-center gap-2">
                 <span>🎬</span> ඔබගේ පන්ති පටිගත කිරීම් <span className="text-xs font-normal text-gray-500">(Cloudflare R2)</span>
