@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 
+// 💡 Vercel එකේ පරණ ඩේටා Cache වීම සම්පූර්ණයෙන්ම නවත්වන්න මේ පේළි දෙක අත්‍යවශ්‍යයි!
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get('teacher_id');
@@ -9,7 +13,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const res = await fetch("https://docs.google.com/spreadsheets/d/1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM/gviz/tq?tqx=out:json&sheet=Meetings", { cache: 'no-store' });
+    // URL එකට අගින් Random අංකයක් එකතු කරනවා Google Sheet Cache එකත් කඩන්න
+    const res = await fetch(`https://docs.google.com/spreadsheets/d/1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${Date.now()}`, { 
+      cache: 'no-store' 
+    });
+    
     const text = await res.text();
     const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
     const data = JSON.parse(jsonString);
@@ -21,71 +29,62 @@ export async function GET(request: Request) {
     const recordings: any[] = [];
 
     filteredRows.forEach((row: any) => {
-      const rawDateTime = row.c[3]?.v ? String(row.c[3].v).trim() : "";
+      // 💡 ගූගල් ෂීට් එකේ Cell එකේ ඩේටා කියවීම (.v = raw අගය, .f = format වූ අගය)
+      const dateCell = row.c[3];
+      const rawV = dateCell?.v ? String(dateCell.v).trim() : "";
+      const rawF = dateCell?.f ? String(dateCell.f).trim() : "";
+      
       let finalDate = "";
-      let finalTime = "";
+      let finalTime = "12:00 PM";
 
-      if (rawDateTime) {
-        // 💡 Google gviz API එකෙන් එන Date(2026,6,16,19,30,0) කියන ෆෝමැට් එක නූලටම ගැලවීම:
-        if (rawDateTime.startsWith("Date(")) {
-          const matches = rawDateTime.match(/Date\((\d+),(\d+),(\d+),?(\d+)?,?(\d+)?/);
-          if (matches) {
-            const year = matches[1];
-            // gviz වල ජූලි මාසය එන්නේ 6 විදිහට (0-indexed). ඒ නිසා +1 කරලා 7 කරනවා.
-            const month = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
-            const day = String(matches[3]).padStart(2, "0");
-            
-            finalDate = `${year}-${month}-${day}`;
+      if (rawV.startsWith("Date(")) {
+        // Date(2026,6,23,19,30,0) ෆෝමැට් එක ගැලවීම
+        const matches = rawV.match(/Date\((\d+),(\d+),(\d+),?(\d+)?,?(\d+)?/);
+        if (matches) {
+          const y = matches[1];
+          const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0"); // මාසය 0න් පටන්ගන්නා නිසා +1
+          const d = String(matches[3]).padStart(2, "0");
+          finalDate = `${y}-${m}-${d}`;
 
-            // වෙලාව (පැය සහ මිනිත්තු) වෙන් කරගැනීම
-            let hours = parseInt(matches[4] || "0", 10);
-            const minutes = String(matches[5] || "0").padStart(2, "0");
-            
-            const ampm = hours >= 12 ? "PM" : "AM";
-            hours = hours % 12;
-            hours = hours ? hours : 12; // 0 නම් පැය 12 කරනවා
-            
-            finalTime = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
-          }
-        } else {
-          // යම් හෙයකින් සාමාන්‍ය Standard format එකකින් තිබුණහොත් පරණ ලොජික් එක ක්‍රියාත්මක වේ:
-          const dateMatch = rawDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
-          if (dateMatch) finalDate = dateMatch[1];
-
-          const isPM = rawDateTime.toUpperCase().includes("PM");
-          const isAM = rawDateTime.toUpperCase().includes("AM");
-          const timeMatch = rawDateTime.match(/(\d{1,2}):(\d{2})/);
+          let hrs = parseInt(matches[4] || "0", 10);
+          const mins = String(matches[5] || "0").padStart(2, "0");
+          const ampm = hrs >= 12 ? "PM" : "AM";
+          hrs = hrs % 12 || 12;
+          finalTime = `${String(hrs).padStart(2, "0")}:${mins} ${ampm}`;
+        }
+      } else if (rawF || rawV) {
+        // සාමාන්‍ය 2026-07-23 19:30:00 ෆෝමැට් එකක් නම්
+        const sourceText = rawF || rawV;
+        const dateMatch = sourceText.match(/(\d{4}-\d{2}-\d{2})/);
+        if (dateMatch) finalDate = dateMatch[1];
+        
+        const timeMatch = sourceText.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          let hrs = parseInt(timeMatch[1], 10);
+          const mins = timeMatch[2];
+          const isPM = sourceText.toUpperCase().includes("PM");
+          const isAM = sourceText.toUpperCase().includes("AM");
           
-          if (timeMatch) {
-            const hours = timeMatch[1].padStart(2, "0");
-            const minutes = timeMatch[2];
-            
-            if (isPM) {
-              finalTime = `${hours}:${minutes} PM`;
-            } else if (isAM) {
-              finalTime = `${hours}:${minutes} AM`;
-            } else {
-              let h = parseInt(hours, 10);
-              const ampm = h >= 12 ? "PM" : "AM";
-              h = h % 12;
-              h = h ? h : 12;
-              finalTime = `${String(h).padStart(2, "0")}:${minutes} ${ampm}`;
-            }
+          if (isPM || isAM) {
+            finalTime = `${String(hrs).padStart(2, "0")}:${mins} ${isPM ? 'PM' : 'AM'}`;
+          } else {
+            const ampm = hrs >= 12 ? "PM" : "AM";
+            hrs = hrs % 12 || 12;
+            finalTime = `${String(hrs).padStart(2, "0")}:${mins} ${ampm}`;
           }
         }
       }
 
       const rowData = {
         topic: row.c[2]?.v,
-        date: finalDate || rawDateTime.split('T')[0] || rawDateTime.split(' ')[0],
-        time: finalTime || "12:00 PM",
+        date: finalDate || (rawV.split('T')[0]),
+        time: finalTime,
         duration: row.c[4]?.v,
         zoom_id: row.c[5]?.v,
         passcode: row.c[6]?.v,
         start_url: row.c[7]?.v, 
         join_url: row.c[8]?.v,  
         recording_url: row.c[9]?.v, 
-        // 💡 ෂීට් එකේ K කොලම් එකේ (Index 10) තියෙන zoom1 / zoom2 කෙටි නම ඩෑෂ්බෝඩ් එකට පාස් කිරීම:
         zoom_account_id: row.c[10]?.v || "Pool Account"
       };
 
