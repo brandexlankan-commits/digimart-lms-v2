@@ -101,7 +101,6 @@ export default function DashboardPage() {
         })
       });
 
-      // රික්වෙස්ට් එක සාර්ථක නැත්නම් හෝ JSON එක කියවන්න බැරි වුණොත් Catch එකට යැවීම
       if (!response.ok) {
         throw new Error("HTTP_ERROR");
       }
@@ -117,7 +116,6 @@ export default function DashboardPage() {
       }
     } catch (error: any) {
       console.error(error);
-      // n8n එකේ Node එකේ Throw කරපු Error මැසේජ් එක හෝ සාමාන්‍ය Fail එකක් දැයි බැලීම
       alert("⚠️ ඔබ තෝරාගත් වේලාව තුළ සියලුම Zoom ගිණුම් කාර්යබහුල වීමට ඉඩ ඇත හෝ සේවාදායකයේ දෝෂයකි. කරුණාකර වෙනත් වේලාවක් තෝරාගන්න.");
     } finally {
       setFormLoading(false);
@@ -320,12 +318,32 @@ export default function DashboardPage() {
                         <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ {item.duration} Min</span>
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
+                      
+                      {/* 🛠️ FIX කරන ලද කොටස: ISO වෙලාවල් ආවත්, සාමාන්‍ය ඒවා ආවත් 100% ක් නිවැරදිව පෙන්වීම */}
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
-                        <p>⏰ Time: {item.time}</p>
+                        <p>
+                          ⏰ Time: {
+                            (() => {
+                              try {
+                                if (item.time && (item.time.includes('T') || item.time.includes(':00'))) {
+                                  const dateObj = new Date(item.time.includes('T') ? item.time : `${item.date}T${item.time}`);
+                                  if (!isNaN(dateObj.getTime())) {
+                                    return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                  }
+                                }
+                                return item.time;
+                              } catch (e) {
+                                return item.time;
+                              }
+                            })()
+                          }
+                        </p>
                         <p>🆔 ID: {item.zoom_id || "පූරණය වෙමින්..."}</p>
                         <p>🔑 Pass: {item.passcode}</p>
-                        <p className="text-[10px] text-slate-500">⚙️ Acc: {item.zoom_account_id || "Pool Account"}</p>
+                        {/* 💡 ෂීට් එකේ ඇති zoom1 / zoom2 කෙටි නම ලස්සනට පෙන්වීම */}
+                        <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Account"}</p>
                       </div>
+                      
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <a 
                           href={item.start_url || "#"} 
@@ -337,7 +355,20 @@ export default function DashboardPage() {
                         </a>
                         <button 
                           onClick={() => {
-                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                            const displayTime = (() => {
+                              try {
+                                if (item.time && (item.time.includes('T') || item.time.includes(':00'))) {
+                                  const dateObj = new Date(item.time.includes('T') ? item.time : `${item.date}T${item.time}`);
+                                  if (!isNaN(dateObj.getTime())) {
+                                    return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                  }
+                                }
+                                return item.time;
+                              } catch (e) {
+                                return item.time;
+                              }
+                            })();
+                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${displayTime}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
                           }}
