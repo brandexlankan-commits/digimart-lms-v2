@@ -26,33 +26,51 @@ export async function GET(request: Request) {
       let finalTime = "";
 
       if (rawDateTime) {
-        // 🛠️ Regex එකක් මඟින් YYYY-MM-DD format එකේ Date එක තනියම වෙන් කරගැනීම
-        const dateMatch = rawDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
-        if (dateMatch) {
-          finalDate = dateMatch[1];
-        }
+        // 💡 Google gviz API එකෙන් එන Date(2026,6,16,19,30,0) කියන ෆෝමැට් එක නූලටම ගැලවීම:
+        if (rawDateTime.startsWith("Date(")) {
+          const matches = rawDateTime.match(/Date\((\d+),(\d+),(\d+),?(\d+)?,?(\d+)?/);
+          if (matches) {
+            const year = matches[1];
+            // gviz වල ජූලි මාසය එන්නේ 6 විදිහට (0-indexed). ඒ නිසා +1 කරලා 7 කරනවා.
+            const month = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
+            const day = String(matches[3]).padStart(2, "0");
+            
+            finalDate = `${year}-${month}-${day}`;
 
-        // 🛠️ String එක ඇතුලේ AM හෝ PM තියෙනවාද කියා බැලීම
-        const isPM = rawDateTime.toUpperCase().includes("PM");
-        const isAM = rawDateTime.toUpperCase().includes("AM");
+            // වෙලාව (පැය සහ මිනිත්තු) වෙන් කරගැනීම
+            let hours = parseInt(matches[4] || "0", 10);
+            const minutes = String(matches[5] || "0").padStart(2, "0");
+            
+            const ampm = hours >= 12 ? "PM" : "AM";
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 නම් පැය 12 කරනවා
+            
+            finalTime = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+          }
+        } else {
+          // යම් හෙයකින් සාමාන්‍ය Standard format එකකින් තිබුණහොත් පරණ ලොජික් එක ක්‍රියාත්මක වේ:
+          const dateMatch = rawDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+          if (dateMatch) finalDate = dateMatch[1];
 
-        // 🛠️ වෙලාව (HH:MM) කොටස පමණක් නූලටම ගලවා ගැනීම
-        const timeMatch = rawDateTime.match(/(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
-          const hours = timeMatch[1].padStart(2, "0");
-          const minutes = timeMatch[2];
+          const isPM = rawDateTime.toUpperCase().includes("PM");
+          const isAM = rawDateTime.toUpperCase().includes("AM");
+          const timeMatch = rawDateTime.match(/(\d{1,2}):(\d{2})/);
           
-          if (isPM) {
-            finalTime = `${hours}:${minutes} PM`;
-          } else if (isAM) {
-            finalTime = `${hours}:${minutes} AM`;
-          } else {
-            // යම් හෙයකින් 24-hour format එකෙන් තිබුණහොත් (උදා: 18:30)
-            let h = parseInt(hours, 10);
-            const ampm = h >= 12 ? "PM" : "AM";
-            h = h % 12;
-            h = h ? h : 12;
-            finalTime = `${String(h).padStart(2, "0")}:${minutes} ${ampm}`;
+          if (timeMatch) {
+            const hours = timeMatch[1].padStart(2, "0");
+            const minutes = timeMatch[2];
+            
+            if (isPM) {
+              finalTime = `${hours}:${minutes} PM`;
+            } else if (isAM) {
+              finalTime = `${hours}:${minutes} AM`;
+            } else {
+              let h = parseInt(hours, 10);
+              const ampm = h >= 12 ? "PM" : "AM";
+              h = h % 12;
+              h = h ? h : 12;
+              finalTime = `${String(h).padStart(2, "0")}:${minutes} ${ampm}`;
+            }
           }
         }
       }
@@ -67,6 +85,8 @@ export async function GET(request: Request) {
         start_url: row.c[7]?.v, 
         join_url: row.c[8]?.v,  
         recording_url: row.c[9]?.v, 
+        // 💡 ෂීට් එකේ K කොලම් එකේ (Index 10) තියෙන zoom1 / zoom2 කෙටි නම ඩෑෂ්බෝඩ් එකට පාස් කිරීම:
+        zoom_account_id: row.c[10]?.v || "Pool Account"
       };
 
       if (rowData.recording_url) {
