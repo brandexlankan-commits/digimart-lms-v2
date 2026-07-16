@@ -12,6 +12,9 @@ interface Meeting {
   start_url?: string;
   join_url?: string;
   zoom_account_id?: string;
+  // API එකෙන් වෙනස් නම් වලින් ආවොත් Safe වෙන්න:
+  startTime?: string;
+  start_time?: string;
 }
 
 interface Recording {
@@ -131,7 +134,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#070b19] flex items-center justify-center text-white font-sans">
-        <p className="text-sm animate-pulse">⚙️ ඔබගේ පාලන පැනලය සහ දත්ත සූදානම් වෙමින් පවතියි, කරුණාකර රැඳී සිටින්න...</p>
+        <p className="text-sm animate-pulse">⚙️ ඔබගේ පාලන පැනලය සහ දත්ත සූදානම් වෙමින් පවතියයි, කරුණාකර රැඳී සිටින්න...</p>
       </div>
     );
   }
@@ -319,28 +322,40 @@ export default function DashboardPage() {
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
                       
-                      {/* 🛠️ FIX කරන ලද කොටස: ISO වෙලාවල් ආවත්, සාමාන්‍ය ඒවා ආවත් 100% ක් නිවැරදිව පෙන්වීම */}
+                      {/* 🛠️ අතිශය ශක්තිමත් කරන ලද වෙලාව පෙන්වන කොටස: */}
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
                         <p>
                           ⏰ Time: {
                             (() => {
                               try {
-                                if (item.time && (item.time.includes('T') || item.time.includes(':00'))) {
-                                  const dateObj = new Date(item.time.includes('T') ? item.time : `${item.date}T${item.time}`);
+                                // 1. API එකෙන් එන Variable එක හරියටම අල්ලගැනීම (time, startTime, start_time සේරම බලනවා)
+                                const rawTime = item.time || item.startTime || item.start_time;
+                                
+                                if (!rawTime) return "12:00 PM";
+
+                                // 2. යම් හෙයකින් ඒකෙ කෙලින්ම AM/PM තියෙනවා නම් (උදා: "7:30 PM") ඒක එහෙම්මම දෙනවා
+                                if (rawTime.includes('AM') || rawTime.includes('PM')) {
+                                  return rawTime;
+                                }
+
+                                // 3. යම් හෙයකින් ISO format එකක් හෝ සර්වර් වෙලාවක් ආවොත් (උදා: 2026-07-18T19:30:00)
+                                if (rawTime.includes('T') || rawTime.includes(':')) {
+                                  const timeString = rawTime.includes('T') ? rawTime : `${item.date}T${rawTime}`;
+                                  const dateObj = new Date(timeString);
                                   if (!isNaN(dateObj.getTime())) {
                                     return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                                   }
                                 }
-                                return item.time;
+                                
+                                return rawTime;
                               } catch (e) {
-                                return item.time;
+                                return item.time || "12:00 PM";
                               }
                             })()
                           }
                         </p>
                         <p>🆔 ID: {item.zoom_id || "පූරණය වෙමින්..."}</p>
                         <p>🔑 Pass: {item.passcode}</p>
-                        {/* 💡 ෂීට් එකේ ඇති zoom1 / zoom2 කෙටි නම ලස්සනට පෙන්වීම */}
                         <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Account"}</p>
                       </div>
                       
@@ -357,15 +372,19 @@ export default function DashboardPage() {
                           onClick={() => {
                             const displayTime = (() => {
                               try {
-                                if (item.time && (item.time.includes('T') || item.time.includes(':00'))) {
-                                  const dateObj = new Date(item.time.includes('T') ? item.time : `${item.date}T${item.time}`);
+                                const rawTime = item.time || item.startTime || item.start_time;
+                                if (!rawTime) return "12:00 PM";
+                                if (rawTime.includes('AM') || rawTime.includes('PM')) return rawTime;
+                                if (rawTime.includes('T') || rawTime.includes(':')) {
+                                  const timeString = rawTime.includes('T') ? rawTime : `${item.date}T${rawTime}`;
+                                  const dateObj = new Date(timeString);
                                   if (!isNaN(dateObj.getTime())) {
                                     return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                                   }
                                 }
-                                return item.time;
+                                return rawTime;
                               } catch (e) {
-                                return item.time;
+                                return item.time || "12:00 PM";
                               }
                             })();
                             const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${displayTime}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
