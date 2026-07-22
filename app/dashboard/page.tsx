@@ -12,8 +12,7 @@ interface Meeting {
   start_url?: string;
   join_url?: string;
   zoom_account_id?: string;
-  meeting_id_row?: string; // n8n webhook එකට යවන row id එක සඳහා
-  // API එකෙන් වෙනස් නම් වලින් ආවොත් Safe වෙන්න:
+  meeting_id_row?: string;
   startTime?: string;
   start_time?: string;
 }
@@ -29,6 +28,7 @@ export default function DashboardPage() {
   
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
   const [teacherId, setTeacherId] = useState("");
+  const [teacherPic, setTeacherPic] = useState(""); // 📸 Profile Picture State
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -55,12 +55,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const storedName = localStorage.getItem("teacher_name");
     const storedId = localStorage.getItem("teacher_id");
+    const storedPic = localStorage.getItem("teacher_pic") || localStorage.getItem("profile_pic");
 
     if (!storedId) {
       router.push("/login");
     } else {
       setTeacherName(storedName || "ගුරුතුමනි");
       setTeacherId(storedId);
+      if (storedPic) setTeacherPic(storedPic);
       fetchTeacherData(storedId);
     }
   }, [router]);
@@ -72,6 +74,18 @@ export default function DashboardPage() {
         const data = await response.json();
         setPlannedClasses(data.plannedClasses || []);
         setRecordings(data.recordings || []);
+        
+        // 📸 API එකෙන් එන Profile Picture URL හෝ Name එක අල්ලගැනීම:
+        if (data.profilePic || data.teacherPic || data.profile_picture) {
+          const pic = data.profilePic || data.teacherPic || data.profile_picture;
+          setTeacherPic(pic);
+          localStorage.setItem("teacher_pic", pic);
+        }
+
+        if (data.teacherName) {
+          setTeacherName(data.teacherName);
+          localStorage.setItem("teacher_name", data.teacherName);
+        }
       }
     } catch (error) {
       console.error("දත්ත ලබා ගැනීමේදී දෝෂයක් සිදු විය:", error);
@@ -129,6 +143,7 @@ export default function DashboardPage() {
   const handleLogout = () => {
     localStorage.removeItem("teacher_id");
     localStorage.removeItem("teacher_name");
+    localStorage.removeItem("teacher_pic");
     router.push("/login");
   };
 
@@ -146,14 +161,31 @@ export default function DashboardPage() {
         
         {/* ==================== TOP NAVIGATION / HEADER ==================== */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-900 pb-6 gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200">
-              ආයුබෝවන්, {teacherName}! 👋
-            </h1>
-            <p className="text-xs text-gray-500 mt-1 tracking-wide">
-              Digimart LMS මඟින් ඔබගේ පන්ති සහ පටිගත කිරීම් මෙතැන් සිට පහසුවෙන් පාලනය කරන්න.
-            </p>
+          
+          {/* 📸 PROFILE PICTURE & TEACHER NAME HEADER */}
+          <div className="flex items-center gap-4">
+            {teacherPic ? (
+              <img 
+                src={teacherPic} 
+                alt={teacherName} 
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-blue-500/50 shadow-lg shadow-blue-500/10"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 border-2 border-blue-400/30 flex items-center justify-center text-xl font-black text-white shadow-lg shadow-blue-500/10">
+                {teacherName.charAt(0)}
+              </div>
+            )}
+            
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200">
+                ආයුබෝවන්, {teacherName}! 👋
+              </h1>
+              <p className="text-xs text-gray-500 mt-1 tracking-wide">
+                Digimart LMS මඟින් ඔබගේ පන්ති සහ පටිගත කිරීම් මෙතැන් සිට පහසුවෙන් පාලනය කරන්න.
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
             <div className="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs font-mono text-blue-400 font-bold shadow-inner">
               Teacher ID: {teacherId}
@@ -323,7 +355,6 @@ export default function DashboardPage() {
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
                       
-                      {/* වෙලාව පෙන්වන කොටස: */}
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
                         <p>
                           ⏰ Time: {
@@ -352,7 +383,6 @@ export default function DashboardPage() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 pt-1">
-                        {/* 🛠️ මෙන්න n8n Webhook එකට ලින්ක් කරන ලද Start Class බටන් එක: */}
                         <a 
                           href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
                           target="_blank" 
