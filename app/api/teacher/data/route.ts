@@ -13,23 +13,27 @@ export async function GET(request: Request) {
   }
 
   try {
-    // URL එකට අගින් Random අංකයක් එකතු කරනවා Google Sheet Cache එකත් කඩන්න
-    const res = await fetch(`https://docs.google.com/spreadsheets/d/1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${Date.now()}`, { 
-      cache: 'no-store' 
-    });
-    
-    const text = await res.text();
-    const jsonString = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
-    const data = JSON.parse(jsonString);
-    const rows = data.table.rows;
-    
+    const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
+    const cacheBuster = Date.now();
+
+    // 🚀 Meetings සහ Teachers කියන ෂීට් දෙකෙන්ම එකවර ඩේටා ලබාගනිමු (Promise.all)
+    const [meetingsRes, teachersRes] = await Promise.all([
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { cache: 'no-store' }),
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`, { cache: 'no-store' })
+    ]);
+
+    // ------------------- 1. MEETINGS DATA PROCESSING -------------------
+    const meetingsText = await meetingsRes.text();
+    const meetingsJsonString = meetingsText.substring(meetingsText.indexOf("{"), meetingsText.lastIndexOf("}") + 1);
+    const meetingsData = JSON.parse(meetingsJsonString);
+    const rows = meetingsData.table.rows || [];
+
     const filteredRows = rows.filter((row: any) => row.c[1]?.v === teacherId);
 
     const plannedClasses: any[] = [];
     const recordings: any[] = [];
 
     filteredRows.forEach((row: any) => {
-      // 💡 ගූගල් ෂීට් එකේ Cell එකේ ඩේටා කියවීම (.v = raw අගය, .f = format වූ අගය)
       const dateCell = row.c[3];
       const rawV = dateCell?.v ? String(dateCell.v).trim() : "";
       const rawF = dateCell?.f ? String(dateCell.f).trim() : "";
@@ -38,11 +42,10 @@ export async function GET(request: Request) {
       let finalTime = "12:00 PM";
 
       if (rawV.startsWith("Date(")) {
-        // Date(2026,6,23,19,30,0) ෆෝමැට් එක ගැලවීම
         const matches = rawV.match(/Date\((\d+),(\d+),(\d+),?(\d+)?,?(\d+)?/);
         if (matches) {
           const y = matches[1];
-          const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0"); // මාසය 0න් පටන්ගන්නා නිසා +1
+          const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
           const d = String(matches[3]).padStart(2, "0");
           finalDate = `${y}-${m}-${d}`;
 
@@ -53,7 +56,6 @@ export async function GET(request: Request) {
           finalTime = `${String(hrs).padStart(2, "0")}:${mins} ${ampm}`;
         }
       } else if (rawF || rawV) {
-        // සාමාන්‍ය 2026-07-23 19:30:00 ෆෝමැට් එකක් නම්
         const sourceText = rawF || rawV;
         const dateMatch = sourceText.match(/(\d{4}-\d{2}-\d{2})/);
         if (dateMatch) finalDate = dateMatch[1];
@@ -95,7 +97,43 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.json({ plannedClasses, recordings });
+    // ------------------- 2. TEACHERS PROFILE DATA PROCESSING -------------------
+    let profilePic = "";
+    let teacherName = "";
+
+    try {
+      const teachersText = await teachersRes.text();
+      const teachersJsonString = teachersText.substring(teachersText.indexOf("{"), teachersText.lastIndexOf("}") + 1);
+      const teachersData = JSON.parse(teachersJsonString);
+      const teacherRows = teachersData.table.rows || [];
+
+      // අදාල Teacher ID එක තියෙන Row එක සොයාගැනීම
+      const teacherRow = teacherRows.find((r: any) => r.c?.some((cell: any) => cell?.v === teacherId));
+
+      if (teacherRow) {
+        // Teacher Row එකේ තියෙන Cell අතරින් Image Link (http/https) එක සොයාගැනීම
+        const picCell = teacherRow.c?.find((cell: any) => 
+          cell?.v && typeof cell.v === 'string' && (cell.v.startsWith('http://') || cell.v.startsWith('https://'))
+        );
+        if (picCell) profilePic = picCell.v;
+
+        // Teacher Name එක සොයාගැනීම (සාමාන්‍යයෙන් Teacher ID එකට ඊළඟට හෝ නමක් ලෙස ඇති Cell එක)
+        const nameCell = teacherRow.c?.find((cell: any) => 
+          cell?.v && typeof cell.v === 'string' && cell.v !== teacherId && !cell.v.startsWith('http')
+        );
+        if (nameCell) teacherName = nameCell.v;
+      }
+    } catch (e) {
+      console.error("Teachers Sheet එක කියවීමේ දෝෂයකි:", e);
+    }
+
+    // ------------------- 3. RETURN EVERYTHING TO FRONTEND -------------------
+    return NextResponse.json({ 
+      plannedClasses, 
+      recordings,
+      profilePic,   // 📸 Google Sheet එකෙන් එන Profile Picture URL එක
+      teacherName   // 👤 Google Sheet එකෙන් එන Teacher Name එක
+    });
 
   } catch (error) {
     console.error("API Error:", error);
