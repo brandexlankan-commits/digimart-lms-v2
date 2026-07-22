@@ -12,6 +12,7 @@ interface Meeting {
   start_url?: string;
   join_url?: string;
   zoom_account_id?: string;
+  meeting_id_row?: string; // n8n webhook එකට යවන row id එක සඳහා
   // API එකෙන් වෙනස් නම් වලින් ආවොත් Safe වෙන්න:
   startTime?: string;
   start_time?: string;
@@ -322,23 +323,15 @@ export default function DashboardPage() {
                       </div>
                       <h3 className="text-xs font-bold tracking-wide text-slate-200">{item.topic}</h3>
                       
-                      {/* 🛠️ අතිශය ශක්තිමත් කරන ලද වෙලාව පෙන්වන කොටස: */}
+                      {/* වෙලාව පෙන්වන කොටස: */}
                       <div className="bg-slate-950/60 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
                         <p>
                           ⏰ Time: {
                             (() => {
                               try {
-                                // 1. API එකෙන් එන Variable එක හරියටම අල්ලගැනීම (time, startTime, start_time සේරම බලනවා)
                                 const rawTime = item.time || item.startTime || item.start_time;
-                                
                                 if (!rawTime) return "12:00 PM";
-
-                                // 2. යම් හෙයකින් ඒකෙ කෙලින්ම AM/PM තියෙනවා නම් (උදා: "7:30 PM") ඒක එහෙම්මම දෙනවා
-                                if (rawTime.includes('AM') || rawTime.includes('PM')) {
-                                  return rawTime;
-                                }
-
-                                // 3. යම් හෙයකින් ISO format එකක් හෝ සර්වර් වෙලාවක් ආවොත් (උදා: 2026-07-18T19:30:00)
+                                if (rawTime.includes('AM') || rawTime.includes('PM')) return rawTime;
                                 if (rawTime.includes('T') || rawTime.includes(':')) {
                                   const timeString = rawTime.includes('T') ? rawTime : `${item.date}T${rawTime}`;
                                   const dateObj = new Date(timeString);
@@ -346,7 +339,6 @@ export default function DashboardPage() {
                                     return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                                   }
                                 }
-                                
                                 return rawTime;
                               } catch (e) {
                                 return item.time || "12:00 PM";
@@ -360,14 +352,16 @@ export default function DashboardPage() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 pt-1">
+                        {/* 🛠️ මෙන්න n8n Webhook එකට ලින්ක් කරන ලද Start Class බටන් එක: */}
                         <a 
-                          href={item.start_url || "#"} 
+                          href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors text-center block"
                         >
                           ▶️ Start Class
                         </a>
+
                         <button 
                           onClick={() => {
                             const displayTime = (() => {
