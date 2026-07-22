@@ -118,6 +118,7 @@ export default function DashboardPage() {
         })
       });
 
+      // 💡 Response එක HTTP Error (400/500) වුණත් n8n එකෙන් එවන JSON Body එක කියවා ගැනීම
       let data: any = {};
       try {
         data = await response.json();
@@ -130,7 +131,8 @@ export default function DashboardPage() {
         setTopic("");
         fetchTeacherData(teacherId);
       } else {
-        const errorMsg = data.message || data.errorMessage || "⚠️ ඔබ තෝරාගත් වේලාව තුළ සියලුම Zoom ගිණුම් කාර්යබහුල වීමට ඉඩ ඇත.";
+        // 🎯 n8n එකෙන් එවන සැබෑ Package Limit Warning Message එක පෙන්නීම:
+        const errorMsg = data.message || data.errorMessage || data.error || "🚫 ඔබගේ Package එක අනුව එකම වේලාවේ මෙපමණ පන්ති සංඛ්‍යාවක් පැවැත්විය නොහැක.";
         alert(errorMsg);
       }
     } catch (error: any) {
