@@ -118,7 +118,6 @@ export default function DashboardPage() {
         })
       });
 
-      // 💡 Response එක HTTP Error (400/500) වුණත් n8n එකෙන් එවන JSON Body එක කියවා ගැනීම
       let data: any = {};
       try {
         data = await response.json();
@@ -131,7 +130,6 @@ export default function DashboardPage() {
         setTopic("");
         fetchTeacherData(teacherId);
       } else {
-        // 🎯 n8n එකෙන් එවන සැබෑ Package Limit Warning Message එක පෙන්නීම:
         const errorMsg = data.message || data.errorMessage || data.error || "🚫 ඔබගේ Package එක අනුව එකම වේලාවේ මෙපමණ පන්ති සංඛ්‍යාවක් පැවැත්විය නොහැක.";
         alert(errorMsg);
       }
@@ -140,6 +138,48 @@ export default function DashboardPage() {
       alert("⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි. කරුණාකර නැවත උත්සාහ කරන්න.");
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  // 🎯 🗑️ CLASS CANCEL FUNCTION
+  const handleCancelClass = async (meetingIdRow?: string, zoomMeetingId?: string) => {
+    const idToCancel = meetingIdRow || zoomMeetingId;
+    
+    if (!idToCancel) {
+      alert("⚠️ පන්තියේ අංකය (Meeting ID) හමු නොවීය.");
+      return;
+    }
+
+    const isConfirmed = confirm("⚠️ ඔබට මෙම පන්තිය අවලංගු (Cancel) කිරීමට අවශ්‍යද?\n\nමෙය සිදු කළ පසු අදාළ Zoom Time Slot එක සහ Host Limit එක ස්වයංක්‍රීයව නිදහස් වේ.");
+    if (!isConfirmed) return;
+
+    try {
+      const response = await fetch("https://n8n.epanthiya.com/webhook/cancel-zoom-class", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meeting_id_row: idToCancel,
+          zoom_meeting_id: zoomMeetingId,
+          teacher_id: teacherId
+        })
+      });
+
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = {};
+      }
+
+      if (response.ok && data.status === "success") {
+        alert("🗑️ පන්තිය සාර්ථකව අවලංගු (Cancel) කරන ලදී.");
+        fetchTeacherData(teacherId);
+      } else {
+        alert(data.message || "❌ පන්තිය අවලංගු කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි.");
     }
   };
 
@@ -350,7 +390,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {plannedClasses.map((item, idx) => (
-                    <div key={idx} className="bg-[#0b132b]/50 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm">
+                    <div key={idx} className="bg-[#0b132b]/50 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm relative">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
                         <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ {item.duration} Min</span>
@@ -384,44 +424,56 @@ export default function DashboardPage() {
                         <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Account"}</p>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <a 
-                          href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors text-center block"
-                        >
-                          ▶️ Start Class
-                        </a>
+                      {/* BUTTONS LAYOUT */}
+                      <div className="space-y-2 pt-1">
+                        <div className="grid grid-cols-2 gap-3">
+                          <a 
+                            href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold tracking-wide transition-colors text-center block"
+                          >
+                            ▶️ Start Class
+                          </a>
 
-                        <button 
-                          onClick={() => {
-                            const displayTime = (() => {
-                              try {
-                                const rawTime = item.time || item.startTime || item.start_time;
-                                if (!rawTime) return "12:00 PM";
-                                if (rawTime.includes('AM') || rawTime.includes('PM')) return rawTime;
-                                if (rawTime.includes('T') || rawTime.includes(':')) {
-                                  const timeString = rawTime.includes('T') ? rawTime : `${item.date}T${rawTime}`;
-                                  const dateObj = new Date(timeString);
-                                  if (!isNaN(dateObj.getTime())) {
-                                    return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                          <button 
+                            onClick={() => {
+                              const displayTime = (() => {
+                                try {
+                                  const rawTime = item.time || item.startTime || item.start_time;
+                                  if (!rawTime) return "12:00 PM";
+                                  if (rawTime.includes('AM') || rawTime.includes('PM')) return rawTime;
+                                  if (rawTime.includes('T') || rawTime.includes(':')) {
+                                    const timeString = rawTime.includes('T') ? rawTime : `${item.date}T${rawTime}`;
+                                    const dateObj = new Date(timeString);
+                                    if (!isNaN(dateObj.getTime())) {
+                                      return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                    }
                                   }
+                                  return rawTime;
+                                } catch (e) {
+                                  return item.time || "12:00 PM";
                                 }
-                                return rawTime;
-                              } catch (e) {
-                                return item.time || "12:00 PM";
-                              }
-                            })();
-                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${displayTime}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
-                            navigator.clipboard.writeText(details);
-                            alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
-                          }}
-                          className="py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-[10px] font-bold tracking-wide transition-colors"
+                              })();
+                              const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${displayTime}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                              navigator.clipboard.writeText(details);
+                              alert("📝 පන්තියේ සියලුම විස්තර ඉතා පැහැදිලිව පිටපත් කර ගන්නා ලදී.");
+                            }}
+                            className="py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-[10px] font-bold tracking-wide transition-colors"
+                          >
+                            📋 Copy Details
+                          </button>
+                        </div>
+
+                        {/* 🗑️ CANCEL CLASS BUTTON */}
+                        <button 
+                          onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
+                          className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center"
                         >
-                          📋 Copy Details
+                          ❌ Cancel Class
                         </button>
                       </div>
+
                     </div>
                   ))}
                 </div>
