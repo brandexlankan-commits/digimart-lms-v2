@@ -28,7 +28,7 @@ export default function DashboardPage() {
   
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
   const [teacherId, setTeacherId] = useState("");
-  const [teacherPic, setTeacherPic] = useState(""); // 📸 Profile Picture State
+  const [teacherPic, setTeacherPic] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -75,7 +75,6 @@ export default function DashboardPage() {
         setPlannedClasses(data.plannedClasses || []);
         setRecordings(data.recordings || []);
         
-        // 📸 API එකෙන් එන Profile Picture URL හෝ Name එක අල්ලගැනීම:
         if (data.profilePic || data.teacherPic || data.profile_picture) {
           const pic = data.profilePic || data.teacherPic || data.profile_picture;
           setTeacherPic(pic);
@@ -119,22 +118,24 @@ export default function DashboardPage() {
         })
       });
 
-      if (!response.ok) {
-        throw new Error("HTTP_ERROR");
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        data = {};
       }
 
-      const data = await response.json();
-
-      if (data.status === "success") {
+      if (response.ok && data.status === "success") {
         alert("📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.");
         setTopic("");
         fetchTeacherData(teacherId);
       } else {
-        alert("❌ පන්තිය සැකසීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
+        const errorMsg = data.message || data.errorMessage || "⚠️ ඔබ තෝරාගත් වේලාව තුළ සියලුම Zoom ගිණුම් කාර්යබහුල වීමට ඉඩ ඇත.";
+        alert(errorMsg);
       }
     } catch (error: any) {
       console.error(error);
-      alert("⚠️ ඔබ තෝරාගත් වේලාව තුළ සියලුම Zoom ගිණුම් කාර්යබහුල වීමට ඉඩ ඇත හෝ සේවාදායකයේ දෝෂයකි. කරුණාකර වෙනත් වේලාවක් තෝරාගන්න.");
+      alert("⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි. කරුණාකර නැවත උත්සාහ කරන්න.");
     } finally {
       setFormLoading(false);
     }
@@ -162,7 +163,6 @@ export default function DashboardPage() {
         {/* ==================== TOP NAVIGATION / HEADER ==================== */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-900 pb-6 gap-4">
           
-          {/* 📸 PROFILE PICTURE & TEACHER NAME HEADER */}
           <div className="flex items-center gap-4">
             {teacherPic ? (
               <img 
