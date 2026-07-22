@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// 💡 Vercel එකේ පරණ ඩේටා Cache වීම සම්පූර්ණයෙන්ම නවත්වන්න මේ පේළි දෙක අත්‍යවශ්‍යයි!
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -16,13 +15,13 @@ export async function GET(request: Request) {
     const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
     const cacheBuster = Date.now();
 
-    // 🚀 Meetings සහ Teachers කියන ෂීට් දෙකෙන්ම එකවර ඩේටා ලබාගනිමු (Promise.all)
+    // 🚀 Meetings සහ Teachers කියන ෂීට් දෙකෙන්ම එකවර ඩේටා ලබාගනිමු
     const [meetingsRes, teachersRes] = await Promise.all([
       fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { cache: 'no-store' }),
       fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`, { cache: 'no-store' })
     ]);
 
-    // ------------------- 1. MEETINGS DATA PROCESSING -------------------
+    // ------------------- 1. MEETINGS DATA -------------------
     const meetingsText = await meetingsRes.text();
     const meetingsJsonString = meetingsText.substring(meetingsText.indexOf("{"), meetingsText.lastIndexOf("}") + 1);
     const meetingsData = JSON.parse(meetingsJsonString);
@@ -97,7 +96,7 @@ export async function GET(request: Request) {
       }
     });
 
-    // ------------------- 2. TEACHERS PROFILE DATA PROCESSING -------------------
+    // ------------------- 2. TEACHERS PROFILE DATA -------------------
     let profilePic = "";
     let teacherName = "";
 
@@ -107,32 +106,30 @@ export async function GET(request: Request) {
       const teachersData = JSON.parse(teachersJsonString);
       const teacherRows = teachersData.table.rows || [];
 
-      // අදාල Teacher ID එක තියෙන Row එක සොයාගැනීම
+      // Teacher ID එක ගැලපෙන Row එක සොයාගැනීම
       const teacherRow = teacherRows.find((r: any) => r.c?.some((cell: any) => cell?.v === teacherId));
 
       if (teacherRow) {
-        // Teacher Row එකේ තියෙන Cell අතරින් Image Link (http/https) එක සොයාගැනීම
+        // http/https වලින් පටන්ගන්නා Image Link එක සොයාගැනීම
         const picCell = teacherRow.c?.find((cell: any) => 
           cell?.v && typeof cell.v === 'string' && (cell.v.startsWith('http://') || cell.v.startsWith('https://'))
         );
         if (picCell) profilePic = picCell.v;
 
-        // Teacher Name එක සොයාගැනීම (සාමාන්‍යයෙන් Teacher ID එකට ඊළඟට හෝ නමක් ලෙස ඇති Cell එක)
         const nameCell = teacherRow.c?.find((cell: any) => 
           cell?.v && typeof cell.v === 'string' && cell.v !== teacherId && !cell.v.startsWith('http')
         );
         if (nameCell) teacherName = nameCell.v;
       }
     } catch (e) {
-      console.error("Teachers Sheet එක කියවීමේ දෝෂයකි:", e);
+      console.error("Teachers Sheet කියවීමේ දෝෂයකි:", e);
     }
 
-    // ------------------- 3. RETURN EVERYTHING TO FRONTEND -------------------
     return NextResponse.json({ 
       plannedClasses, 
       recordings,
-      profilePic,   // 📸 Google Sheet එකෙන් එන Profile Picture URL එක
-      teacherName   // 👤 Google Sheet එකෙන් එන Teacher Name එක
+      profilePic,
+      teacherName
     });
 
   } catch (error) {
