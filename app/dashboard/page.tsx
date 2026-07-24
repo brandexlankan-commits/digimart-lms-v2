@@ -127,7 +127,7 @@ export default function DashboardPage() {
         alert("📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.");
         setTopic("");
         fetchTeacherData(teacherId);
-        setActiveTab("planned"); // Auto switch to Planned Classes tab
+        setActiveTab("planned");
       } else {
         const errorMsg = data.message || data.errorMessage || data.error || "🚫 පන්තිය සකස් කිරීමට නොහැකි විය. වේලාව නැවත පරීක්ෂා කරන්න.";
         alert(errorMsg);
@@ -323,7 +323,7 @@ export default function DashboardPage() {
                 
                 {/* AD CARD 1: ZOOM 300P / 500P PACKAGE UPGRADE */}
                 <div className="bg-gradient-to-br from-blue-950/50 via-[#0b132b] to-indigo-950/40 border border-blue-800/40 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
-                  <div className="absolute top-3 right-3 bg-blue-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  <div className="absolute top-3 right-3 bg-blue-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
                     Special Offer
                   </div>
                   <h3 className="text-base font-black text-blue-300">🚀 Zoom 300 / 500 Participants Package Upgrade!</h3>
@@ -333,10 +333,10 @@ export default function DashboardPage() {
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-xs font-mono text-emerald-400 font-bold">24/7 Live Support Available</span>
                     <a 
-                      href="https://wa.me/94770000000?text=I%20want%20to%20upgrade%20my%20Zoom%20Package" 
+                      href="https://wa.me/94778538626?text=Hi%20Digimart!%20මම%20Zoom%20Package%20එකක්%20Upgrade%20කරගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
                     >
                       💬 Contact Support
                     </a>
@@ -345,7 +345,7 @@ export default function DashboardPage() {
 
                 {/* AD CARD 2: AUTOMATED LMS / WEBSITE INTEGRATION */}
                 <div className="bg-gradient-to-br from-purple-950/40 via-[#0b132b] to-slate-900 border border-purple-800/30 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
-                  <div className="absolute top-3 right-3 bg-purple-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  <div className="absolute top-3 right-3 bg-purple-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
                     New Feature
                   </div>
                   <h3 className="text-base font-black text-purple-300">🌐 ඔබගේම LMS වෙබ් අඩවියක් සාදා ගනිමුද?</h3>
@@ -354,12 +354,14 @@ export default function DashboardPage() {
                   </p>
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-xs font-mono text-purple-400 font-bold">Digimart Smart LMS</span>
-                    <button 
-                      onClick={() => alert("📞 වැඩිවිස්තර සඳහා Digimart ප්‍රධාන දුරකථන අංකය හා සම්බන්ධ වන්න.")}
-                      className="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                    <a 
+                      href="https://wa.me/94778538626?text=Hi%20Digimart!%20මම%20LMS%20Website%20එකක්%20හදාගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
                     >
                       ✨ වැඩිවිස්තර සඳහා
-                    </button>
+                    </a>
                   </div>
                 </div>
 
