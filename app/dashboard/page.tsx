@@ -85,7 +85,7 @@ const translations = {
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
 
-    // 🔔 ALERTS & SYSTEM ERRORS (NEW TRILINGUAL MESSAGES)
+    // 🔔 ALERTS & SYSTEM ERRORS
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ Package එක අනුව එකම වේලාවේ පැවැත්විය හැක්කේ උපරිම පන්ති ගණන ඉක්මවා ඇත. වෙනත් වේලාවක් තෝරන්න.",
     alertAllBusyError: "ERR_ALL_BUSY: ඔබ තෝරාගත් වේලාවට පද්ධතියේ නිදහස් Zoom Account එකක් නොමැත.",
@@ -364,7 +364,6 @@ export default function DashboardPage() {
       } else {
         const rawError = data.message || data.errorMessage || data.error || "";
         
-        // 🎯 DYNAMIC ERROR TRANSLATION MATCHING
         if (rawError.includes("උපරිම පන්ති") || rawError.includes("concurrent") || rawError.includes("Package")) {
           alert(t.alertHostLimitError);
         } else if (rawError.includes("ERR_ALL_BUSY")) {
@@ -414,8 +413,12 @@ export default function DashboardPage() {
     }
   };
 
+  // 🎯 FIXED LOGOUT: PRESERVES APP_LANG SETTING
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem("teacher_name");
+    localStorage.removeItem("teacher_id");
+    localStorage.removeItem("teacher_pic");
+    localStorage.removeItem("profile_pic");
     router.push("/login");
   };
 
