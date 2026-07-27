@@ -15,7 +15,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Digimart LMS",
   description: "Main Control Panel for Teachers",
-  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
