@@ -60,6 +60,7 @@ const translations = {
     durationHoursLabel: "Duration (Hours)",
     durationMinutesLabel: "Duration (Minutes)",
     passcodeLabel: "Passcode",
+    passcodePlaceholder: "Auto (හිස්ව තැබුවද Auto Passcode සෑදේ)",
     waitingRoom: "Waiting Room",
     hostVideo: "Host Video",
     participantVideo: "Participant Video",
@@ -132,6 +133,7 @@ const translations = {
     durationHoursLabel: "Duration (Hours)",
     durationMinutesLabel: "Duration (Minutes)",
     passcodeLabel: "Passcode",
+    passcodePlaceholder: "Auto (Leave blank for auto passcode)",
     waitingRoom: "Waiting Room",
     hostVideo: "Host Video",
     participantVideo: "Participant Video",
@@ -202,6 +204,7 @@ const translations = {
     durationHoursLabel: "கால அளவு (மணி)",
     durationMinutesLabel: "கால அளவு (நிமிடங்கள்)",
     passcodeLabel: "கடவுச்சொல்",
+    passcodePlaceholder: "Auto (தானாக உருவாக்க காலியாக விடவும்)",
     waitingRoom: "காத்திருப்பு அறை",
     hostVideo: "தொகுப்பாளர் வீடியோ",
     participantVideo: "பங்கேற்பாளர் வீடியோ",
@@ -373,6 +376,12 @@ export default function DashboardPage() {
     const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, ""), 10) || 0;
     const totalDurationInMinutes = (hoursNum * 60) + minsNum;
 
+    // 🎯 PASSCODE FALLBACK LOGIC (Auto OR Empty -> 6-Digit Random PIN)
+    const cleanPasscode = passcode.trim();
+    const finalPasscode = (!cleanPasscode || cleanPasscode.toLowerCase() === "auto")
+      ? Math.floor(100000 + Math.random() * 900000).toString()
+      : cleanPasscode;
+
     try {
       const response = await fetch("https://n8n.epanthiya.com/webhook/create-zoom-class-v2", {
         method: "POST",
@@ -385,7 +394,7 @@ export default function DashboardPage() {
           durationHours: hoursNum.toString(), 
           durationMinutes: minsNum.toString(),
           duration: totalDurationInMinutes.toString(),
-          passcode: passcode === "Auto" ? Math.floor(100000 + Math.random() * 900000).toString() : passcode,
+          passcode: finalPasscode,
           waiting_room: waitingRoom,
           host_video: hostVideo,
           participant_video: participantVideo,
@@ -801,7 +810,8 @@ export default function DashboardPage() {
                   type="text"
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
-                  className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-slate-400 focus:outline-none"
+                  placeholder={t.passcodePlaceholder}
+                  className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors font-mono"
                 />
               </div>
 
@@ -887,7 +897,8 @@ export default function DashboardPage() {
 
                         <button 
                           onClick={() => {
-                            const details = `✨ *${teacherName.toUpperCase()} - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                            // 🎓 OFFICIAL ZOOM INVITATION FORMAT WITH TEACHER NAME
+                            const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert(t.alertCopySuccess);
                           }}
