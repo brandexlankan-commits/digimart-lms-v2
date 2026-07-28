@@ -14,8 +14,8 @@ const translations = {
     authenticating: "⚙️ සත්‍යාපනය වෙමින්...",
     welcomePrefix: "👋 සාදරයෙන් පිළිගනිමු",
     welcomeSuffix: "ගුරුතුමනි!",
-    invalidFallback: "ඇතුලත් කළ Username හෝ Password වැරදියි බං!",
-    serverError: "❌ සර්වර් එක සමඟ සම්බන්ද වීමට නොහැකි විය. නැවත උත්සාහ කරන්න මචං!",
+    invalidFallback: "ඇතුලත් කළ Username හෝ Password වැරදියි. කරුණාකර නැවත උත්සාහ කරන්න!",
+    serverError: "❌ සර්වර් එක සමඟ සම්බන්ධ වීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න!",
     footer: "Powered by Digimart Automation Solutions"
   },
   en: {
