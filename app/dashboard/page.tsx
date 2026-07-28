@@ -321,6 +321,18 @@ export default function DashboardPage() {
     }
   };
 
+  // 🎯 Zoom Meeting ID Formatting Function (e.g. 81449614124 -> 814 4961 4124)
+  const formatMeetingId = (id?: string) => {
+    if (!id) return "Loading...";
+    const clean = id.toString().replace(/\D/g, "");
+    if (clean.length === 11) {
+      return `${clean.slice(0, 3)} ${clean.slice(3, 7)} ${clean.slice(7)}`;
+    } else if (clean.length === 10) {
+      return `${clean.slice(0, 3)} ${clean.slice(3, 6)} ${clean.slice(6)}`;
+    }
+    return id;
+  };
+
   const fetchTeacherData = async (id: string) => {
     try {
       const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
@@ -879,7 +891,8 @@ export default function DashboardPage() {
                     
                     <div className="bg-slate-950/70 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
                       <p>⏰ Time: {item.time || item.startTime || "12:00 PM"}</p>
-                      <p>🆔 ID: {item.zoom_id || "Loading..."}</p>
+                      {/* 🎯 Card එකෙත් Meeting ID එක Space තබා Display කිරීම */}
+                      <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
                       <p>🔑 Pass: {item.passcode}</p>
                       <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
                     </div>
@@ -897,8 +910,9 @@ export default function DashboardPage() {
 
                         <button 
                           onClick={() => {
-                            // 🎓 OFFICIAL ZOOM INVITATION FORMAT WITH TEACHER NAME
-                            const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                            // 🎓 Spaced Formatted Meeting ID inside copied details
+                            const formattedId = formatMeetingId(item.zoom_id);
+                            const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert(t.alertCopySuccess);
                           }}
