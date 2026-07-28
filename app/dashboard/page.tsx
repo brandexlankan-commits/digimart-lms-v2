@@ -402,7 +402,6 @@ export default function DashboardPage() {
         fetchTeacherData(teacherId);
         setActiveTab("planned");
       } else {
-        // 🎯 පන්තිය සකස් කිරීමට නොහැකි වූ ඕනෑම අවස්ථාවකදී WhatsApp Redirect එක සහිත Trilingual Alert එක පෙන්වීම
         const waMessage = encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) මගේ Zoom Package එක Dual Host හෝ ඊට වැඩි එකකට Upgrade කරගන්න කැමතියි. විස්තර ලබා දෙන්න.`);
         const waUrl = `https://wa.me/94778538626?text=${waMessage}`;
 
@@ -888,7 +887,7 @@ export default function DashboardPage() {
 
                         <button 
                           onClick={() => {
-                            const details = `✨ *DIGIMART LMS - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
+                            const details = `✨ *${teacherName.toUpperCase()} - CLASS DETAILS* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${item.zoom_id}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
                             alert(t.alertCopySuccess);
                           }}
