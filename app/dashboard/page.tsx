@@ -261,11 +261,11 @@ export default function DashboardPage() {
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
-  // Form State
+  // Dynamic Form State Defaults
   const [topic, setTopic] = useState("");
-  const [date, setDate] = useState("2026-08-01");
+  const [date, setDate] = useState("");
   const [selectedHour, setSelectedHour] = useState("07");
-  const [selectedMinute, setSelectedMinute] = useState("30");
+  const [selectedMinute, setSelectedMinute] = useState("00");
   const [selectedAmPm, setSelectedAmPm] = useState("PM");
   const [durationHours, setDurationHours] = useState("01 Hr");
   const [durationMinutes, setDurationMinutes] = useState("00 Min");
@@ -279,6 +279,28 @@ export default function DashboardPage() {
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
+    // 🗓️ AUTO-SET TODAY'S DATE AND NEAREST TIME ON INITIAL LOAD
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    setDate(`${yyyy}-${mm}-${dd}`);
+
+    let hours = today.getHours();
+    const mins = today.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+
+    let roundedMins = "00";
+    if (mins >= 45) roundedMins = "45";
+    else if (mins >= 30) roundedMins = "30";
+    else if (mins >= 15) roundedMins = "15";
+
+    setSelectedHour(String(hours).padStart(2, "0"));
+    setSelectedMinute(roundedMins);
+    setSelectedAmPm(ampm);
+
+    // Language & LocalStorage check
     const savedLang = (localStorage.getItem("app_lang") as "si" | "en" | "ta") || "si";
     setLang(savedLang);
 
@@ -518,7 +540,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Action Control Badges - Mobile Optimized Wrap */}
           <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end text-xs">
             <span className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl font-mono text-blue-400 font-bold text-[11px] sm:text-xs">
               ID: {teacherId}
@@ -529,7 +550,6 @@ export default function DashboardPage() {
               <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[10px]">{maxConcurrentHosts}</span>
             </span>
 
-            {/* 💬 DIGIMART CUSTOMER SUPPORT WHATSAPP BUTTON */}
             <a 
               href={`https://wa.me/94778538626?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
               target="_blank" 
@@ -784,15 +804,18 @@ export default function DashboardPage() {
                         <option key={h} value={h}>{h}</option>
                       ))}
                     </select>
+                    
+                    {/* 🎯 STRICT 15-MINUTE INTERVAL DROPDOWN */}
                     <select 
                       value={selectedMinute} 
                       onChange={(e) => setSelectedMinute(e.target.value)}
                       className="p-2.5 sm:p-3 bg-slate-900/90 border-y border-slate-800 text-xs text-center focus:outline-none cursor-pointer"
                     >
-                      {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(m => (
+                      {["00", "15", "30", "45"].map(m => (
                         <option key={m} value={m}>{m}</option>
                       ))}
                     </select>
+
                     <select 
                       value={selectedAmPm} 
                       onChange={(e) => setSelectedAmPm(e.target.value)}
