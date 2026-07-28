@@ -99,6 +99,8 @@ export async function GET(request: Request) {
     // ------------------- 2. TEACHERS PROFILE DATA -------------------
     let profilePic = "";
     let teacherName = "";
+    let maxConcurrentHosts = "1";
+    let expiryDate = "";
 
     try {
       const teachersText = await teachersRes.text();
@@ -120,16 +122,44 @@ export async function GET(request: Request) {
           cell?.v && typeof cell.v === 'string' && cell.v !== teacherId && !cell.v.startsWith('http')
         );
         if (nameCell) teacherName = nameCell.v;
+
+        // 🎯 Column J (Index 9): Max Concurrent Hosts
+        const maxHostsVal = teacherRow.c[9]?.v;
+        if (maxHostsVal !== undefined && maxHostsVal !== null) {
+          maxConcurrentHosts = String(maxHostsVal);
+        }
+
+        // 🎯 Column K (Index 10): Expire Date Parsing
+        const expCell = teacherRow.c[10];
+        if (expCell) {
+          const rawExpV = expCell.v ? String(expCell.v).trim() : "";
+          const rawExpF = expCell.f ? String(expCell.f).trim() : "";
+
+          if (rawExpV.startsWith("Date(")) {
+            const matches = rawExpV.match(/Date\((\d+),(\d+),(\d+)/);
+            if (matches) {
+              const y = matches[1];
+              const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
+              const d = String(matches[3]).padStart(2, "0");
+              expiryDate = `${y}-${m}-${d}`;
+            }
+          } else {
+            expiryDate = rawExpF || rawExpV;
+          }
+        }
       }
     } catch (e) {
       console.error("Teachers Sheet කියවීමේ දෝෂයකි:", e);
     }
 
+    // 🎯 Frontend එකට Data සක්‍රීයව යැවීම
     return NextResponse.json({ 
       plannedClasses, 
       recordings,
       profilePic,
-      teacherName
+      teacherName,
+      maxConcurrentHosts,
+      expiryDate
     });
 
   } catch (error) {

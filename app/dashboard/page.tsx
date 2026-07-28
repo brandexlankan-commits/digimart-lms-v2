@@ -80,7 +80,10 @@ const translations = {
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
     
-    // 🔔 CUSTOM TRILINGUAL ALERTS & WHATSAPP PROMPTS
+    // ⏳ COUNTDOWN TRANSLATIONS
+    daysLeftText: "දින {days} ක් ඉතිරියි",
+    expiredText: "❌ කාලය ඉකුත් වී ඇත",
+
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ ගිණුමේ දැනට පවතින්නේ Single Host Package එකකි.\n\nඑම නිසා ඔබට එකවර පැවැත්විය හැක්කේ එක් රැස්වීමක් (Meeting එකක්) පමණි.\n\nDual Host හෝ ඊට වැඩි Package එකක් Active කරගැනීමට Digimart Support අමතන්න.",
     whatsappConfirm: "👉 ඔබට දැන්ම WhatsApp හරහා Digimart Support සම්බන්ධ කර ගැනීමට අවශ්‍යද?",
@@ -148,7 +151,10 @@ const translations = {
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
     
-    // 🔔 CUSTOM TRILINGUAL ALERTS & WHATSAPP PROMPTS
+    // ⏳ COUNTDOWN TRANSLATIONS
+    daysLeftText: "{days} Days Left",
+    expiredText: "❌ Account Expired",
+
     alertSuccessCreate: "📹 Zoom class scheduled and saved successfully.",
     alertHostLimitError: "🚫 Your account currently has a Single Host Package.\n\nTherefore, you can only run one meeting at a time.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
     whatsappConfirm: "👉 Would you like to contact Digimart Support via WhatsApp now?",
@@ -216,7 +222,10 @@ const translations = {
     colAction: "செயல்பாடு",
     copyLinkBtn: "📋 லிங்கை நகலெடு",
     
-    // 🔔 CUSTOM TRILINGUAL ALERTS & WHATSAPP PROMPTS
+    // ⏳ COUNTDOWN TRANSLATIONS
+    daysLeftText: "{days} நாட்கள் மீதமுள்ளன",
+    expiredText: "❌ கணக்கு காலாவதியானது",
+
     alertSuccessCreate: "📹 Zoom வகுப்பு வெற்றிகரமாக திட்டமிடப்பட்டு சேமிக்கப்பட்டது.",
     alertHostLimitError: "🚫 உங்கள் கணக்கில் தற்போது Single Host Package மட்டுமே உள்ளது.\n\nஎனவே உங்களால் ஒரே நேரத்தில் ஒரு கூட்டத்தை மட்டுமே நடத்த முடியும்.\n\nDual Host அல்லது அதற்கு மேற்பட்ட Package-ஐ activate செய்ய Digimart Support-ஐ தொடர்பு கொள்ளவும்.",
     whatsappConfirm: "👉 இப்போது WhatsApp மூலம் Digimart Support-ஐ தொடர்பு கொள்ள விரும்புகிறீர்களா?",
@@ -241,6 +250,7 @@ export default function DashboardPage() {
   const [teacherId, setTeacherId] = useState("");
   const [teacherPic, setTeacherPic] = useState("");
   const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1");
+  const [remainingDays, setRemainingDays] = useState<number | null>(null); // ⏳ State for remaining days
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -331,6 +341,22 @@ export default function DashboardPage() {
         if (data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts) {
           setMaxConcurrentHosts(data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts);
         }
+
+        // ⏳ CALCULATE REMAINING DAYS FROM API
+        if (data.expiryDate || data.expiry_date || data.paymentDate || data.daysRemaining) {
+          if (data.daysRemaining !== undefined) {
+            setRemainingDays(Number(data.daysRemaining));
+          } else {
+            const expStr = data.expiryDate || data.expiry_date;
+            if (expStr) {
+              const expDate = new Date(expStr);
+              const today = new Date();
+              const diffTime = expDate.getTime() - today.getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              setRemainingDays(diffDays);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching teacher data:", error);
@@ -380,7 +406,6 @@ export default function DashboardPage() {
       } else {
         const rawError = data.message || data.errorMessage || data.error || "";
         
-        // 🎯 CATCH HOST LIMIT ERROR & REDIRECT TO WHATSAPP
         if (rawError.includes("උපරිම පන්ති") || rawError.includes("concurrent") || rawError.includes("Package") || rawError.includes("limit") || rawError.includes("host")) {
           
           const waMessage = encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) මගේ Zoom Package එක Dual Host හෝ ඊට වැඩි එකකට Upgrade කරගන්න කැමතියි. විස්තර ලබා දෙන්න.`);
@@ -596,12 +621,31 @@ export default function DashboardPage() {
                 <div className="w-12 h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-xl">⚡</div>
               </div>
 
+              {/* 🎯 DYNAMIC ACCOUNT STATUS / COUNTDOWN CARD */}
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.accStatus}</p>
-                  <h3 className="text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
+                  
+                  {remainingDays === null ? (
+                    <h3 className="text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
+                  ) : remainingDays > 5 ? (
+                    <h3 className="text-base font-bold text-emerald-400 mt-1">
+                      ● {t.daysLeftText.replace("{days}", remainingDays.toString())}
+                    </h3>
+                  ) : remainingDays > 0 ? (
+                    <h3 className="text-base font-bold text-amber-400 mt-1 animate-pulse">
+                      ⚠️ {t.daysLeftText.replace("{days}", remainingDays.toString())}
+                    </h3>
+                  ) : (
+                    <h3 className="text-base font-bold text-rose-500 mt-1">
+                      {t.expiredText}
+                    </h3>
+                  )}
                 </div>
-                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl">✅</div>
+
+                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl">
+                  {remainingDays === null || remainingDays > 5 ? "✅" : remainingDays > 0 ? "⏳" : "❌"}
+                </div>
               </div>
             </div>
 
