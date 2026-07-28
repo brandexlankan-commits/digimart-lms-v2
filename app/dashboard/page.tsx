@@ -38,23 +38,19 @@ const translations = {
     accStatus: "ගිණුමේ තත්ත්වය",
     activeAcc: "● Active Account",
     announcements: "Digimart විශේෂ නිවේදන සහ පිරිනැමීම්",
-    // Ad 1
     ad1Badge: "Special Offer",
     ad1Title: "🚀 Zoom 300 / 500 Participants Package Upgrade!",
     ad1Desc: "ඔබගේ ශිෂ්‍ය සංඛ්‍යාව වැඩි වී තිබේද? කිසිදු බාධාවකින් තොරව 300 හෝ 500 ලිමිට් ඇති Zoom Pro Packages අදම Digimart LMS හරහා පහසුවෙන් ලබාගන්න.",
     ad1Support: "24/7 Live Support Available",
     ad1Btn: "💬 Contact Support",
-    // Ad 2
     ad2Badge: "New Feature",
     ad2Title: "🌐 ඔබගේම LMS වෙබ් අඩවියක් සාදා ගනිමුද?",
     ad2Desc: "Automated Card Payments, Student Attendance Tracking සහ Class Video Cloud Storage සමඟින් ඔබගේ නමින්ම LMS Web Platform එකක් මිනිත්තු කිහිපයකින් ස්ථාපනය කරගන්න.",
     ad2Brand: "Digimart Smart LMS",
     ad2Btn: "✨ වැඩිවිස්තර සඳහා",
-    // Home bottom
     scheduleAsk: "අලුත් පන්තියක් සැලසුම් කිරීමට අවශ්‍යද?",
     scheduleSub: "තත්පර කිහිපයකින් Zoom Meeting එකක් සාදා ගන්න.",
     scheduleNowBtn: "➕ Schedule New Class Now",
-    // Form
     createClassTitle: "අලුත් Class එකක් Schedule කරමු",
     topicLabel: "Class Topic",
     topicPlaceholder: "පන්තියේ මාතෘකාව ඇතුලත් කරන්න",
@@ -69,14 +65,12 @@ const translations = {
     muteOnEntry: "Mute on Entry",
     createBtn: "▶️ Create Zoom Class",
     creatingBtn: "⚙️ පන්තිය සකසමින්...",
-    // Planned Classes
     plannedClassesTitle: "සැලසුම් කර ඇති පන්ති",
     noPlannedClasses: "👋 ඔබ වෙනුවෙන් මෙතෙක් කිසිදු පන්තියක් සැලසුම් කර නොමැත.",
     scheduleFirstBtn: "➕ Schedule First Class",
     startClassBtn: "▶️ Start Class",
     copyDetailsBtn: "📋 Copy Details",
     cancelClassBtn: "❌ Cancel Class",
-    // Recordings
     recordingsTitle: "ඔබගේ පන්ති පටිගත කිරීම්",
     cloudNote: "(Cloudflare R2 Storage)",
     noRecordings: "පටිගත කරන ලද පන්ති දර්ශන කිසිවක් හමුනොවීය.",
@@ -84,8 +78,6 @@ const translations = {
     colTitle: "CLASS TITLE",
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
-
-    // 🔔 ALERTS & SYSTEM ERRORS
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ Package එක අනුව එකම වේලාවේ පැවැත්විය හැක්කේ උපරිම පන්ති ගණන ඉක්මවා ඇත. වෙනත් වේලාවක් තෝරන්න.",
     alertAllBusyError: "ERR_ALL_BUSY: ඔබ තෝරාගත් වේලාවට පද්ධතියේ නිදහස් Zoom Account එකක් නොමැත.",
@@ -110,23 +102,19 @@ const translations = {
     accStatus: "Account Status",
     activeAcc: "● Active Account",
     announcements: "Digimart Special Announcements & Offers",
-    // Ad 1
     ad1Badge: "Special Offer",
     ad1Title: "🚀 Zoom 300 / 500 Participants Package Upgrade!",
     ad1Desc: "Has your student count increased? Easily upgrade to 300 or 500 capacity Zoom Pro Packages via Digimart LMS today.",
     ad1Support: "24/7 Live Support Available",
     ad1Btn: "💬 Contact Support",
-    // Ad 2
     ad2Badge: "New Feature",
     ad2Title: "🌐 Want your own custom LMS Website?",
     ad2Desc: "Get your branded LMS Web Platform in minutes with Automated Card Payments, Student Attendance Tracking & Cloud Storage.",
     ad2Brand: "Digimart Smart LMS",
     ad2Btn: "✨ Learn More",
-    // Home bottom
     scheduleAsk: "Need to schedule a new class?",
     scheduleSub: "Create a Zoom Meeting in just a few seconds.",
     scheduleNowBtn: "➕ Schedule New Class Now",
-    // Form
     createClassTitle: "Schedule a New Class",
     topicLabel: "Class Topic",
     topicPlaceholder: "Enter class topic",
@@ -141,14 +129,12 @@ const translations = {
     muteOnEntry: "Mute on Entry",
     createBtn: "▶️ Create Zoom Class",
     creatingBtn: "⚙️ Creating Class...",
-    // Planned Classes
     plannedClassesTitle: "Scheduled Classes",
     noPlannedClasses: "👋 No classes scheduled for you yet.",
     scheduleFirstBtn: "➕ Schedule First Class",
     startClassBtn: "▶️ Start Class",
     copyDetailsBtn: "📋 Copy Details",
     cancelClassBtn: "❌ Cancel Class",
-    // Recordings
     recordingsTitle: "Your Class Recordings",
     cloudNote: "(Cloudflare R2 Storage)",
     noRecordings: "No class recordings found.",
@@ -156,8 +142,6 @@ const translations = {
     colTitle: "CLASS TITLE",
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
-
-    // 🔔 ALERTS & SYSTEM ERRORS
     alertSuccessCreate: "📹 Zoom class scheduled and saved successfully.",
     alertHostLimitError: "🚫 You have reached the maximum allowed concurrent live classes for your package. Please select another time slot.",
     alertAllBusyError: "ERR_ALL_BUSY: No free Zoom Accounts available for the selected time slot.",
@@ -182,23 +166,19 @@ const translations = {
     accStatus: "கணக்கு நிலை",
     activeAcc: "● செயலில் உள்ள கணக்கு",
     announcements: "Digimart சிறப்பு அறிவிப்புகள் & சலுகைகள்",
-    // Ad 1
     ad1Badge: "சிறப்பு சலுகை",
     ad1Title: "🚀 Zoom 300 / 500 பங்கேற்பாளர்கள் பேக்கேஜ் அப் கிரேட்!",
     ad1Desc: "உங்கள் மாணவர் எண்ணிக்கை அதிகரித்துள்ளதா? Digimart LMS மூலம் 300 அல்லது 500 கொள்ளளவு கொண்ட Zoom Pro பேக்கேஜ்களை இன்றே பெறுங்கள்.",
     ad1Support: "24/7 நேரலை உதவி கிடைக்கும்",
     ad1Btn: "💬 தொடர்புகொள்ளவும்",
-    // Ad 2
     ad2Badge: "புதிய அம்சம்",
     ad2Title: "🌐 சொந்தமாக LMS இணையதளம் உருவாக்க வேண்டுமா?",
     ad2Desc: "தானியங்கி அட்டை கொடுப்பனவுகள், மாணவர் வருகை கண்காணிப்பு மற்றும் வீடியோ சேமிப்பகத்துடன் உங்கள் பிராண்டட் LMS பிளாட்ஃபார்மைப் பெறுங்கள்.",
     ad2Brand: "Digimart Smart LMS",
     ad2Btn: "✨ மேலும் அறிய",
-    // Home bottom
     scheduleAsk: "புதிய வகுப்பை திட்டமிட வேண்டுமா?",
     scheduleSub: "சில வினாடிகளில் Zoom கூட்டத்தை உருவாக்கவும்.",
     scheduleNowBtn: "➕ புதிய வகுப்பை திட்டமிடுங்கள்",
-    // Form
     createClassTitle: "புதிய வகுப்பை திட்டமிடுங்கள்",
     topicLabel: "வகுப்பு தலைப்பு",
     topicPlaceholder: "வகுப்பு தலைப்பை உள்ளிடவும்",
@@ -213,14 +193,12 @@ const translations = {
     muteOnEntry: "நுழையும் போது முடக்கு",
     createBtn: "▶️ Zoom வகுப்பை உருவாக்கு",
     creatingBtn: "⚙️ உருவாக்கப்படுகிறது...",
-    // Planned Classes
     plannedClassesTitle: "திட்டமிடப்பட்ட வகுப்புகள்",
     noPlannedClasses: "👋 உங்களுக்கு இன்னும் வகுப்புகள் எதுவும் திட்டமிடப்படவில்லை.",
     scheduleFirstBtn: "➕ முதல் வகுப்பை திட்டமிடுங்கள்",
     startClassBtn: "▶️ வகுப்பைத் தொடங்கு",
     copyDetailsBtn: "📋 விவரங்களை நகலெடு",
     cancelClassBtn: "❌ வகுப்பை ரத்து செய்",
-    // Recordings
     recordingsTitle: "உங்கள் வகுப்பு பதிவுகள்",
     cloudNote: "(Cloudflare R2 Storage)",
     noRecordings: "வகுப்பு பதிவுகள் எதுவும் கிடைக்கவில்லை.",
@@ -228,8 +206,6 @@ const translations = {
     colTitle: "வகுப்பு தலைப்பு",
     colAction: "செயல்பாடு",
     copyLinkBtn: "📋 லிங்கை நகலெடு",
-
-    // 🔔 ALERTS & SYSTEM ERRORS
     alertSuccessCreate: "📹 Zoom வகுப்பு வெற்றிகரமாக திட்டமிடப்பட்டு சேமிக்கப்பட்டது.",
     alertHostLimitError: "🚫 உங்கள் பேக்கேஜின் படி ஒரே நேரத்தில் நடத்தக்கூடிய நேரலை வகுப்புகளின் வரம்பை எட்டிவிட்டீர்கள்.",
     alertAllBusyError: "ERR_ALL_BUSY: தேர்ந்தெடுக்கப்பட்ட நேரத்தில் இலவச Zoom கணக்குகள் எதுவும் கிடைக்கவில்லை.",
@@ -246,10 +222,7 @@ const translations = {
 export default function DashboardPage() {
   const router = useRouter();
   
-  // Language State: 'si' | 'en' | 'ta'
   const [lang, setLang] = useState<"si" | "en" | "ta">("si");
-  
-  // Tab State: 'home' | 'schedule' | 'planned' | 'recordings'
   const [activeTab, setActiveTab] = useState<"home" | "schedule" | "planned" | "recordings">("home");
 
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
@@ -260,14 +233,14 @@ export default function DashboardPage() {
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
-  // Form State
+  // Form State (Default duration 01 Hr 00 Min)
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("2026-08-01");
   const [selectedHour, setSelectedHour] = useState("07");
   const [selectedMinute, setSelectedMinute] = useState("30");
   const [selectedAmPm, setSelectedAmPm] = useState("PM");
-  const [durationHours, setDurationHours] = useState("03 Hr");
-  const [durationMinutes, setDurationMinutes] = useState("30 Min");
+  const [durationHours, setDurationHours] = useState("01 Hr");
+  const [durationMinutes, setDurationMinutes] = useState("00 Min");
   const [passcode, setPasscode] = useState("Auto");
   
   const [waitingRoom, setWaitingRoom] = useState(true);
@@ -302,6 +275,26 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
+  // ⏱️ Helper Function: Formats Minutes into Hrs & Mins
+  const formatDuration = (rawDuration: string | number) => {
+    const totalMinutes = typeof rawDuration === "number" 
+      ? rawDuration 
+      : parseInt(String(rawDuration).replace(/[^0-9]/g, "")) || 0;
+
+    if (!totalMinutes || totalMinutes <= 0) return "0 Min";
+
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+
+    if (hrs > 0 && mins > 0) {
+      return `${hrs} ${hrs > 1 ? "Hrs" : "Hr"} ${mins} Min`;
+    } else if (hrs > 0) {
+      return `${hrs} ${hrs > 1 ? "Hrs" : "Hr"}`;
+    } else {
+      return `${mins} Min`;
+    }
+  };
+
   const fetchTeacherData = async (id: string) => {
     try {
       const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
@@ -334,6 +327,11 @@ export default function DashboardPage() {
 
     const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
+    // 🎯 Calculate Total Minutes accurately
+    const hoursNum = parseInt(durationHours.replace(/[^0-9]/g, "")) || 0;
+    const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, "")) || 0;
+    const totalDurationInMinutes = (hoursNum * 60) + minsNum;
+
     try {
       const response = await fetch("https://n8n.epanthiya.com/webhook/create-zoom-class-v2", {
         method: "POST",
@@ -343,8 +341,9 @@ export default function DashboardPage() {
           topic,
           date,
           time: formattedTime,
-          durationHours: durationHours.replace(/[^0-9]/g, ""), 
-          durationMinutes: durationMinutes.replace(/[^0-9]/g, ""),
+          durationHours: hoursNum.toString(), 
+          durationMinutes: minsNum.toString(),
+          duration: totalDurationInMinutes.toString(),
           passcode: passcode === "Auto" ? Math.floor(100000 + Math.random() * 900000).toString() : passcode,
           waiting_room: waitingRoom,
           host_video: hostVideo,
@@ -413,7 +412,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 🎯 FIXED LOGOUT: PRESERVES APP_LANG SETTING
   const handleLogout = () => {
     localStorage.removeItem("teacher_name");
     localStorage.removeItem("teacher_id");
@@ -461,7 +459,6 @@ export default function DashboardPage() {
               ID: {teacherId}
             </span>
 
-            {/* 🌐 LANGUAGE SWITCHER DROPDOWN */}
             <select 
               value={lang}
               onChange={(e) => handleLangChange(e.target.value as "si" | "en" | "ta")}
@@ -538,11 +535,10 @@ export default function DashboardPage() {
 
         {/* ==================== TAB CONTENT AREAS ==================== */}
 
-        {/* ----------------- 🏠 TAB 1: HOME (SUMMARY + PROMO AD BANNERS) ----------------- */}
+        {/* ----------------- 🏠 TAB 1: HOME ----------------- */}
         {activeTab === "home" && (
           <div className="space-y-6 animate-fadeIn">
             
-            {/* Quick Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
@@ -569,15 +565,12 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* 🎯 DIGIMART ANNOUNCEMENTS & ADVERTISEMENTS SECTION */}
             <div className="space-y-4 pt-2">
               <h2 className="text-sm font-bold text-gray-300 flex items-center gap-2">
                 <span>📢</span> {t.announcements}
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* AD CARD 1: ZOOM 300P / 500P PACKAGE UPGRADE */}
                 <div className="bg-gradient-to-br from-blue-950/50 via-[#0b132b] to-indigo-950/40 border border-blue-800/40 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
                   <div className="absolute top-3 right-3 bg-blue-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
                     {t.ad1Badge}
@@ -599,7 +592,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* AD CARD 2: AUTOMATED LMS / WEBSITE INTEGRATION */}
                 <div className="bg-gradient-to-br from-purple-950/40 via-[#0b132b] to-slate-900 border border-purple-800/30 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
                   <div className="absolute top-3 right-3 bg-purple-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
                     {t.ad2Badge}
@@ -624,7 +616,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Quick Action Buttons */}
             <div className="p-6 bg-[#0b132b] border border-slate-900 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div>
                 <h4 className="text-sm font-bold text-slate-200">{t.scheduleAsk}</h4>
@@ -713,7 +704,7 @@ export default function DashboardPage() {
                     onChange={(e) => setDurationHours(e.target.value)}
                     className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none"
                   >
-                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
+                    {Array.from({ length: 13 }, (_, i) => String(i).padStart(2, "0")).map(h => (
                       <option key={h} value={`${h} ${parseInt(h) === 1 ? 'Hr' : 'Hrs'}`}>{h} {parseInt(h) === 1 ? 'Hr' : 'Hrs'}</option>
                     ))}
                   </select>
@@ -797,7 +788,11 @@ export default function DashboardPage() {
                   <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm relative hover:border-slate-800 transition-colors">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
-                      <span className="text-[10px] text-gray-400 flex items-center gap-1">⏳ {item.duration} Min</span>
+                      
+                      {/* 🎯 FORMATTED DURATION DISPLAY */}
+                      <span className="text-[10px] text-gray-400 flex items-center gap-1 font-bold">
+                        ⏳ {formatDuration(item.duration)}
+                      </span>
                     </div>
 
                     <h3 className="text-xs font-bold tracking-wide text-slate-200 line-clamp-2">{item.topic}</h3>
