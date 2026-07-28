@@ -29,6 +29,7 @@ const translations = {
     welcome: "ආයුබෝවන්",
     subHeader: "Digimart LMS Management Portal",
     signOut: "Sign Out",
+    supportBtn: "Support",
     homeTab: "Home",
     scheduleTab: "Schedule Class",
     plannedTab: "Scheduled Classes",
@@ -102,6 +103,7 @@ const translations = {
     welcome: "Welcome",
     subHeader: "Digimart LMS Management Portal",
     signOut: "Sign Out",
+    supportBtn: "Support",
     homeTab: "Home",
     scheduleTab: "Schedule Class",
     plannedTab: "Scheduled Classes",
@@ -173,6 +175,7 @@ const translations = {
     welcome: "வணக்கம்",
     subHeader: "Digimart LMS மேலாண்மை போர்டல்",
     signOut: "வெளியேறு",
+    supportBtn: "உதவி",
     homeTab: "முகப்பு",
     scheduleTab: "வகுப்பு அட்டவணை",
     plannedTab: "திட்டமிடப்பட்ட வகுப்புகள்",
@@ -515,7 +518,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2.5 flex-wrap md:flex-nowrap w-full md:w-auto justify-between md:justify-end">
             <span className="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-blue-400 font-bold">
               ID: {teacherId}
             </span>
@@ -524,6 +527,17 @@ export default function DashboardPage() {
               <span>⚡ Max Hosts:</span>
               <span className="bg-purple-600 text-white px-2 py-0.5 rounded-md text-[10px]">{maxConcurrentHosts}</span>
             </span>
+
+            {/* 💬 DIGIMART CUSTOMER SUPPORT WHATSAPP BUTTON */}
+            <a 
+              href={`https://wa.me/94778538626?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-700/50 text-emerald-400 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-950/30 cursor-pointer"
+            >
+              <span className="text-sm">💬</span>
+              <span>{t.supportBtn}</span>
+            </a>
 
             <select 
               value={lang}
@@ -891,7 +905,6 @@ export default function DashboardPage() {
                     
                     <div className="bg-slate-950/70 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
                       <p>⏰ Time: {item.time || item.startTime || "12:00 PM"}</p>
-                      {/* 🎯 Card එකෙත් Meeting ID එක Space තබා Display කිරීම */}
                       <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
                       <p>🔑 Pass: {item.passcode}</p>
                       <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
@@ -910,7 +923,6 @@ export default function DashboardPage() {
 
                         <button 
                           onClick={() => {
-                            // 🎓 Spaced Formatted Meeting ID inside copied details
                             const formattedId = formatMeetingId(item.zoom_id);
                             const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
                             navigator.clipboard.writeText(details);
