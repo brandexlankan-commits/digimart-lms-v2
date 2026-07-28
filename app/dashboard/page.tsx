@@ -486,46 +486,47 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070b19] flex items-center justify-center text-white font-sans">
-        <p className="text-sm animate-pulse">⚙️ Loading Dashboard...</p>
+      <div className="min-h-screen bg-[#070b19] flex items-center justify-center text-white font-sans p-4">
+        <p className="text-sm animate-pulse flex items-center gap-2">⚙️ Loading Dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#070b19] text-white font-sans p-4 md:p-6 selection:bg-blue-600/30">
-      <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="min-h-screen bg-[#070b19] text-white font-sans p-3 sm:p-4 md:p-6 selection:bg-blue-600/30">
+      <div className="max-w-[1400px] mx-auto space-y-5 sm:space-y-6">
         
         {/* ==================== HEADER SECTION ==================== */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-900 pb-5 gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-slate-900 pb-4 md:pb-5 gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
             {teacherPic ? (
               <img 
                 src={teacherPic} 
                 alt={teacherName} 
-                className="w-12 h-12 rounded-2xl object-cover border-2 border-blue-500/50 shadow-lg shadow-blue-500/10"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl object-cover border-2 border-blue-500/50 shadow-lg shadow-blue-500/10 flex-shrink-0"
               />
             ) : (
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 border-2 border-blue-400/30 flex items-center justify-center text-lg font-black text-white shadow-lg">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-800 border-2 border-blue-400/30 flex items-center justify-center text-base sm:text-lg font-black text-white shadow-lg flex-shrink-0">
                 {teacherName.charAt(0)}
               </div>
             )}
-            <div>
-              <h1 className="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200 truncate">
                 {t.welcome}, {teacherName}! 👋
               </h1>
-              <p className="text-xs text-gray-500 mt-0.5">{t.subHeader}</p>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 truncate">{t.subHeader}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap md:flex-nowrap w-full md:w-auto justify-between md:justify-end">
-            <span className="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-blue-400 font-bold">
+          {/* Action Control Badges - Mobile Optimized Wrap */}
+          <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end text-xs">
+            <span className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl font-mono text-blue-400 font-bold text-[11px] sm:text-xs">
               ID: {teacherId}
             </span>
 
-            <span className="px-3 py-1.5 bg-purple-950/50 border border-purple-800/40 rounded-xl text-xs font-mono text-purple-300 font-bold flex items-center gap-1.5">
+            <span className="px-2.5 py-1.5 bg-purple-950/50 border border-purple-800/40 rounded-xl font-mono text-purple-300 font-bold flex items-center gap-1 text-[11px] sm:text-xs">
               <span>⚡ Max Hosts:</span>
-              <span className="bg-purple-600 text-white px-2 py-0.5 rounded-md text-[10px]">{maxConcurrentHosts}</span>
+              <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[10px]">{maxConcurrentHosts}</span>
             </span>
 
             {/* 💬 DIGIMART CUSTOMER SUPPORT WHATSAPP BUTTON */}
@@ -533,16 +534,16 @@ export default function DashboardPage() {
               href={`https://wa.me/94778538626?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
               target="_blank" 
               rel="noopener noreferrer"
-              className="px-3 py-1.5 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-700/50 text-emerald-400 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-950/30 cursor-pointer"
+              className="px-2.5 py-1.5 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-700/50 text-emerald-400 font-bold rounded-xl transition-all flex items-center gap-1 shadow-md cursor-pointer text-[11px] sm:text-xs"
             >
-              <span className="text-sm">💬</span>
+              <span>💬</span>
               <span>{t.supportBtn}</span>
             </a>
 
             <select 
               value={lang}
               onChange={(e) => handleLangChange(e.target.value as "si" | "en" | "ta")}
-              className="bg-slate-900 border border-slate-800 text-xs text-blue-400 font-bold px-3 py-1.5 rounded-xl focus:outline-none cursor-pointer"
+              className="bg-slate-900 border border-slate-800 text-blue-400 font-bold px-2 py-1.5 rounded-xl focus:outline-none cursor-pointer text-[11px] sm:text-xs"
             >
               <option value="si">🇱🇰 සිංහල</option>
               <option value="en">🇬🇧 English</option>
@@ -551,7 +552,7 @@ export default function DashboardPage() {
 
             <button 
               onClick={handleLogout}
-              className="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/40 text-rose-400 text-xs font-bold rounded-xl transition-all"
+              className="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/40 text-rose-400 font-bold rounded-xl transition-all text-[11px] sm:text-xs ml-auto lg:ml-0"
             >
               {t.signOut}
             </button>
@@ -559,11 +560,10 @@ export default function DashboardPage() {
         </div>
 
         {/* ==================== TABS NAVIGATION HEADER ==================== */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-900 no-scrollbar">
-          
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-900 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
           <button
             onClick={() => setActiveTab("home")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === "home" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -574,7 +574,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setActiveTab("schedule")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === "schedule" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -585,7 +585,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setActiveTab("planned")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap relative ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative ${
               activeTab === "planned" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -599,7 +599,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setActiveTab("recordings")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap relative ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative ${
               activeTab === "recordings" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -610,109 +610,112 @@ export default function DashboardPage() {
               {recordings.length}
             </span>
           </button>
-
         </div>
 
         {/* ==================== TAB CONTENT AREAS ==================== */}
 
         {/* ----------------- 🏠 TAB 1: HOME ----------------- */}
         {activeTab === "home" && (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-5 sm:space-y-6 animate-fadeIn">
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-[#0b132b] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.plannedCount}</p>
-                  <h3 className="text-2xl font-black text-blue-400 mt-1">{plannedClasses.length}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-blue-400 mt-1">{plannedClasses.length}</h3>
                 </div>
-                <div className="w-12 h-12 bg-blue-950/60 border border-blue-900/40 rounded-xl flex items-center justify-center text-xl">📅</div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-950/60 border border-blue-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">📅</div>
               </div>
 
-              <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
+              <div className="bg-[#0b132b] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.recordingsCount}</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{recordings.length}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{recordings.length}</h3>
                 </div>
-                <div className="w-12 h-12 bg-emerald-950/60 border border-emerald-900/40 rounded-xl flex items-center justify-center text-xl">🎬</div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-950/60 border border-emerald-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">🎬</div>
               </div>
 
-              <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
+              <div className="bg-[#0b132b] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.maxHostsLabel}</p>
-                  <h3 className="text-2xl font-black text-purple-400 mt-1">{maxConcurrentHosts} Host(s)</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-purple-400 mt-1">{maxConcurrentHosts} Host(s)</h3>
                 </div>
-                <div className="w-12 h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">⚡</div>
               </div>
 
-              <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
+              <div className="bg-[#0b132b] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.accStatus}</p>
                   
                   {remainingDays === null ? (
-                    <h3 className="text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
+                    <h3 className="text-sm sm:text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
                   ) : remainingDays > 5 ? (
-                    <h3 className="text-base font-bold text-emerald-400 mt-1">
+                    <h3 className="text-sm sm:text-base font-bold text-emerald-400 mt-1">
                       ● {t.daysLeftText.replace("{days}", remainingDays.toString())}
                     </h3>
                   ) : remainingDays > 0 ? (
-                    <h3 className="text-base font-bold text-amber-400 mt-1 animate-pulse">
+                    <h3 className="text-sm sm:text-base font-bold text-amber-400 mt-1 animate-pulse">
                       ⚠️ {t.daysLeftText.replace("{days}", remainingDays.toString())}
                     </h3>
                   ) : (
-                    <h3 className="text-base font-bold text-rose-500 mt-1">
+                    <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1">
                       {t.expiredText}
                     </h3>
                   )}
                 </div>
 
-                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-lg sm:text-xl">
                   {remainingDays === null || remainingDays > 5 ? "✅" : remainingDays > 0 ? "⏳" : "❌"}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 pt-2">
-              <h2 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+            <div className="space-y-4 pt-1 sm:pt-2">
+              <h2 className="text-xs sm:text-sm font-bold text-gray-300 flex items-center gap-2">
                 <span>📢</span> {t.announcements}
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-blue-950/50 via-[#0b132b] to-indigo-950/40 border border-blue-800/40 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
-                  <div className="absolute top-3 right-3 bg-blue-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
-                    {t.ad1Badge}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="bg-gradient-to-br from-blue-950/50 via-[#0b132b] to-indigo-950/40 border border-blue-800/40 p-5 sm:p-6 rounded-2xl relative overflow-hidden group shadow-xl flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="inline-block bg-blue-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
+                      {t.ad1Badge}
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-blue-300">{t.ad1Title}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {t.ad1Desc}
+                    </p>
                   </div>
-                  <h3 className="text-base font-black text-blue-300">{t.ad1Title}</h3>
-                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                    {t.ad1Desc}
-                  </p>
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-900/60">
                     <span className="text-xs font-mono text-emerald-400 font-bold">{t.ad1Support}</span>
                     <a 
                       href="https://wa.me/94778538626?text=Hi%20Digimart!%20මම%20Zoom%20Package%20එකක්%20Upgrade%20කරගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
                     >
                       {t.ad1Btn}
                     </a>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-950/40 via-[#0b132b] to-slate-900 border border-purple-800/30 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
-                  <div className="absolute top-3 right-3 bg-purple-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
-                    {t.ad2Badge}
+                <div className="bg-gradient-to-br from-purple-950/40 via-[#0b132b] to-slate-900 border border-purple-800/30 p-5 sm:p-6 rounded-2xl relative overflow-hidden group shadow-xl flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="inline-block bg-purple-600 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
+                      {t.ad2Badge}
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-purple-300">{t.ad2Title}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {t.ad2Desc}
+                    </p>
                   </div>
-                  <h3 className="text-base font-black text-purple-300">{t.ad2Title}</h3>
-                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                    {t.ad2Desc}
-                  </p>
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-900/60">
                     <span className="text-xs font-mono text-purple-400 font-bold">{t.ad2Brand}</span>
                     <a 
                       href="https://wa.me/94778538626?text=Hi%20Digimart!%20මම%20LMS%20Website%20එකක්%20හදාගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
                     >
                       {t.ad2Btn}
                     </a>
@@ -722,14 +725,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="p-6 bg-[#0b132b] border border-slate-900 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="p-4 sm:p-6 bg-[#0b132b] border border-slate-900 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h4 className="text-sm font-bold text-slate-200">{t.scheduleAsk}</h4>
-                <p className="text-xs text-gray-500 mt-1">{t.scheduleSub}</p>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-200">{t.scheduleAsk}</h4>
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{t.scheduleSub}</p>
               </div>
               <button 
                 onClick={() => setActiveTab("schedule")}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-600/20"
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-600/20 text-center"
               >
                 {t.scheduleNowBtn}
               </button>
@@ -740,12 +743,12 @@ export default function DashboardPage() {
 
         {/* ----------------- ➕ TAB 2: SCHEDULE CLASS FORM ----------------- */}
         {activeTab === "schedule" && (
-          <div className="max-w-2xl mx-auto bg-[#0b132b] border border-slate-900 p-6 rounded-2xl shadow-xl space-y-5 animate-fadeIn">
-            <h2 className="text-base font-bold text-blue-400 flex items-center gap-2 border-b border-slate-900 pb-3">
+          <div className="max-w-2xl mx-auto bg-[#0b132b] border border-slate-900 p-4 sm:p-6 rounded-2xl shadow-xl space-y-4 sm:space-y-5 animate-fadeIn">
+            <h2 className="text-sm sm:text-base font-bold text-blue-400 flex items-center gap-2 border-b border-slate-900 pb-3">
               <span>🚀</span> {t.createClassTitle}
             </h2>
             
-            <form onSubmit={handleCreateClass} className="space-y-4">
+            <form onSubmit={handleCreateClass} className="space-y-3.5 sm:space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1.5">{t.topicLabel}</label>
                 <input 
@@ -754,11 +757,11 @@ export default function DashboardPage() {
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   placeholder={t.topicPlaceholder}
-                  className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1.5">{t.dateLabel}</label>
                   <input 
@@ -766,16 +769,16 @@ export default function DashboardPage() {
                     required
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 color-scheme-dark"
+                    className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-blue-500 color-scheme-dark"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1.5">{t.timeLabel}</label>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                     <select 
                       value={selectedHour} 
                       onChange={(e) => setSelectedHour(e.target.value)}
-                      className="p-3 bg-slate-900/90 border border-slate-800 rounded-l-xl text-xs text-center focus:outline-none"
+                      className="p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-l-xl text-xs text-center focus:outline-none cursor-pointer"
                     >
                       {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map(h => (
                         <option key={h} value={h}>{h}</option>
@@ -784,7 +787,7 @@ export default function DashboardPage() {
                     <select 
                       value={selectedMinute} 
                       onChange={(e) => setSelectedMinute(e.target.value)}
-                      className="p-3 bg-slate-900/90 border-y border-slate-800 text-xs text-center focus:outline-none"
+                      className="p-2.5 sm:p-3 bg-slate-900/90 border-y border-slate-800 text-xs text-center focus:outline-none cursor-pointer"
                     >
                       {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(m => (
                         <option key={m} value={m}>{m}</option>
@@ -793,7 +796,7 @@ export default function DashboardPage() {
                     <select 
                       value={selectedAmPm} 
                       onChange={(e) => setSelectedAmPm(e.target.value)}
-                      className="p-3 bg-slate-900/90 border border-slate-800 rounded-r-xl text-xs text-center font-bold text-blue-400 focus:outline-none"
+                      className="p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-r-xl text-xs text-center font-bold text-blue-400 focus:outline-none cursor-pointer"
                     >
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
@@ -802,13 +805,13 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1.5">{t.durationHoursLabel}</label>
                   <select 
                     value={durationHours}
                     onChange={(e) => setDurationHours(e.target.value)}
-                    className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none"
+                    className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none cursor-pointer"
                   >
                     {Array.from({ length: 13 }, (_, i) => String(i).padStart(2, "0")).map(h => (
                       <option key={h} value={`${h} ${parseInt(h) === 1 ? 'Hr' : 'Hrs'}`}>{h} {parseInt(h) === 1 ? 'Hr' : 'Hrs'}</option>
@@ -820,7 +823,7 @@ export default function DashboardPage() {
                   <select 
                     value={durationMinutes}
                     onChange={(e) => setDurationMinutes(e.target.value)}
-                    className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none"
+                    className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs focus:outline-none cursor-pointer"
                   >
                     <option>00 Min</option>
                     <option>15 Min</option>
@@ -837,25 +840,25 @@ export default function DashboardPage() {
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
                   placeholder={t.passcodePlaceholder}
-                  className="w-full p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                  className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors font-mono"
                 />
               </div>
 
-              <div className="space-y-2.5 pt-2 border-t border-slate-900">
-                <label className="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
-                  <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="w-4 h-4 rounded bg-slate-900" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-900">
+                <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
                   <span>{t.waitingRoom}</span>
                 </label>
-                <label className="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
-                  <input type="checkbox" checked={hostVideo} onChange={(e) => setHostVideo(e.target.checked)} className="w-4 h-4 rounded bg-slate-900" />
+                <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={hostVideo} onChange={(e) => setHostVideo(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
                   <span>{t.hostVideo}</span>
                 </label>
-                <label className="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
-                  <input type="checkbox" checked={participantVideo} onChange={(e) => setParticipantVideo(e.target.checked)} className="w-4 h-4 rounded bg-slate-900" />
+                <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={participantVideo} onChange={(e) => setParticipantVideo(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
                   <span>{t.participantVideo}</span>
                 </label>
-                <label className="flex items-center gap-3 text-xs text-gray-300 cursor-pointer">
-                  <input type="checkbox" checked={muteOnEntry} onChange={(e) => setMuteOnEntry(e.target.checked)} className="w-4 h-4 rounded bg-slate-900" />
+                <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={muteOnEntry} onChange={(e) => setMuteOnEntry(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
                   <span>{t.muteOnEntry}</span>
                 </label>
               </div>
@@ -863,7 +866,7 @@ export default function DashboardPage() {
               <button 
                 type="submit"
                 disabled={formLoading}
-                className="w-full py-3.5 mt-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2"
+                className="w-full py-3 sm:py-3.5 mt-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2"
               >
                 {formLoading ? t.creatingBtn : t.createBtn}
               </button>
@@ -874,13 +877,13 @@ export default function DashboardPage() {
         {/* ----------------- 📅 TAB 3: SCHEDULED CLASSES ----------------- */}
         {activeTab === "planned" && (
           <div className="space-y-4 animate-fadeIn">
-            <h2 className="text-sm font-bold tracking-wide text-gray-300 flex items-center justify-between">
+            <h2 className="text-xs sm:text-sm font-bold tracking-wide text-gray-300 flex items-center justify-between">
               <span className="flex items-center gap-2">📅 {t.plannedClassesTitle}</span>
               <span className="bg-slate-900 text-blue-400 text-xs px-2.5 py-1 rounded-full border border-slate-800 font-bold">{plannedClasses.length} Classes</span>
             </h2>
             
             {plannedClasses.length === 0 ? (
-              <div className="p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs space-y-3">
+              <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs space-y-3">
                 <p>{t.noPlannedClasses}</p>
                 <button 
                   onClick={() => setActiveTab("schedule")}
@@ -890,24 +893,26 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
                 {plannedClasses.map((item, idx) => (
-                  <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-2xl space-y-4 shadow-sm relative hover:border-slate-800 transition-colors">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
-                      
-                      <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
-                        ⏳ {formatDuration(item.duration)}
-                      </span>
-                    </div>
+                  <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">{item.date}</span>
+                        
+                        <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
+                          ⏳ {formatDuration(item.duration)}
+                        </span>
+                      </div>
 
-                    <h3 className="text-xs font-bold tracking-wide text-slate-200 line-clamp-2">{item.topic}</h3>
-                    
-                    <div className="bg-slate-950/70 border border-slate-900/60 p-3 rounded-xl space-y-1.5 font-mono text-[11px] text-slate-400">
-                      <p>⏰ Time: {item.time || item.startTime || "12:00 PM"}</p>
-                      <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
-                      <p>🔑 Pass: {item.passcode}</p>
-                      <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
+                      <h3 className="text-xs font-bold tracking-wide text-slate-200 line-clamp-2">{item.topic}</h3>
+                      
+                      <div className="bg-slate-950/70 border border-slate-900/60 p-2.5 sm:p-3 rounded-xl space-y-1 font-mono text-[11px] text-slate-400">
+                        <p>⏰ Time: {item.time || item.startTime || "12:00 PM"}</p>
+                        <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
+                        <p>🔑 Pass: {item.passcode}</p>
+                        <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
+                      </div>
                     </div>
                     
                     <div className="space-y-2 pt-1">
@@ -952,45 +957,71 @@ export default function DashboardPage() {
         {/* ----------------- 🎬 TAB 4: RECORDINGS ----------------- */}
         {activeTab === "recordings" && (
           <div className="space-y-4 animate-fadeIn">
-            <h2 className="text-sm font-bold tracking-wide text-gray-300 flex items-center justify-between">
-              <span className="flex items-center gap-2">🎬 {t.recordingsTitle} <span className="text-xs font-normal text-gray-500">{t.cloudNote}</span></span>
+            <h2 className="text-xs sm:text-sm font-bold tracking-wide text-gray-300 flex items-center justify-between">
+              <span className="flex items-center gap-2">🎬 {t.recordingsTitle} <span className="hidden sm:inline text-xs font-normal text-gray-500">{t.cloudNote}</span></span>
               <span className="bg-slate-900 text-emerald-400 text-xs px-2.5 py-1 rounded-full border border-slate-800 font-bold">{recordings.length} Videos</span>
             </h2>
             
             {recordings.length === 0 ? (
-              <div className="p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
+              <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
                 {t.noRecordings}
               </div>
             ) : (
-              <div className="bg-[#0b132b]/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-900 bg-slate-950/50 text-gray-400 font-medium">
-                      <th className="p-4 w-[25%]">{t.colDate}</th>
-                      <th className="p-4 w-[55%]">{t.colTitle}</th>
-                      <th className="p-4 w-[20%] text-right">{t.colAction}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    {recordings.map((rec, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
-                        <td className="p-4 font-mono text-gray-400">{rec.date}</td>
-                        <td className="p-4 font-bold text-slate-200">{rec.title}</td>
-                        <td className="p-4 text-right">
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(rec.link);
-                              alert(t.alertCopyVideoSuccess);
-                            }}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors"
-                          >
-                            {t.copyLinkBtn}
-                          </button>
-                        </td>
+              <div className="space-y-3">
+                
+                {/* 📱 MOBILE VIEW: CARD LIST (<640px) */}
+                <div className="block sm:hidden space-y-3">
+                  {recordings.map((rec, idx) => (
+                    <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 rounded-2xl space-y-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-mono text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded border border-blue-900/30">{rec.date}</span>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-200">{rec.title}</h4>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(rec.link);
+                          alert(t.alertCopyVideoSuccess);
+                        }}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors text-center"
+                      >
+                        {t.copyLinkBtn}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 🖥️ DESKTOP VIEW: TABLE (≥640px) */}
+                <div className="hidden sm:block bg-[#0b132b]/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-900 bg-slate-950/50 text-gray-400 font-medium">
+                        <th className="p-4 w-[25%]">{t.colDate}</th>
+                        <th className="p-4 w-[55%]">{t.colTitle}</th>
+                        <th className="p-4 w-[20%] text-right">{t.colAction}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900/60 text-slate-300">
+                      {recordings.map((rec, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
+                          <td className="p-4 font-mono text-gray-400">{rec.date}</td>
+                          <td className="p-4 font-bold text-slate-200">{rec.title}</td>
+                          <td className="p-4 text-right">
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(rec.link);
+                                alert(t.alertCopyVideoSuccess);
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors"
+                            >
+                              {t.copyLinkBtn}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
               </div>
             )}
           </div>
