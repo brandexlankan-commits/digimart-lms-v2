@@ -28,7 +28,7 @@ const translations = {
     authenticating: "⚙️ Authenticating...",
     welcomePrefix: "👋 Welcome",
     welcomeSuffix: "Teacher!",
-    invalidFallback: "Invalid Username or Password!",
+    invalidFallback: "Invalid Username or Password. Please try again!",
     serverError: "❌ Unable to connect to the server. Please try again!",
     footer: "Powered by Digimart Automation Solutions"
   },
@@ -77,7 +77,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 🎯 කෙලින්ම n8n එකට නොයා, අපේම Next.js API Route එකට රික්වෙස්ට් එක යවනවා
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -88,20 +87,22 @@ export default function LoginPage() {
 
       const data = await response.json();
 
-      // n8n බැක්එන්ඩ් එකෙන් සත්‍යාපනය සාර්ථකයි (success) කියලා එවුවොත්
       if (data.status === "success") {
-        // 💾 ගුරුවරයාගේ සැබෑ දත්ත ටික බ්‍රවුසර් එකේ සේව් කරගන්නවා
         localStorage.setItem("teacher_id", data.teacher_id);
         localStorage.setItem("teacher_name", data.teacher_name);
 
-        // 🔔 TRILINGUAL WELCOME ALERT
         alert(`${t.welcomePrefix} ${data.teacher_name} ${t.welcomeSuffix}`);
-        
-        // කෙලින්ම ඩෑෂ්බෝඩ් එකට රීඩිරෙක්ට් වෙනවා
         router.push("/dashboard");
       } else {
-        // ලොගින් වැරදි නම් හෝ පේමන්ට් බ්ලොක් නම් n8n එකෙන් එවන මැසේජ් එක පෙන්වනවා
-        alert(`❌ ${data.message || t.invalidFallback}`);
+        // 🎯 BACKEND එකෙන් "බං" / "මචං" වැනි වචන ආවොත් ඒවා AUTO-FILTER කර PROFESSIONAL MESSAGE එක පෙන්වීම
+        let errorMessage = data.message || t.invalidFallback;
+
+        // "බං", "මචං" වැනි Slang වචන තිබේ නම් හෝ සාමාන්‍ය වැරදි Password එකක් නම් Clean Phrasing එකට හරවයි
+        if (errorMessage.includes("බං") || errorMessage.includes("මචං") || errorMessage.includes("වැරදියි")) {
+          errorMessage = t.invalidFallback;
+        }
+
+        alert(`❌ ${errorMessage}`);
       }
     } catch (error) {
       console.error("Login Error:", error);
