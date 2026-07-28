@@ -79,8 +79,11 @@ const translations = {
     colTitle: "CLASS TITLE",
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
+    
+    // 🔔 CUSTOM TRILINGUAL ALERTS & WHATSAPP PROMPTS
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
-    alertHostLimitError: "🚫 ඔබගේ Package එක අනුව එකම වේලාවේ පැවැත්විය හැක්කේ උපරිම පන්ති ගණන ඉක්මවා ඇත. වෙනත් වේලාවක් තෝරන්න.",
+    alertHostLimitError: "🚫 ඔබගේ ගිණුමේ දැනට පවතින්නේ Single Host Package එකකි.\n\nඑම නිසා ඔබට එකවර පැවැත්විය හැක්කේ එක් රැස්වීමක් (Meeting එකක්) පමණි.\n\nDual Host හෝ ඊට වැඩි Package එකක් Active කරගැනීමට Digimart Support අමතන්න.",
+    whatsappConfirm: "👉 ඔබට දැන්ම WhatsApp හරහා Digimart Support සම්බන්ධ කර ගැනීමට අවශ්‍යද?",
     alertAllBusyError: "ERR_ALL_BUSY: ඔබ තෝරාගත් වේලාවට පද්ධතියේ නිදහස් Zoom Account එකක් නොමැත.",
     alertGeneralError: "🚫 පන්තිය සකස් කිරීමට නොහැකි විය. වේලාව නැවත පරීක්ෂා කරන්න.",
     alertServerError: "⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි. කරුණාකර නැවත උත්සාහ කරන්න.",
@@ -144,8 +147,11 @@ const translations = {
     colTitle: "CLASS TITLE",
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
+    
+    // 🔔 CUSTOM TRILINGUAL ALERTS & WHATSAPP PROMPTS
     alertSuccessCreate: "📹 Zoom class scheduled and saved successfully.",
-    alertHostLimitError: "🚫 You have reached the maximum allowed concurrent live classes for your package. Please select another time slot.",
+    alertHostLimitError: "🚫 Your account currently has a Single Host Package.\n\nTherefore, you can only run one meeting at a time.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
+    whatsappConfirm: "👉 Would you like to contact Digimart Support via WhatsApp now?",
     alertAllBusyError: "ERR_ALL_BUSY: No free Zoom Accounts available for the selected time slot.",
     alertGeneralError: "🚫 Unable to schedule class. Please verify the date and time.",
     alertServerError: "⚠️ Server connection error. Please try again.",
@@ -209,8 +215,11 @@ const translations = {
     colTitle: "வகுப்பு தலைப்பு",
     colAction: "செயல்பாடு",
     copyLinkBtn: "📋 லிங்கை நகலெடு",
+    
+    // 🔔 CUSTOM TRILINGUAL ALERTS & WHATSAPP PROMPTS
     alertSuccessCreate: "📹 Zoom வகுப்பு வெற்றிகரமாக திட்டமிடப்பட்டு சேமிக்கப்பட்டது.",
-    alertHostLimitError: "🚫 உங்கள் பேக்கேஜின் படி ஒரே நேரத்தில் நடத்தக்கூடிய நேரலை வகுப்புகளின் வரம்பை எட்டிவிட்டீர்கள்.",
+    alertHostLimitError: "🚫 உங்கள் கணக்கில் தற்போது Single Host Package மட்டுமே உள்ளது.\n\nஎனவே உங்களால் ஒரே நேரத்தில் ஒரு கூட்டத்தை மட்டுமே நடத்த முடியும்.\n\nDual Host அல்லது அதற்கு மேற்பட்ட Package-ஐ activate செய்ய Digimart Support-ஐ தொடர்பு கொள்ளவும்.",
+    whatsappConfirm: "👉 இப்போது WhatsApp மூலம் Digimart Support-ஐ தொடர்பு கொள்ள விரும்புகிறீர்களா?",
     alertAllBusyError: "ERR_ALL_BUSY: தேர்ந்தெடுக்கப்பட்ட நேரத்தில் இலவச Zoom கணக்குகள் எதுவும் கிடைக்கவில்லை.",
     alertGeneralError: "🚫 வகுப்பை திட்டமிட முடியவில்லை. நேரத்தை மீண்டும் சரிபார்க்கவும்.",
     alertServerError: "⚠️ சர்வர் இணைப்பு பிழை. மீண்டும் முயற்சிக்கவும்.",
@@ -231,7 +240,7 @@ export default function DashboardPage() {
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
   const [teacherId, setTeacherId] = useState("");
   const [teacherPic, setTeacherPic] = useState("");
-  const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1"); // 👈 State for Max Hosts
+  const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1");
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -319,7 +328,6 @@ export default function DashboardPage() {
           localStorage.setItem("teacher_name", data.teacherName);
         }
 
-        // 🎯 Read Max Concurrent Hosts from API
         if (data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts) {
           setMaxConcurrentHosts(data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts);
         }
@@ -372,8 +380,18 @@ export default function DashboardPage() {
       } else {
         const rawError = data.message || data.errorMessage || data.error || "";
         
-        if (rawError.includes("උපරිම පන්ති") || rawError.includes("concurrent") || rawError.includes("Package")) {
-          alert(t.alertHostLimitError);
+        // 🎯 CATCH HOST LIMIT ERROR & REDIRECT TO WHATSAPP
+        if (rawError.includes("උපරිම පන්ති") || rawError.includes("concurrent") || rawError.includes("Package") || rawError.includes("limit") || rawError.includes("host")) {
+          
+          const waMessage = encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) මගේ Zoom Package එක Dual Host හෝ ඊට වැඩි එකකට Upgrade කරගන්න කැමතියි. විස්තර ලබා දෙන්න.`);
+          const waUrl = `https://wa.me/94778538626?text=${waMessage}`;
+
+          const goToWhatsApp = confirm(`${t.alertHostLimitError}\n\n${t.whatsappConfirm}`);
+          
+          if (goToWhatsApp) {
+            window.open(waUrl, "_blank");
+          }
+
         } else if (rawError.includes("ERR_ALL_BUSY")) {
           alert(t.alertAllBusyError);
         } else {
@@ -468,7 +486,6 @@ export default function DashboardPage() {
               ID: {teacherId}
             </span>
 
-            {/* 🎯 DISPLAY MAX CONCURRENT HOSTS IN HEADER */}
             <span className="px-3 py-1.5 bg-purple-950/50 border border-purple-800/40 rounded-xl text-xs font-mono text-purple-300 font-bold flex items-center gap-1.5">
               <span>⚡ Max Hosts:</span>
               <span className="bg-purple-600 text-white px-2 py-0.5 rounded-md text-[10px]">{maxConcurrentHosts}</span>
@@ -554,7 +571,6 @@ export default function DashboardPage() {
         {activeTab === "home" && (
           <div className="space-y-6 animate-fadeIn">
             
-            {/* Quick Metrics Grid (4 Cards) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
@@ -572,7 +588,6 @@ export default function DashboardPage() {
                 <div className="w-12 h-12 bg-emerald-950/60 border border-emerald-900/40 rounded-xl flex items-center justify-center text-xl">🎬</div>
               </div>
 
-              {/* 🎯 NEW METRIC CARD: MAX CONCURRENT HOSTS */}
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.maxHostsLabel}</p>
