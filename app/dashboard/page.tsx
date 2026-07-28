@@ -84,6 +84,7 @@ const translations = {
     daysLeftText: "දින {days} ක් ඉතිරියි",
     expiredText: "❌ කාලය ඉකුත් වී ඇත",
 
+    // 🔔 ALERTS & WHATSAPP REDIRECT PROMPTS
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ ගිණුමේ දැනට පවතින්නේ Single Host Package එකකි.\n\nඑම නිසා ඔබට එකවර පැවැත්විය හැක්කේ එක් රැස්වීමක් (Meeting එකක්) පමණි.\n\nDual Host හෝ ඊට වැඩි Package එකක් Active කරගැනීමට Digimart Support අමතන්න.",
     whatsappConfirm: "👉 ඔබට දැන්ම WhatsApp හරහා Digimart Support සම්බන්ධ කර ගැනීමට අවශ්‍යද?",
@@ -151,7 +152,6 @@ const translations = {
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
     
-    // ⏳ COUNTDOWN TRANSLATIONS
     daysLeftText: "{days} Days Left",
     expiredText: "❌ Account Expired",
 
@@ -222,7 +222,6 @@ const translations = {
     colAction: "செயல்பாடு",
     copyLinkBtn: "📋 லிங்கை நகலெடு",
     
-    // ⏳ COUNTDOWN TRANSLATIONS
     daysLeftText: "{days} நாட்கள் மீதமுள்ளன",
     expiredText: "❌ கணக்கு காலாவதியானது",
 
@@ -250,7 +249,7 @@ export default function DashboardPage() {
   const [teacherId, setTeacherId] = useState("");
   const [teacherPic, setTeacherPic] = useState("");
   const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1");
-  const [remainingDays, setRemainingDays] = useState<number | null>(null); // ⏳ State for remaining days
+  const [remainingDays, setRemainingDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -342,7 +341,6 @@ export default function DashboardPage() {
           setMaxConcurrentHosts(data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts);
         }
 
-        // ⏳ CALCULATE REMAINING DAYS FROM API
         if (data.expiryDate || data.expiry_date || data.paymentDate || data.daysRemaining) {
           if (data.daysRemaining !== undefined) {
             setRemainingDays(Number(data.daysRemaining));
@@ -404,23 +402,14 @@ export default function DashboardPage() {
         fetchTeacherData(teacherId);
         setActiveTab("planned");
       } else {
-        const rawError = data.message || data.errorMessage || data.error || "";
+        // 🎯 පන්තිය සකස් කිරීමට නොහැකි වූ ඕනෑම අවස්ථාවකදී WhatsApp Redirect එක සහිත Trilingual Alert එක පෙන්වීම
+        const waMessage = encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) මගේ Zoom Package එක Dual Host හෝ ඊට වැඩි එකකට Upgrade කරගන්න කැමතියි. විස්තර ලබා දෙන්න.`);
+        const waUrl = `https://wa.me/94778538626?text=${waMessage}`;
+
+        const goToWhatsApp = confirm(`${t.alertHostLimitError}\n\n${t.whatsappConfirm}`);
         
-        if (rawError.includes("උපරිම පන්ති") || rawError.includes("concurrent") || rawError.includes("Package") || rawError.includes("limit") || rawError.includes("host")) {
-          
-          const waMessage = encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) මගේ Zoom Package එක Dual Host හෝ ඊට වැඩි එකකට Upgrade කරගන්න කැමතියි. විස්තර ලබා දෙන්න.`);
-          const waUrl = `https://wa.me/94778538626?text=${waMessage}`;
-
-          const goToWhatsApp = confirm(`${t.alertHostLimitError}\n\n${t.whatsappConfirm}`);
-          
-          if (goToWhatsApp) {
-            window.open(waUrl, "_blank");
-          }
-
-        } else if (rawError.includes("ERR_ALL_BUSY")) {
-          alert(t.alertAllBusyError);
-        } else {
-          alert(rawError || t.alertGeneralError);
+        if (goToWhatsApp) {
+          window.open(waUrl, "_blank");
         }
       }
     } catch (error: any) {
@@ -621,7 +610,6 @@ export default function DashboardPage() {
                 <div className="w-12 h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-xl">⚡</div>
               </div>
 
-              {/* 🎯 DYNAMIC ACCOUNT STATUS / COUNTDOWN CARD */}
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.accStatus}</p>
