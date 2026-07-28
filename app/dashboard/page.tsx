@@ -37,6 +37,7 @@ const translations = {
     recordingsCount: "පටිගත කිරීම් (Recordings)",
     accStatus: "ගිණුමේ තත්ත්වය",
     activeAcc: "● Active Account",
+    maxHostsLabel: "එකවර පැවැත්විය හැකි පන්ති",
     announcements: "Digimart විශේෂ නිවේදන සහ පිරිනැමීම්",
     ad1Badge: "Special Offer",
     ad1Title: "🚀 Zoom 300 / 500 Participants Package Upgrade!",
@@ -101,6 +102,7 @@ const translations = {
     recordingsCount: "Recordings",
     accStatus: "Account Status",
     activeAcc: "● Active Account",
+    maxHostsLabel: "Max Concurrent Hosts",
     announcements: "Digimart Special Announcements & Offers",
     ad1Badge: "Special Offer",
     ad1Title: "🚀 Zoom 300 / 500 Participants Package Upgrade!",
@@ -165,6 +167,7 @@ const translations = {
     recordingsCount: "பதிவுகள்",
     accStatus: "கணக்கு நிலை",
     activeAcc: "● செயலில் உள்ள கணக்கு",
+    maxHostsLabel: "சமகால வகுப்பு வரம்பு",
     announcements: "Digimart சிறப்பு அறிவிப்புகள் & சலுகைகள்",
     ad1Badge: "சிறப்பு சலுகை",
     ad1Title: "🚀 Zoom 300 / 500 பங்கேற்பாளர்கள் பேக்கேஜ் அப் கிரேட்!",
@@ -228,6 +231,7 @@ export default function DashboardPage() {
   const [teacherName, setTeacherName] = useState("ගුරුතුමනි");
   const [teacherId, setTeacherId] = useState("");
   const [teacherPic, setTeacherPic] = useState("");
+  const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1"); // 👈 State for Max Hosts
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -279,7 +283,6 @@ export default function DashboardPage() {
   const formatDuration = (rawDuration: any) => {
     if (!rawDuration) return "0 Min";
 
-    // Extract numbers safely from string or number
     const digitsOnly = String(rawDuration).replace(/[^0-9]/g, "");
     const totalMinutes = parseInt(digitsOnly, 10);
 
@@ -314,6 +317,11 @@ export default function DashboardPage() {
         if (data.teacherName) {
           setTeacherName(data.teacherName);
           localStorage.setItem("teacher_name", data.teacherName);
+        }
+
+        // 🎯 Read Max Concurrent Hosts from API
+        if (data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts) {
+          setMaxConcurrentHosts(data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts);
         }
       }
     } catch (error) {
@@ -460,6 +468,12 @@ export default function DashboardPage() {
               ID: {teacherId}
             </span>
 
+            {/* 🎯 DISPLAY MAX CONCURRENT HOSTS IN HEADER */}
+            <span className="px-3 py-1.5 bg-purple-950/50 border border-purple-800/40 rounded-xl text-xs font-mono text-purple-300 font-bold flex items-center gap-1.5">
+              <span>⚡ Max Hosts:</span>
+              <span className="bg-purple-600 text-white px-2 py-0.5 rounded-md text-[10px]">{maxConcurrentHosts}</span>
+            </span>
+
             <select 
               value={lang}
               onChange={(e) => handleLangChange(e.target.value as "si" | "en" | "ta")}
@@ -540,7 +554,8 @@ export default function DashboardPage() {
         {activeTab === "home" && (
           <div className="space-y-6 animate-fadeIn">
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Quick Metrics Grid (4 Cards) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.plannedCount}</p>
@@ -557,12 +572,21 @@ export default function DashboardPage() {
                 <div className="w-12 h-12 bg-emerald-950/60 border border-emerald-900/40 rounded-xl flex items-center justify-center text-xl">🎬</div>
               </div>
 
+              {/* 🎯 NEW METRIC CARD: MAX CONCURRENT HOSTS */}
+              <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">{t.maxHostsLabel}</p>
+                  <h3 className="text-2xl font-black text-purple-400 mt-1">{maxConcurrentHosts} Host(s)</h3>
+                </div>
+                <div className="w-12 h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-xl">⚡</div>
+              </div>
+
               <div className="bg-[#0b132b] border border-slate-900 p-5 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">{t.accStatus}</p>
                   <h3 className="text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
                 </div>
-                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl">✅</div>
               </div>
             </div>
 
@@ -790,7 +814,6 @@ export default function DashboardPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
                       
-                      {/* 🎯 FORMATTED DURATION DISPLAY (Hours & Minutes) */}
                       <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
                         ⏳ {formatDuration(item.duration)}
                       </span>
