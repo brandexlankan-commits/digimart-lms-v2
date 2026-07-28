@@ -233,7 +233,7 @@ export default function DashboardPage() {
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
-  // Form State (Default duration 01 Hr 00 Min)
+  // Form State
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("2026-08-01");
   const [selectedHour, setSelectedHour] = useState("07");
@@ -275,13 +275,15 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
-  // ⏱️ Helper Function: Formats Minutes into Hrs & Mins
-  const formatDuration = (rawDuration: string | number) => {
-    const totalMinutes = typeof rawDuration === "number" 
-      ? rawDuration 
-      : parseInt(String(rawDuration).replace(/[^0-9]/g, "")) || 0;
+  // ⏱️ Bulletproof Duration Formatter (Converts 180 -> 3 Hrs, 135 -> 2 Hrs 15 Min)
+  const formatDuration = (rawDuration: any) => {
+    if (!rawDuration) return "0 Min";
 
-    if (!totalMinutes || totalMinutes <= 0) return "0 Min";
+    // Extract numbers safely from string or number
+    const digitsOnly = String(rawDuration).replace(/[^0-9]/g, "");
+    const totalMinutes = parseInt(digitsOnly, 10);
+
+    if (isNaN(totalMinutes) || totalMinutes <= 0) return "0 Min";
 
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
@@ -327,9 +329,8 @@ export default function DashboardPage() {
 
     const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
-    // 🎯 Calculate Total Minutes accurately
-    const hoursNum = parseInt(durationHours.replace(/[^0-9]/g, "")) || 0;
-    const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, "")) || 0;
+    const hoursNum = parseInt(durationHours.replace(/[^0-9]/g, ""), 10) || 0;
+    const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, ""), 10) || 0;
     const totalDurationInMinutes = (hoursNum * 60) + minsNum;
 
     try {
@@ -789,8 +790,8 @@ export default function DashboardPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-1 rounded-md border border-blue-900/30">{item.date}</span>
                       
-                      {/* 🎯 FORMATTED DURATION DISPLAY */}
-                      <span className="text-[10px] text-gray-400 flex items-center gap-1 font-bold">
+                      {/* 🎯 FORMATTED DURATION DISPLAY (Hours & Minutes) */}
+                      <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
                         ⏳ {formatDuration(item.duration)}
                       </span>
                     </div>
