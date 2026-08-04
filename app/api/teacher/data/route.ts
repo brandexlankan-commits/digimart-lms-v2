@@ -89,10 +89,12 @@ export async function GET(request: Request) {
         zoom_account_id: row.c[10]?.v || "Pool Account"
       };
 
+      // 🎯 FIX: Recording තිබුණත් නැතත් Class එක "Planned Classes" එකට දිගටම ඇතුළත් වේ!
+      plannedClasses.push(rowData);
+
+      // 🎯 Recording Link එකක් තිබුණොත් විතරක් එක "Recordings" tab එකටත් එකතු කරයි
       if (rowData.recording_url) {
         recordings.push({ date: rowData.date, title: rowData.topic, link: rowData.recording_url });
-      } else {
-        plannedClasses.push(rowData);
       }
     });
 
