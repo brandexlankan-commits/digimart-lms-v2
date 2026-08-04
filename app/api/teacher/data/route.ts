@@ -89,12 +89,25 @@ export async function GET(request: Request) {
         zoom_account_id: row.c[10]?.v || "Pool Account"
       };
 
-      // 🎯 FIX: Recording තිබුණත් නැතත් Class එක "Planned Classes" එකට දිගටම ඇතුළත් වේ!
+      // 🎯 Class එක "Planned Classes" එකේ දිගටම පවතී (කනෙක්ෂන් කට් වුණත් Re-join විය හැක)
       plannedClasses.push(rowData);
 
-      // 🎯 Recording Link එකක් තිබුණොත් විතරක් එක "Recordings" tab එකටත් එකතු කරයි
+      // 🎯 Multiple Recordings Split Logic (Part 1, Part 2 handle වීම)
       if (rowData.recording_url) {
-        recordings.push({ date: rowData.date, title: rowData.topic, link: rowData.recording_url });
+        const rawLinks = String(rowData.recording_url).split(',');
+        const cleanLinks = rawLinks.map(l => l.trim()).filter(Boolean);
+
+        cleanLinks.forEach((linkStr: string, index: number) => {
+          const displayTitle = cleanLinks.length > 1 
+            ? `${rowData.topic} (Part ${index + 1})` 
+            : rowData.topic;
+
+          recordings.push({ 
+            date: rowData.date, 
+            title: displayTitle, 
+            link: linkStr 
+          });
+        });
       }
     });
 
