@@ -45,6 +45,39 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
+  // 🎯 Duration එක පැය සහ විනාඩි බවට හරවන Helper Function එක
+  const formatDuration = (totalMinutes: string | number) => {
+    const mins = Number(totalMinutes) || 0;
+    if (mins <= 0) return "0 Mins";
+
+    const hours = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+
+    if (hours === 0) {
+      return `${remainingMins} Mins`;
+    } else if (remainingMins === 0) {
+      return `${hours} ${hours === 1 ? "Hour" : "Hours"}`;
+    } else {
+      return `${hours}h ${remainingMins}m`;
+    }
+  };
+
+  // 🎯 Time string එක (e.g. "07:30 PM", "05:00 AM") Sort කිරීමට Minutes වලට හරවන Helper Function එක
+  const parseTimeToMinutes = (timeStr: string) => {
+    if (!timeStr) return 0;
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!match) return 0;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3]?.toUpperCase();
+
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
   const accountKeys = Object.keys(poolData);
   const totalClassesToday = accountKeys.reduce((acc, key) => acc + poolData[key].length, 0);
 
@@ -117,7 +150,11 @@ export default function AdminPoolPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {accountKeys.map((accId, idx) => {
-              const meetings = poolData[accId];
+              // 🎯 Meetings ටික වේලාව (AM/PM) අනුව පිළිවෙලට Sort කරගැනීම
+              const meetings = [...poolData[accId]].sort(
+                (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)
+              );
+
               return (
                 <div key={idx} className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
                   
@@ -140,8 +177,8 @@ export default function AdminPoolPage() {
                       <div key={mIdx} className="bg-slate-950/80 border border-slate-900/80 p-3.5 rounded-xl space-y-2 hover:border-blue-800/50 transition-all">
                         <div className="flex justify-between items-center text-xs">
                           <span className="font-mono text-amber-400 font-bold">⏰ {m.time}</span>
-                          <span className="text-[10px] text-gray-400 bg-slate-900 px-2 py-0.5 rounded">
-                            ⏳ {m.duration} Mins
+                          <span className="text-[10px] text-gray-400 bg-slate-900 px-2 py-0.5 rounded font-mono">
+                            ⏳ {formatDuration(m.duration)}
                           </span>
                         </div>
 
