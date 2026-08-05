@@ -57,9 +57,9 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(""); // 🎯 Inline Error State (No Pop-ups)
 
   useEffect(() => {
-    // 💡 Read saved language preference or default to Sinhala
     const savedLang = (localStorage.getItem("app_lang") as "si" | "en" | "ta") || "si";
     setLang(savedLang);
   }, []);
@@ -71,10 +71,10 @@ export default function LoginPage() {
 
   const t = translations[lang];
 
-  // 🚀 Next.js API Route එක හරහා ආරක්ෂිතව ලොගින් සත්‍යාපනය කරන ෆන්ක්ෂන් එක
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(""); // කලින් තිබුණු Error පණිවිඩ Reset කිරීම
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -91,22 +91,21 @@ export default function LoginPage() {
         localStorage.setItem("teacher_id", data.teacher_id);
         localStorage.setItem("teacher_name", data.teacher_name);
 
-        alert(`${t.welcomePrefix} ${data.teacher_name} ${t.welcomeSuffix}`);
+        // 🚀 Pop-up කිසිවක් නැත! කෙලින්ම Fast Redirect වේ.
         router.push("/dashboard");
       } else {
-        // 🎯 BACKEND එකෙන් "බං" / "මචං" වැනි වචන ආවොත් ඒවා AUTO-FILTER කර PROFESSIONAL MESSAGE එක පෙන්වීම
         let errorMessage = data.message || t.invalidFallback;
 
-        // "බං", "මචං" වැනි Slang වචන තිබේ නම් හෝ සාමාන්‍ය වැරදි Password එකක් නම් Clean Phrasing එකට හරවයි
         if (errorMessage.includes("බං") || errorMessage.includes("මචං") || errorMessage.includes("වැරදියි")) {
           errorMessage = t.invalidFallback;
         }
 
-        alert(`❌ ${errorMessage}`);
+        // 🎯 Pop-up වෙනුවට UI එක ඇතුළෙන්ම Red Alert Banner එකක් පෙන්වීම
+        setErrorMsg(errorMessage);
       }
     } catch (error) {
       console.error("Login Error:", error);
-      alert(t.serverError);
+      setErrorMsg(t.serverError);
     } finally {
       setLoading(false);
     }
@@ -134,6 +133,13 @@ export default function LoginPage() {
           <h1 className="text-3xl font-black text-blue-500 tracking-wide">DIGIMART LMS</h1>
           <p className="text-xs text-gray-400">{t.subHeader}</p>
         </div>
+
+        {/* 🚨 INLINE ERROR MESSAGE BANNER (Pop-up වෙනුවට මෙතන පෙන්නයි) */}
+        {errorMsg && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-xs text-center font-medium animate-fadeIn">
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
