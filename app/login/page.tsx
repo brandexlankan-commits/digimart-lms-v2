@@ -16,6 +16,7 @@ const translations = {
     welcomeSuffix: "ගුරුතුමනි!",
     invalidFallback: "ඇතුලත් කළ Username හෝ Password වැරදියි. කරුණාකර නැවත උත්සාහ කරන්න!",
     serverError: "❌ සර්වර් එක සමඟ සම්බන්ධ වීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න!",
+    whatsappBtn: "💬 WhatsApp හරහා සහයෝගිතාව අමතන්න",
     footer: "Powered by Digimart Automation Solutions"
   },
   en: {
@@ -30,6 +31,7 @@ const translations = {
     welcomeSuffix: "Teacher!",
     invalidFallback: "Invalid Username or Password. Please try again!",
     serverError: "❌ Unable to connect to the server. Please try again!",
+    whatsappBtn: "💬 Contact Support via WhatsApp",
     footer: "Powered by Digimart Automation Solutions"
   },
   ta: {
@@ -44,6 +46,7 @@ const translations = {
     welcomeSuffix: "ஆசிரியர்!",
     invalidFallback: "உள்ளிடப்பட்ட பயனர்பெயர் அல்லது கடவுச்சொல் தவறானது!",
     serverError: "❌ சேவையகத்துடன் இணைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்!",
+    whatsappBtn: "💬 வாட்ஸ்அප් மூலம் தொடர்பு கொள்ளவும்",
     footer: "Powered by Digimart Automation Solutions"
   }
 };
@@ -57,7 +60,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(""); // 🎯 Inline Error State (No Pop-ups)
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const savedLang = (localStorage.getItem("app_lang") as "si" | "en" | "ta") || "si";
@@ -74,7 +77,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setErrorMsg(""); // කලින් තිබුණු Error පණිවිඩ Reset කිරීම
+    setErrorMsg("");
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -90,8 +93,6 @@ export default function LoginPage() {
       if (data.status === "success") {
         localStorage.setItem("teacher_id", data.teacher_id);
         localStorage.setItem("teacher_name", data.teacher_name);
-
-        // 🚀 Pop-up කිසිවක් නැත! කෙලින්ම Fast Redirect වේ.
         router.push("/dashboard");
       } else {
         let errorMessage = data.message || t.invalidFallback;
@@ -100,7 +101,6 @@ export default function LoginPage() {
           errorMessage = t.invalidFallback;
         }
 
-        // 🎯 Pop-up වෙනුවට UI එක ඇතුළෙන්ම Red Alert Banner එකක් පෙන්වීම
         setErrorMsg(errorMessage);
       }
     } catch (error) {
@@ -134,10 +134,19 @@ export default function LoginPage() {
           <p className="text-xs text-gray-400">{t.subHeader}</p>
         </div>
 
-        {/* 🚨 INLINE ERROR MESSAGE BANNER (Pop-up වෙනුවට මෙතන පෙන්නයි) */}
+        {/* 🚨 INLINE ERROR MESSAGE BANNER WITH WHATSAPP BUTTON */}
         {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-xs text-center font-medium animate-fadeIn">
-            {errorMsg}
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl text-xs text-center font-medium animate-fadeIn flex flex-col items-center gap-3">
+            <span>{errorMsg}</span>
+            
+            <a 
+              href="https://wa.me/94750204252?text=Hello%20Digimart!%20I%20need%20help%20with%20my%20LMS%20account."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-all text-xs shadow-md shadow-emerald-600/20 active:scale-95"
+            >
+              {t.whatsappBtn}
+            </a>
           </div>
         )}
 
