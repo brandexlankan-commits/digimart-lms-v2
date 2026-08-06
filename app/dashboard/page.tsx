@@ -449,7 +449,7 @@ export default function DashboardPage() {
         setActiveTab("planned");
       } else {
         const waMessage = encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) මගේ Zoom Package එක Dual Host හෝ ඊට වැඩි එකකට Upgrade කරගන්න කැමතියි. විස්තර ලබා දෙන්න.`);
-        const waUrl = `https://wa.me/94778538626?text=${waMessage}`;
+        const waUrl = `https://wa.me/94750204252?text=${waMessage}`;
 
         const goToWhatsApp = confirm(`${t.alertHostLimitError}\n\n${t.whatsappConfirm}`);
         
@@ -551,7 +551,7 @@ export default function DashboardPage() {
             </span>
 
             <a 
-              href={`https://wa.me/94778538626?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
+              href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
               target="_blank" 
               rel="noopener noreferrer"
               className="px-2.5 py-1.5 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-700/50 text-emerald-400 font-bold rounded-xl transition-all flex items-center gap-1 shadow-md cursor-pointer text-[11px] sm:text-xs"
@@ -709,7 +709,7 @@ export default function DashboardPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-900/60">
                     <span className="text-xs font-mono text-emerald-400 font-bold">{t.ad1Support}</span>
                     <a 
-                      href="https://wa.me/94778538626?text=Hi%20Digimart!%20මම%20Zoom%20Package%20එකක්%20Upgrade%20කරගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
+                      href="https://wa.me/94750204252?text=Hi%20Digimart!%20මම%20Zoom%20Package%20එකක්%20Upgrade%20කරගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
@@ -732,7 +732,7 @@ export default function DashboardPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-900/60">
                     <span className="text-xs font-mono text-purple-400 font-bold">{t.ad2Brand}</span>
                     <a 
-                      href="https://wa.me/94778538626?text=Hi%20Digimart!%20මම%20LMS%20Website%20එකක්%20හදාගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
+                      href="https://wa.me/94750204252?text=Hi%20Digimart!%20මම%20LMS%20Website%20එකක්%20හදාගන්න%20විස්තර%20දැනගන්න%20කැමතියි." 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="px-3.5 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
