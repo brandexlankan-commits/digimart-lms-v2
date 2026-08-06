@@ -78,8 +78,64 @@ export default function AdminPoolPage() {
     return hours * 60 + minutes;
   };
 
+  // ⚡ ඉදිරි පැය 4 සඳහා Availability එක Calculate කරන Logic එක
+  const calculateNext4HoursAvailability = () => {
+    const accountKeys = Object.keys(poolData);
+    const totalAccounts = accountKeys.length;
+    if (totalAccounts === 0) return [];
+
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    const hourlySlots = [];
+
+    for (let i = 0; i < 4; i++) {
+      const targetHour = (currentHour + i) % 24;
+      const slotStartMins = targetHour * 60;
+      const slotEndMins = slotStartMins + 60;
+
+      const ampm = targetHour >= 12 ? "PM" : "AM";
+      const displayHour = targetHour % 12 === 0 ? 12 : targetHour % 12;
+      const timeLabel = `${displayHour.toString().padStart(2, "0")}:00 ${ampm}`;
+
+      const busyAccounts: string[] = [];
+      const availableAccounts: string[] = [];
+
+      accountKeys.forEach((accId) => {
+        const meetings = poolData[accId];
+        // Check if any class overlaps with this 1-hour slot
+        const isBusy = meetings.some((m) => {
+          const mStart = parseTimeToMinutes(m.time);
+          const mDuration = Number(m.duration) || 60;
+          const mEnd = mStart + mDuration;
+
+          return mStart < slotEndMins && mEnd > slotStartMins;
+        });
+
+        if (isBusy) {
+          busyAccounts.push(accId);
+        } else {
+          availableAccounts.push(accId);
+        }
+      });
+
+      hourlySlots.push({
+        timeLabel,
+        hour: targetHour,
+        totalAccounts,
+        availableCount: availableAccounts.length,
+        busyCount: busyAccounts.length,
+        availableAccounts,
+        busyAccounts,
+      });
+    }
+
+    return hourlySlots;
+  };
+
   const accountKeys = Object.keys(poolData);
   const totalClassesToday = accountKeys.reduce((acc, key) => acc + poolData[key].length, 0);
+  const upcoming4HoursSlots = calculateNext4HoursAvailability();
 
   return (
     <div className="min-h-screen bg-[#070b19] text-white p-4 sm:p-6 font-sans selection:bg-blue-600/30">
@@ -137,6 +193,78 @@ export default function AdminPoolPage() {
             <div className="w-10 h-10 bg-purple-950 border border-purple-900 rounded-xl flex items-center justify-center text-lg">📊</div>
           </div>
         </div>
+
+        {/* 🚀 LIVE NEXT 4 HOURS AVAILABILITY WIDGET */}
+        {!loading && accountKeys.length > 0 && (
+          <div className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <h2 className="text-sm font-black text-white font-mono tracking-wide">
+                  🕒 NEXT 4 HOURS LIVE AVAILABILITY
+                </h2>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                Real-time Slot Capacity
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {upcoming4HoursSlots.map((slot, idx) => {
+                const availabilityPercent = Math.round((slot.availableCount / slot.totalAccounts) * 100);
+                let badgeColor = "bg-emerald-950/80 text-emerald-400 border-emerald-800/60";
+                let progressColor = "bg-emerald-500";
+
+                if (availabilityPercent < 30) {
+                  badgeColor = "bg-rose-950/80 text-rose-400 border-rose-800/60";
+                  progressColor = "bg-rose-500";
+                } else if (availabilityPercent < 70) {
+                  badgeColor = "bg-amber-950/80 text-amber-400 border-amber-800/60";
+                  progressColor = "bg-amber-500";
+                }
+
+                return (
+                  <div key={idx} className="bg-slate-950/90 border border-slate-800/80 p-4 rounded-xl space-y-3 relative overflow-hidden group hover:border-blue-700/50 transition-all">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-mono font-black text-amber-400 bg-slate-900 px-2 py-1 rounded-md border border-slate-800">
+                        ⏰ {slot.timeLabel}
+                      </span>
+                      <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border ${badgeColor}`}>
+                        {slot.availableCount} / {slot.totalAccounts} Free
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-mono text-slate-400">
+                        <span>Capacity</span>
+                        <span className="font-bold text-slate-200">{availabilityPercent}% Free</span>
+                      </div>
+                      <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div className={`h-full ${progressColor} transition-all duration-500`} style={{ width: `${availabilityPercent}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Free Account Badges Preview */}
+                    <div className="pt-2 border-t border-slate-900/80 flex flex-wrap gap-1">
+                      {slot.availableAccounts.length === 0 ? (
+                        <span className="text-[10px] text-rose-400/80 italic font-mono">❌ All Accounts Busy</span>
+                      ) : (
+                        slot.availableAccounts.map((acc, aIdx) => (
+                          <span key={aIdx} className="text-[9px] font-mono bg-blue-950/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-900/30">
+                            {acc}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* VISUALIZER GRID */}
         {loading ? (
