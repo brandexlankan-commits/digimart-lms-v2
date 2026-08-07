@@ -325,7 +325,34 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
-  // ⏱️ Bulletproof Duration Formatter (Converts 180 -> 3 Hrs, 135 -> 2 Hrs 15 Min)
+  // 🎯 Date සහ Time තනි Timestamp එකකට හරවන Helper Function (Sorting සදහා)
+  const parseDateTimeToTimestamp = (dateStr?: string, timeStr?: string) => {
+    if (!dateStr) return 0;
+
+    let hours = 0;
+    let minutes = 0;
+
+    if (timeStr) {
+      const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (match) {
+        hours = parseInt(match[1], 10);
+        minutes = parseInt(match[2], 10);
+        const period = match[3]?.toUpperCase();
+
+        if (period === "PM" && hours < 12) hours += 12;
+        if (period === "AM" && hours === 12) hours = 0;
+      }
+    }
+
+    const parts = dateStr.split("-").map((num) => parseInt(num, 10));
+    if (parts.length === 3 && !isNaN(parts[0])) {
+      return new Date(parts[0], parts[1] - 1, parts[2], hours, minutes).getTime();
+    }
+
+    return new Date(`${dateStr} ${timeStr || ""}`).getTime() || 0;
+  };
+
+  // ⏱️ Duration Formatter
   const formatDuration = (rawDuration: any) => {
     if (!rawDuration) return "0 Min";
 
@@ -346,7 +373,7 @@ export default function DashboardPage() {
     }
   };
 
-  // 🎯 Zoom Meeting ID Formatting Function (e.g. 81449614124 -> 814 4961 4124)
+  // 🎯 Zoom Meeting ID Formatting Function
   const formatMeetingId = (id?: string) => {
     if (!id) return "Loading...";
     const clean = id.toString().replace(/\D/g, "");
@@ -363,7 +390,16 @@ export default function DashboardPage() {
       const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
       if (response.ok) {
         const data = await response.json();
-        setPlannedClasses(data.plannedClasses || []);
+
+        // 🎯 පන්ති Date & Time අනුව ළඟම එන පන්තියේ සිට පිළිවෙලට Sort කිරීම
+        const rawClasses: Meeting[] = data.plannedClasses || [];
+        const sortedClasses = rawClasses.sort((a, b) => {
+          const timeA = parseDateTimeToTimestamp(a.date, a.time || a.startTime || a.start_time);
+          const timeB = parseDateTimeToTimestamp(b.date, b.time || b.startTime || b.start_time);
+          return timeA - timeB;
+        });
+
+        setPlannedClasses(sortedClasses);
         setRecordings(data.recordings || []);
         
         if (data.profilePic || data.teacherPic || data.profile_picture) {
@@ -413,7 +449,6 @@ export default function DashboardPage() {
     const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, ""), 10) || 0;
     const totalDurationInMinutes = (hoursNum * 60) + minsNum;
 
-    // 🎯 PASSCODE FALLBACK LOGIC (Auto OR Empty -> 6-Digit Random PIN)
     const cleanPasscode = passcode.trim();
     const finalPasscode = (!cleanPasscode || cleanPasscode.toLowerCase() === "auto")
       ? Math.floor(100000 + Math.random() * 900000).toString()
@@ -805,7 +840,6 @@ export default function DashboardPage() {
                       ))}
                     </select>
                     
-                    {/* 🎯 STRICT 15-MINUTE INTERVAL DROPDOWN */}
                     <select 
                       value={selectedMinute} 
                       onChange={(e) => setSelectedMinute(e.target.value)}
