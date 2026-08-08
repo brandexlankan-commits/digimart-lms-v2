@@ -8,7 +8,9 @@ interface Meeting {
   time: string;
   duration: string;
   zoom_id?: string;
-  passcode: string;
+  passcode?: string;
+  password?: string;
+  pass?: string;
   start_url?: string;
   join_url?: string;
   zoom_account_id?: string;
@@ -325,6 +327,25 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
+  // 🎯 Passcode, Time සහ Join URL සඳහා ආරක්ෂිත Fallback Helpers (undefined වීම වැළැක්වීම)
+  const getMeetingPasscode = (item: Meeting) => {
+    return item.passcode || item.password || item.pass || "123456";
+  };
+
+  const getMeetingTime = (item: Meeting) => {
+    return item.time || item.startTime || item.start_time || "12:00 PM";
+  };
+
+  const getMeetingJoinUrl = (item: Meeting) => {
+    if (item.join_url) return item.join_url;
+    if (item.start_url) return item.start_url;
+    if (item.zoom_id) {
+      const cleanId = item.zoom_id.toString().replace(/\D/g, "");
+      return `https://us06web.zoom.us/j/${cleanId}`;
+    }
+    return "";
+  };
+
   // 🎯 Date සහ Time තනි Timestamp එකකට හරවන Helper Function (Sorting සදහා)
   const parseDateTimeToTimestamp = (dateStr?: string, timeStr?: string) => {
     if (!dateStr) return 0;
@@ -449,6 +470,7 @@ export default function DashboardPage() {
     const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, ""), 10) || 0;
     const totalDurationInMinutes = (hoursNum * 60) + minsNum;
 
+    // 🎯 USER-DEFINED OR AUTO-GENERATED PASSCODE LOGIC
     const cleanPasscode = passcode.trim();
     const finalPasscode = (!cleanPasscode || cleanPasscode.toLowerCase() === "auto")
       ? Math.floor(100000 + Math.random() * 900000).toString()
@@ -480,6 +502,7 @@ export default function DashboardPage() {
       if (response.ok && data.status === "success") {
         alert(t.alertSuccessCreate);
         setTopic("");
+        setPasscode("Auto");
         fetchTeacherData(teacherId);
         setActiveTab("planned");
       } else {
@@ -951,61 +974,67 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-                {plannedClasses.map((item, idx) => (
-                  <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center gap-2">
-                        <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">{item.date}</span>
-                        
-                        <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
-                          ⏳ {formatDuration(item.duration)}
-                        </span>
-                      </div>
+                {plannedClasses.map((item, idx) => {
+                  const pass = getMeetingPasscode(item);
+                  const classTime = getMeetingTime(item);
+                  const joinUrl = getMeetingJoinUrl(item);
 
-                      <h3 className="text-xs font-bold tracking-wide text-slate-200 line-clamp-2">{item.topic}</h3>
-                      
-                      <div className="bg-slate-950/70 border border-slate-900/60 p-2.5 sm:p-3 rounded-xl space-y-1 font-mono text-[11px] text-slate-400">
-                        <p>⏰ Time: {item.time || item.startTime || "12:00 PM"}</p>
-                        <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
-                        <p>🔑 Pass: {item.passcode}</p>
-                        <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
+                  return (
+                    <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">{item.date}</span>
+                          
+                          <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
+                            ⏳ {formatDuration(item.duration)}
+                          </span>
+                        </div>
+
+                        <h3 className="text-xs font-bold tracking-wide text-slate-200 line-clamp-2">{item.topic}</h3>
+                        
+                        <div className="bg-slate-950/70 border border-slate-900/60 p-2.5 sm:p-3 rounded-xl space-y-1 font-mono text-[11px] text-slate-400">
+                          <p>⏰ Time: {classTime}</p>
+                          <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
+                          <p>🔑 Pass: {pass}</p>
+                          <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2 pt-1">
-                      <div className="grid grid-cols-2 gap-2">
-                        <a 
-                          href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white"
-                        >
-                          {t.startClassBtn}
-                        </a>
+                      
+                      <div className="space-y-2 pt-1">
+                        <div className="grid grid-cols-2 gap-2">
+                          <a 
+                            href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white"
+                          >
+                            {t.startClassBtn}
+                          </a>
+
+                          <button 
+                            onClick={() => {
+                              const formattedId = formatMeetingId(item.zoom_id);
+                              const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
+                              navigator.clipboard.writeText(details);
+                              alert(t.alertCopySuccess);
+                            }}
+                            className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors"
+                          >
+                            {t.copyDetailsBtn}
+                          </button>
+                        </div>
 
                         <button 
-                          onClick={() => {
-                            const formattedId = formatMeetingId(item.zoom_id);
-                            const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${item.time}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${item.passcode}\n\n🌐 *Join Link:* ${item.join_url}`;
-                            navigator.clipboard.writeText(details);
-                            alert(t.alertCopySuccess);
-                          }}
-                          className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors"
+                          onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
+                          className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center"
                         >
-                          {t.copyDetailsBtn}
+                          {t.cancelClassBtn}
                         </button>
                       </div>
 
-                      <button 
-                        onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
-                        className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center"
-                      >
-                        {t.cancelClassBtn}
-                      </button>
                     </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
