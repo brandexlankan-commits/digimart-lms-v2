@@ -68,6 +68,7 @@ const translations = {
     hostVideo: "Host Video",
     participantVideo: "Participant Video",
     muteOnEntry: "Mute on Entry",
+    autoRecordingLabel: "🎙️ Auto Recording Options",
     createBtn: "▶️ Create Zoom Class",
     creatingBtn: "⚙️ පන්තිය සකසමින්...",
     plannedClassesTitle: "සැලසුම් කර ඇති පන්ති",
@@ -83,12 +84,9 @@ const translations = {
     colTitle: "CLASS TITLE",
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
-    
-    // ⏳ COUNTDOWN TRANSLATIONS
     daysLeftText: "දින {days} ක් ඉතිරියි",
     expiredText: "❌ කාලය ඉකුත් වී ඇත",
 
-    // 🔔 ALERTS & WHATSAPP REDIRECT PROMPTS
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ ගිණුමේ දැනට පවතින්නේ Single Host Package එකකි.\n\nඑම නිසා ඔබට එකවර පැවැත්විය හැක්කේ එක් රැස්වීමක් (Meeting එකක්) පමණි.\n\nDual Host හෝ ඊට වැඩි Package එකක් Active කරගැනීමට Digimart Support අමතන්න.",
     whatsappConfirm: "👉 ඔබට දැන්ම WhatsApp හරහා Digimart Support සම්බන්ධ කර ගැනීමට අවශ්‍යද?",
@@ -142,6 +140,7 @@ const translations = {
     hostVideo: "Host Video",
     participantVideo: "Participant Video",
     muteOnEntry: "Mute on Entry",
+    autoRecordingLabel: "🎙️ Auto Recording Options",
     createBtn: "▶️ Create Zoom Class",
     creatingBtn: "⚙️ Creating Class...",
     plannedClassesTitle: "Scheduled Classes",
@@ -157,7 +156,6 @@ const translations = {
     colTitle: "CLASS TITLE",
     colAction: "ACTION",
     copyLinkBtn: "📋 Copy Link",
-    
     daysLeftText: "{days} Days Left",
     expiredText: "❌ Account Expired",
 
@@ -214,6 +212,7 @@ const translations = {
     hostVideo: "தொகுப்பாளர் வீடியோ",
     participantVideo: "பங்கேற்பாளர் வீடியோ",
     muteOnEntry: "நுழையும் போது முடக்கு",
+    autoRecordingLabel: "🎙️ Auto Recording Options",
     createBtn: "▶️ Zoom வகுப்பை உருவாக்கு",
     creatingBtn: "⚙️ உருவாக்கப்படுகிறது...",
     plannedClassesTitle: "திட்டமிடப்பட்ட வகுப்புகள்",
@@ -229,12 +228,11 @@ const translations = {
     colTitle: "வகுப்பு தலைப்பு",
     colAction: "செயல்பாடு",
     copyLinkBtn: "📋 லிங்கை நகலெடு",
-    
     daysLeftText: "{days} நாட்கள் மீதமுள்ளன",
     expiredText: "❌ கணக்கு காலாவதியானது",
 
     alertSuccessCreate: "📹 Zoom வகுப்பு வெற்றிகரமாக திட்டமிடப்பட்டு சேமிக்கப்பட்டது.",
-    alertHostLimitError: "🚫 உங்கள் கணக்கில் தற்போது Single Host Package மட்டுமே உள்ளது.\n\nஎனவே உங்களால் ஒரே நேரத்தில் ஒரு கூட்டத்தை மட்டுமே நடத்த முடியும்.\n\nDual Host அல்லது அதற்கு மேற்பட்ட Package-ஐ activate செய்ய Digimart Support-ஐ தொடர்பு கொள்ளவும்.",
+    alertHostLimitError: "🚫 உங்கள் கணக்கில் தற்போது Single Host Package மட்டுமே உள்ளது.\n\nஎனவே உங்களால் ஒரே நேரத்தில் ஒரு கூட்டத்தை மட்டுமே நடத்த முடியும்.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
     whatsappConfirm: "👉 இப்போது WhatsApp மூலம் Digimart Support-ஐ தொடர்பு கொள்ள விரும்புகிறீர்களா?",
     alertAllBusyError: "ERR_ALL_BUSY: தேர்ந்தெடுக்கப்பட்ட நேரத்தில் இலவச Zoom கணக்குகள் எதுவும் கிடைக்கவில்லை.",
     alertGeneralError: "🚫 வகுப்பை திட்டமிட முடியவில்லை. நேரத்தை மீண்டும் சரிபார்க்கவும்.",
@@ -277,6 +275,9 @@ export default function DashboardPage() {
   const [hostVideo, setHostVideo] = useState(true);
   const [participantVideo, setParticipantVideo] = useState(false);
   const [muteOnEntry, setMuteOnEntry] = useState(true);
+  
+  // 🎯 NEW: AUTO RECORDING SELECTION STATE
+  const [autoRecording, setAutoRecording] = useState<"none" | "cloud" | "local">("cloud");
   
   const [formLoading, setFormLoading] = useState(false);
 
@@ -327,7 +328,7 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
-  // 🎯 Passcode, Time සහ Join URL සඳහා ආරක්ෂිත Fallback Helpers (undefined වීම වැළැක්වීම)
+  // 🎯 Passcode, Time සහ Join URL සඳහා ආරක්ෂිත Fallback Helpers
   const getMeetingPasscode = (item: Meeting) => {
     return item.passcode || item.password || item.pass || "123456";
   };
@@ -346,7 +347,7 @@ export default function DashboardPage() {
     return "";
   };
 
-  // 🎯 Date සහ Time තනි Timestamp එකකට හරවන Helper Function (Sorting සදහා)
+  // 🎯 Date සහ Time තනි Timestamp එකකට හරවන Helper Function
   const parseDateTimeToTimestamp = (dateStr?: string, timeStr?: string) => {
     if (!dateStr) return 0;
 
@@ -406,13 +407,46 @@ export default function DashboardPage() {
     return id;
   };
 
+  // 🎯 STRICT TIME FRAME START CLASS HANDLER (Start - 1h to End + 1h)
+  const handleStartClass = (item: Meeting) => {
+    const startTimeMs = parseDateTimeToTimestamp(item.date, getMeetingTime(item));
+    const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
+    
+    // 1. පන්තිය අවසන් වන වෙලාව (උදා: 8:00 PM + 2h = 10:00 PM)
+    const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
+    
+    const nowMs = Date.now();
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+
+    // 2. Start කළ හැකි මුල්ම වෙලාව (Start - 1h) -> උදා: 7:00 PM
+    const earliestAllowed = startTimeMs - ONE_HOUR_MS;
+    
+    // 3. Start කළ හැකි අවසානම වෙලාව (End + 1h) -> උදා: 11:00 PM
+    const latestAllowed = endTimeMs + ONE_HOUR_MS;
+
+    // ❌ 7:00 PM ට කලින් එන්න හැදුවොත්
+    if (nowMs < earliestAllowed) {
+      alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
+      return;
+    }
+
+    // ❌ 11:00 PM ට පස්සේ එන්න හැදුවොත්
+    if (nowMs > latestAllowed) {
+      alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත.\n\nනියමිත වේලාව පසුවී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
+      return;
+    }
+
+    // ✅ වේලාව 7:00 PM - 11:00 PM අතර නම් පමණක් Zoom Start වේ
+    const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`;
+    window.open(startUrl, "_blank");
+  };
+
   const fetchTeacherData = async (id: string) => {
     try {
       const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
       if (response.ok) {
         const data = await response.json();
 
-        // 🎯 පන්ති Date & Time අනුව ළඟම එන පන්තියේ සිට පිළිවෙලට Sort කිරීම
         const rawClasses: Meeting[] = data.plannedClasses || [];
         const sortedClasses = rawClasses.sort((a, b) => {
           const timeA = parseDateTimeToTimestamp(a.date, a.time || a.startTime || a.start_time);
@@ -470,7 +504,6 @@ export default function DashboardPage() {
     const minsNum = parseInt(durationMinutes.replace(/[^0-9]/g, ""), 10) || 0;
     const totalDurationInMinutes = (hoursNum * 60) + minsNum;
 
-    // 🎯 USER-DEFINED OR AUTO-GENERATED PASSCODE LOGIC
     const cleanPasscode = passcode.trim();
     const finalPasscode = (!cleanPasscode || cleanPasscode.toLowerCase() === "auto")
       ? Math.floor(100000 + Math.random() * 900000).toString()
@@ -492,7 +525,8 @@ export default function DashboardPage() {
           waiting_room: waitingRoom,
           host_video: hostVideo,
           participant_video: participantVideo,
-          mute_upon_entry: muteOnEntry
+          mute_upon_entry: muteOnEntry,
+          auto_recording: autoRecording // 🎯 Auto-Recording Value Passed
         })
       });
 
@@ -924,6 +958,22 @@ export default function DashboardPage() {
                 />
               </div>
 
+              {/* 🎯 AUTO RECORDING SELECTION DROPDOWN */}
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                  {t.autoRecordingLabel}
+                </label>
+                <select 
+                  value={autoRecording}
+                  onChange={(e) => setAutoRecording(e.target.value as "none" | "cloud" | "local")}
+                  className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="cloud">☁️ Cloud Recording (Auto Cloud Storage)</option>
+                  <option value="local">💻 Local Recording (Save on Computer)</option>
+                  <option value="none">❌ Disable Auto Recording</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-900">
                 <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
                   <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
@@ -1002,14 +1052,12 @@ export default function DashboardPage() {
                       
                       <div className="space-y-2 pt-1">
                         <div className="grid grid-cols-2 gap-2">
-                          <a 
-                            href={`https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white"
+                          <button 
+                            onClick={() => handleStartClass(item)}
+                            className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
                           >
                             {t.startClassBtn}
-                          </a>
+                          </button>
 
                           <button 
                             onClick={() => {
@@ -1026,7 +1074,7 @@ export default function DashboardPage() {
 
                         <button 
                           onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
-                          className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center"
+                          className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
                         >
                           {t.cancelClassBtn}
                         </button>
@@ -1054,8 +1102,6 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                
-                {/* 📱 MOBILE VIEW: CARD LIST (<640px) */}
                 <div className="block sm:hidden space-y-3">
                   {recordings.map((rec, idx) => (
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 rounded-2xl space-y-2.5">
@@ -1076,7 +1122,6 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                {/* 🖥️ DESKTOP VIEW: TABLE (≥640px) */}
                 <div className="hidden sm:block bg-[#0b132b]/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
