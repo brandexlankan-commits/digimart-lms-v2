@@ -333,8 +333,16 @@ export default function DashboardPage() {
     return item.passcode || item.password || item.pass || "123456";
   };
 
-  const getMeetingTime = (item: Meeting) => {
-    return item.time || item.startTime || item.start_time || "12:00 PM";
+  // 🎯 FIXED: Time එක extract කරගන්නා ආරක්ෂිත Helper එක
+  const getMeetingTime = (item: any) => {
+    if (item.time) return item.time;
+    if (item.startTime) return item.startTime;
+    if (item.start_time) return item.start_time;
+    if (item["Start Time"]) {
+      const match = item["Start Time"].match(/(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+      if (match) return match[1];
+    }
+    return "12:00 PM";
   };
 
   const getMeetingJoinUrl = (item: Meeting) => {
@@ -347,8 +355,11 @@ export default function DashboardPage() {
     return "";
   };
 
-  // 🎯 Date සහ Time තනි Timestamp එකකට හරවන Helper Function
-  const parseDateTimeToTimestamp = (dateStr?: string, timeStr?: string) => {
+  // 🎯 FIXED: Date + Time තනි Exact Millisecond Timestamp එකකට හරවන Function එක
+  const parseDateTimeToTimestamp = (item: Meeting) => {
+    const dateStr = item.date || (item as any)["Start Time"]?.split(" ")[0];
+    const timeStr = getMeetingTime(item);
+
     if (!dateStr) return 0;
 
     let hours = 0;
@@ -366,12 +377,12 @@ export default function DashboardPage() {
       }
     }
 
-    const parts = dateStr.split("-").map((num) => parseInt(num, 10));
+    const parts = dateStr.split("-").map((num: string) => parseInt(num, 10));
     if (parts.length === 3 && !isNaN(parts[0])) {
       return new Date(parts[0], parts[1] - 1, parts[2], hours, minutes).getTime();
     }
 
-    return new Date(`${dateStr} ${timeStr || ""}`).getTime() || 0;
+    return 0;
   };
 
   // ⏱️ Duration Formatter
@@ -409,7 +420,7 @@ export default function DashboardPage() {
 
   // 🎯 STRICT TIME FRAME START CLASS HANDLER (Start - 1h to End + 1h)
   const handleStartClass = (item: Meeting) => {
-    const startTimeMs = parseDateTimeToTimestamp(item.date, getMeetingTime(item));
+    const startTimeMs = parseDateTimeToTimestamp(item);
     const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
     
     // 1. පන්තිය අවසන් වන වෙලාව (උදා: 8:00 PM + 2h = 10:00 PM)
@@ -447,10 +458,11 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json();
 
+        // 🎯 FIXED: Date සහ Exact Time එක අනුව හරියටම Order එකට Sort කිරීම
         const rawClasses: Meeting[] = data.plannedClasses || [];
         const sortedClasses = rawClasses.sort((a, b) => {
-          const timeA = parseDateTimeToTimestamp(a.date, a.time || a.startTime || a.start_time);
-          const timeB = parseDateTimeToTimestamp(b.date, b.time || b.startTime || b.start_time);
+          const timeA = parseDateTimeToTimestamp(a);
+          const timeB = parseDateTimeToTimestamp(b);
           return timeA - timeB;
         });
 
@@ -537,6 +549,7 @@ export default function DashboardPage() {
         alert(t.alertSuccessCreate);
         setTopic("");
         setPasscode("Auto");
+        setAutoRecording("none"); // 🎯 FIXED: Class හදලා ඉවර වුණු ගමන් Auto Recording එක ආයෙත් Default OFF ("none") වෙනවා
         fetchTeacherData(teacherId);
         setActiveTab("planned");
       } else {
@@ -1033,7 +1046,7 @@ export default function DashboardPage() {
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
                       <div className="space-y-3">
                         <div className="flex justify-between items-center gap-2">
-                          <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">{item.date}</span>
+                          <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">{item.date || (item as any)["Start Time"]?.split(" ")[0]}</span>
                           
                           <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
                             ⏳ {formatDuration(item.duration)}
@@ -1062,7 +1075,7 @@ export default function DashboardPage() {
                           <button 
                             onClick={() => {
                               const formattedId = formatMeetingId(item.zoom_id);
-                              const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
+                              const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
                               navigator.clipboard.writeText(details);
                               alert(t.alertCopySuccess);
                             }}
