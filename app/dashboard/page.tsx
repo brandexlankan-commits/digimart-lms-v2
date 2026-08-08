@@ -276,8 +276,8 @@ export default function DashboardPage() {
   const [participantVideo, setParticipantVideo] = useState(false);
   const [muteOnEntry, setMuteOnEntry] = useState(true);
   
-  // 🎯 NEW: AUTO RECORDING SELECTION STATE
-  const [autoRecording, setAutoRecording] = useState<"none" | "cloud" | "local">("cloud");
+  // 🎯 DEFAULT AUTO RECORDING IS SET TO OFF ("none")
+  const [autoRecording, setAutoRecording] = useState<"none" | "cloud" | "local">("none");
   
   const [formLoading, setFormLoading] = useState(false);
 
@@ -526,7 +526,7 @@ export default function DashboardPage() {
           host_video: hostVideo,
           participant_video: participantVideo,
           mute_upon_entry: muteOnEntry,
-          auto_recording: autoRecording // 🎯 Auto-Recording Value Passed
+          auto_recording: autoRecording
         })
       });
 
@@ -664,7 +664,7 @@ export default function DashboardPage() {
 
             <button 
               onClick={handleLogout}
-              className="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/40 text-rose-400 font-bold rounded-xl transition-all text-[11px] sm:text-xs ml-auto lg:ml-0"
+              className="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/40 text-rose-400 font-bold rounded-xl transition-all text-[11px] sm:text-xs ml-auto lg:ml-0 cursor-pointer"
             >
               {t.signOut}
             </button>
@@ -675,7 +675,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-900 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
           <button
             onClick={() => setActiveTab("home")}
-            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === "home" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -686,7 +686,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setActiveTab("schedule")}
-            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === "schedule" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -697,7 +697,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setActiveTab("planned")}
-            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative cursor-pointer ${
               activeTab === "planned" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -711,7 +711,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => setActiveTab("recordings")}
-            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative ${
+            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative cursor-pointer ${
               activeTab === "recordings" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -844,7 +844,7 @@ export default function DashboardPage() {
               </div>
               <button 
                 onClick={() => setActiveTab("schedule")}
-                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-600/20 text-center"
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-600/20 text-center cursor-pointer"
               >
                 {t.scheduleNowBtn}
               </button>
@@ -958,7 +958,7 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* 🎯 AUTO RECORDING SELECTION DROPDOWN */}
+              {/* 🎯 AUTO RECORDING SELECTION DROPDOWN (DEFAULT: NONE) */}
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1.5">
                   {t.autoRecordingLabel}
@@ -968,9 +968,9 @@ export default function DashboardPage() {
                   onChange={(e) => setAutoRecording(e.target.value as "none" | "cloud" | "local")}
                   className="w-full p-2.5 sm:p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer"
                 >
-                  <option value="cloud">☁️ Cloud Recording (Auto Cloud Storage)</option>
+                  <option value="none">❌ Disable Auto Recording (Default)</option>
+                  <option value="cloud">☁️ Cloud Recording (Save on Zoom Cloud)</option>
                   <option value="local">💻 Local Recording (Save on Computer)</option>
-                  <option value="none">❌ Disable Auto Recording</option>
                 </select>
               </div>
 
@@ -996,7 +996,7 @@ export default function DashboardPage() {
               <button 
                 type="submit"
                 disabled={formLoading}
-                className="w-full py-3 sm:py-3.5 mt-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2"
+                className="w-full py-3 sm:py-3.5 mt-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {formLoading ? t.creatingBtn : t.createBtn}
               </button>
@@ -1017,7 +1017,7 @@ export default function DashboardPage() {
                 <p>{t.noPlannedClasses}</p>
                 <button 
                   onClick={() => setActiveTab("schedule")}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold cursor-pointer"
                 >
                   {t.scheduleFirstBtn}
                 </button>
@@ -1066,7 +1066,7 @@ export default function DashboardPage() {
                               navigator.clipboard.writeText(details);
                               alert(t.alertCopySuccess);
                             }}
-                            className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors"
+                            className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
                           >
                             {t.copyDetailsBtn}
                           </button>
@@ -1114,7 +1114,7 @@ export default function DashboardPage() {
                           navigator.clipboard.writeText(rec.link);
                           alert(t.alertCopyVideoSuccess);
                         }}
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors text-center"
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors text-center cursor-pointer"
                       >
                         {t.copyLinkBtn}
                       </button>
@@ -1142,7 +1142,7 @@ export default function DashboardPage() {
                                 navigator.clipboard.writeText(rec.link);
                                 alert(t.alertCopyVideoSuccess);
                               }}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors"
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors cursor-pointer"
                             >
                               {t.copyLinkBtn}
                             </button>
