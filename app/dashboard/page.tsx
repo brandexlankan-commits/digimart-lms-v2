@@ -206,7 +206,7 @@ const translations = {
     timeLabel: "நேரம்",
     durationHoursLabel: "கால அளவு (மணி)",
     durationMinutesLabel: "கால அளவு (நிமிடங்கள்)",
-    passcodeLabel: "கடவுச்சொல்",
+    passcodeLabel: "கடவுச்சොල්",
     passcodePlaceholder: "Auto (தானாக உருவாக்க காலியாக விடவும்)",
     waitingRoom: "காத்திருப்பு அறை",
     hostVideo: "தொகுப்பாளர் வீடியோ",
@@ -458,9 +458,28 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json();
 
-        // 🎯 FIXED: Date සහ Exact Time එක අනුව හරියටම Order එකට Sort කිරීම
         const rawClasses: Meeting[] = data.plannedClasses || [];
-        const sortedClasses = rawClasses.sort((a, b) => {
+        const nowMs = Date.now();
+        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000; // 🎯 පැය 12 ක Safe Grace Period එකක්
+
+        // 🎯 පන්තිය ඉවර වී පැය 12කට වඩා පැරණි, Recording නැති පන්ති Auto Hide කිරීම
+        const activeScheduledClasses = rawClasses.filter((item) => {
+          const startTimeMs = parseDateTimeToTimestamp(item);
+          const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
+          const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
+
+          const recordingUrl = (item as any)["Recording URL"] || (item as any).recording_url || "";
+          const hasRecording = String(recordingUrl).trim() !== "";
+
+          // Recording එක ඇවිත් නම් Scheduled ලිස්ට් එකේ පෙන්වන්නේ නැත (Recordings Tab එකට යයි)
+          if (hasRecording) return false;
+
+          // පන්තිය ඉවර වී පැය 12ක් යනකම් Scheduled ලිස්ට් එකේ පෙන්වයි (ඉන්පසු Auto Hide වේ)
+          return nowMs < (endTimeMs + TWELVE_HOURS_MS);
+        });
+
+        // Exact Timestamp එක අනුව Sort කිරීම
+        const sortedClasses = activeScheduledClasses.sort((a, b) => {
           const timeA = parseDateTimeToTimestamp(a);
           const timeB = parseDateTimeToTimestamp(b);
           return timeA - timeB;
@@ -549,7 +568,7 @@ export default function DashboardPage() {
         alert(t.alertSuccessCreate);
         setTopic("");
         setPasscode("Auto");
-        setAutoRecording("none"); // 🎯 FIXED: Class හදලා ඉවර වුණු ගමන් Auto Recording එක ආයෙත් Default OFF ("none") වෙනවා
+        setAutoRecording("none"); // 🎯 Class හදලා ඉවර වුණු ගමන් Auto Recording එක ආයෙත් Default OFF ("none") වෙනවා
         fetchTeacherData(teacherId);
         setActiveTab("planned");
       } else {
@@ -1041,6 +1060,7 @@ export default function DashboardPage() {
                   const pass = getMeetingPasscode(item);
                   const classTime = getMeetingTime(item);
                   const joinUrl = getMeetingJoinUrl(item);
+                  const startTimeMs = parseDateTimeToTimestamp(item);
 
                   return (
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
@@ -1085,12 +1105,19 @@ export default function DashboardPage() {
                           </button>
                         </div>
 
-                        <button 
-                          onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
-                          className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
-                        >
-                          {t.cancelClassBtn}
-                        </button>
+                        {/* 🎯 UI FIX: පන්තිය පැවැත්වෙන/ඉවර වුණු එකක් නම් Cancel Button එක Hide වී Processing Indicator එක පෙන්වීම */}
+                        {Date.now() >= startTimeMs ? (
+                          <div className="w-full py-1.5 bg-slate-900 border border-slate-800 text-amber-400 text-[10px] font-bold rounded-xl text-center select-none">
+                            ⏳ Class Ended / Recording Processing...
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
+                            className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
+                          >
+                            {t.cancelClassBtn}
+                          </button>
+                        )}
                       </div>
 
                     </div>
