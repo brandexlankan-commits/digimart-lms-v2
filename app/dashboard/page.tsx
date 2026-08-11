@@ -208,7 +208,7 @@ const translations = {
     timeLabel: "நேரம்",
     durationHoursLabel: "கால அளவு (மணி)",
     durationMinutesLabel: "கால அளவு (நிமிடங்கள்)",
-    passcodeLabel: "கடவுச்சොல்",
+    passcodeLabel: "கடவுச்சொல்",
     passcodePlaceholder: "Auto (தானாக உருவாக்க காலியாக விடவும்)",
     waitingRoom: "காத்திருப்பு அறை",
     hostVideo: "தொகுப்பாளர் வீடியோ",
@@ -410,7 +410,7 @@ export default function DashboardPage() {
     return id;
   };
 
-  // 🎯 FIXED: Clean Numeric Zoom ID (e.g., 82518969275) එකම Webhook එකට යැවීම
+  // 🎯 STRICT TIME FRAME LOGIC (NO EXTRA BUFFER TIME)
   const handleStartClass = (item: Meeting) => {
     const startTimeMs = parseDateTimeToTimestamp(item);
     const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
@@ -419,8 +419,8 @@ export default function DashboardPage() {
     const nowMs = Date.now();
     const ONE_HOUR_MS = 60 * 60 * 1000;
 
-    const earliestAllowed = startTimeMs - ONE_HOUR_MS;
-    const latestAllowed = endTimeMs + (2 * ONE_HOUR_MS);
+    const earliestAllowed = startTimeMs - ONE_HOUR_MS; // නියමිත වේලාවට පැයකට පෙර සිට
+    const latestAllowed = endTimeMs;                   // 🎯 වෙන් කළ කාලය අවසන් වූ සැනින්ම (No Buffer)
 
     if (nowMs < earliestAllowed) {
       alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
@@ -428,11 +428,10 @@ export default function DashboardPage() {
     }
 
     if (nowMs > latestAllowed) {
-      alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත.\n\nනියමිත වේලාව පසුවී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
+      alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත (Expired Class).\n\nවෙන් කළ කාලය අවසන් වී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
       return;
     }
 
-    // Google Sheet Column F එකෙහි 'Zoom Meeting ID' සමඟ 100% Match වෙන පරිදි Numeric ID එක යැවීම
     const cleanZoomId = item.zoom_id ? item.zoom_id.toString().replace(/\D/g, "") : item.meeting_id_row;
     const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${cleanZoomId}`;
     window.open(startUrl, "_blank");
