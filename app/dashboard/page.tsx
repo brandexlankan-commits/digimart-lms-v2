@@ -263,7 +263,6 @@ export default function DashboardPage() {
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   
-  // Dynamic Form State Defaults
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("");
   const [selectedHour, setSelectedHour] = useState("07");
@@ -411,6 +410,7 @@ export default function DashboardPage() {
     return id;
   };
 
+  // 🎯 FIXED: Clean Numeric Zoom ID (e.g., 82518969275) එකම Webhook එකට යැවීම
   const handleStartClass = (item: Meeting) => {
     const startTimeMs = parseDateTimeToTimestamp(item);
     const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
@@ -420,7 +420,7 @@ export default function DashboardPage() {
     const ONE_HOUR_MS = 60 * 60 * 1000;
 
     const earliestAllowed = startTimeMs - ONE_HOUR_MS;
-    const latestAllowed = endTimeMs + ONE_HOUR_MS;
+    const latestAllowed = endTimeMs + (2 * ONE_HOUR_MS);
 
     if (nowMs < earliestAllowed) {
       alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
@@ -432,13 +432,14 @@ export default function DashboardPage() {
       return;
     }
 
-    const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`;
+    // Google Sheet Column F එකෙහි 'Zoom Meeting ID' සමඟ 100% Match වෙන පරිදි Numeric ID එක යැවීම
+    const cleanZoomId = item.zoom_id ? item.zoom_id.toString().replace(/\D/g, "") : item.meeting_id_row;
+    const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${cleanZoomId}`;
     window.open(startUrl, "_blank");
   };
 
   const fetchTeacherData = async (id: string) => {
     try {
-      // 🎯 FIXED: Cache No-Store & Timestamp parameter added
       const response = await fetch(`/api/teacher/data?teacher_id=${id}&t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
@@ -629,7 +630,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#070b19] text-white font-sans p-3 sm:p-4 md:p-6 selection:bg-blue-600/30">
       <div className="max-w-[1400px] mx-auto space-y-5 sm:space-y-6">
         
-        {/* ==================== HEADER SECTION ==================== */}
+        {/* HEADER SECTION */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-slate-900 pb-4 md:pb-5 gap-4">
           <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
             {teacherPic ? (
@@ -690,7 +691,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ==================== TABS NAVIGATION HEADER ==================== */}
+        {/* TABS NAVIGATION HEADER */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-900 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
           <button
             onClick={() => setActiveTab("home")}
@@ -743,12 +744,9 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* ==================== TAB CONTENT AREAS ==================== */}
-
-        {/* ----------------- 🏠 TAB 1: HOME ----------------- */}
+        {/* TAB 1: HOME */}
         {activeTab === "home" && (
           <div className="space-y-5 sm:space-y-6 animate-fadeIn">
-            
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
                 <div>
@@ -872,7 +870,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ----------------- ➕ TAB 2: SCHEDULE CLASS FORM ----------------- */}
+        {/* TAB 2: SCHEDULE CLASS FORM */}
         {activeTab === "schedule" && (
           <div className="max-w-2xl mx-auto bg-[#0b132b] border border-slate-900 p-4 sm:p-6 rounded-2xl shadow-xl space-y-4 sm:space-y-5 animate-fadeIn">
             <h2 className="text-sm sm:text-base font-bold text-blue-400 flex items-center gap-2 border-b border-slate-900 pb-3">
@@ -1022,7 +1020,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ----------------- 📅 TAB 3: SCHEDULED CLASSES ----------------- */}
+        {/* TAB 3: SCHEDULED CLASSES */}
         {activeTab === "planned" && (
           <div className="space-y-4 animate-fadeIn">
             <h2 className="text-xs sm:text-sm font-bold tracking-wide text-gray-300 flex items-center justify-between">
@@ -1047,7 +1045,6 @@ export default function DashboardPage() {
                   const classTime = getMeetingTime(item);
                   const joinUrl = getMeetingJoinUrl(item);
 
-                  // 🎯 STRICT STATUS CHECK
                   const rawStatus = String(
                     item.status || 
                     (item as any).Status || 
@@ -1080,7 +1077,6 @@ export default function DashboardPage() {
                       </div>
                       
                       <div className="space-y-2 pt-1">
-                        {/* 🎯 FIXED: CLASS ENDED නම් START CLASS සහ CANCEL CLASS වෙනුවට BADGE එක විතරක් පෙන්නයි */}
                         {isClassEnded ? (
                           <div className="w-full py-2.5 bg-amber-950/40 border border-amber-800/50 text-amber-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
                             <span>⏳</span>
@@ -1127,7 +1123,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ----------------- 🎬 TAB 4: RECORDINGS ----------------- */}
+        {/* TAB 4: RECORDINGS */}
         {activeTab === "recordings" && (
           <div className="space-y-4 animate-fadeIn">
             <h2 className="text-xs sm:text-sm font-bold tracking-wide text-gray-300 flex items-center justify-between">
