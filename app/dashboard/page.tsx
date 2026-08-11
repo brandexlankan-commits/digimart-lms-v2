@@ -17,6 +17,8 @@ interface Meeting {
   meeting_id_row?: string;
   startTime?: string;
   start_time?: string;
+  status?: string;
+  Status?: string;
 }
 
 interface Recording {
@@ -423,31 +425,31 @@ export default function DashboardPage() {
     const startTimeMs = parseDateTimeToTimestamp(item);
     const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
     
-    // 1. පන්තිය අවසන් වන වෙලාව (උදා: 8:00 PM + 2h = 10:00 PM)
+    // 1. පන්තිය අවසන් වන වෙලාව
     const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
     
     const nowMs = Date.now();
     const ONE_HOUR_MS = 60 * 60 * 1000;
 
-    // 2. Start කළ හැකි මුල්ම වෙලාව (Start - 1h) -> උදා: 7:00 PM
+    // 2. Start කළ හැකි මුල්ම වෙලාව (Start - 1h)
     const earliestAllowed = startTimeMs - ONE_HOUR_MS;
     
-    // 3. Start කළ හැකි අවසානම වෙලාව (End + 1h) -> උදා: 11:00 PM
+    // 3. Start කළ හැකි අවසානම වෙලාව (End + 1h)
     const latestAllowed = endTimeMs + ONE_HOUR_MS;
 
-    // ❌ 7:00 PM ට කලින් එන්න හැදුවොත්
+    // ❌ 1h කලින් එන්න හැදුවොත්
     if (nowMs < earliestAllowed) {
       alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
       return;
     }
 
-    // ❌ 11:00 PM ට පස්සේ එන්න හැදුවොත්
+    // ❌ Active window එක පහුවුණොත්
     if (nowMs > latestAllowed) {
       alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත.\n\nනියමිත වේලාව පසුවී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
       return;
     }
 
-    // ✅ වේලාව 7:00 PM - 11:00 PM අතර නම් පමණක් Zoom Start වේ
+    // ✅ Zoom Start
     const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`;
     window.open(startUrl, "_blank");
   };
@@ -471,10 +473,10 @@ export default function DashboardPage() {
           const recordingUrl = (item as any)["Recording URL"] || (item as any).recording_url || "";
           const hasRecording = String(recordingUrl).trim() !== "";
 
-          // Recording එක ඇවිත් නම් Scheduled ලිස්ට් එකේ පෙන්වන්නේ නැත (Recordings Tab එකට යයි)
+          // Recording එක ඇවිත් නම් Scheduled ලිස්ට් එකේ පෙන්වන්නේ නැත
           if (hasRecording) return false;
 
-          // පන්තිය ඉවර වී පැය 12ක් යනකම් Scheduled ලිස්ට් එකේ පෙන්වයි (ඉන්පසු Auto Hide වේ)
+          // පන්තිය ඉවර වී පැය 12ක් යනකම් Scheduled ලිස්ට් එකේ පෙන්වයි
           return nowMs < (endTimeMs + TWELVE_HOURS_MS);
         });
 
@@ -568,7 +570,7 @@ export default function DashboardPage() {
         alert(t.alertSuccessCreate);
         setTopic("");
         setPasscode("Auto");
-        setAutoRecording("none"); // 🎯 Class හදලා ඉවර වුණු ගමන් Auto Recording එක ආයෙත් Default OFF ("none") වෙනවා
+        setAutoRecording("none");
         fetchTeacherData(teacherId);
         setActiveTab("planned");
       } else {
@@ -1060,7 +1062,9 @@ export default function DashboardPage() {
                   const pass = getMeetingPasscode(item);
                   const classTime = getMeetingTime(item);
                   const joinUrl = getMeetingJoinUrl(item);
-                  const startTimeMs = parseDateTimeToTimestamp(item);
+
+                  // 🎯 Status Check: Webhook එකෙන් ENDED කියලා ආවා නම් විතරක් true වේ
+                  const isClassEnded = (item.status || (item as any).Status || "").toUpperCase() === "ENDED";
 
                   return (
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
@@ -1105,8 +1109,8 @@ export default function DashboardPage() {
                           </button>
                         </div>
 
-                        {/* 🎯 UI FIX: පන්තිය පැවැත්වෙන/ඉවර වුණු එකක් නම් Cancel Button එක Hide වී Processing Indicator එක පෙන්වීම */}
-                        {Date.now() >= startTimeMs ? (
+                        {/* 🎯 FIXED: Status එක ENDED වුණොත් විතරක් Recording Processing පෙන්වයි. නැතහොත් Cancel Class කිරීමට ඉඩ දෙයි */}
+                        {isClassEnded ? (
                           <div className="w-full py-1.5 bg-slate-900 border border-slate-800 text-amber-400 text-[10px] font-bold rounded-xl text-center select-none">
                             ⏳ Class Ended / Recording Processing...
                           </div>
