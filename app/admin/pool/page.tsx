@@ -111,7 +111,6 @@ export default function AdminPoolPage() {
     return currentMins >= mStart && currentMins <= mEnd;
   };
 
-  // 🎯 DAYS REMAINING CALCULATOR
   const getDaysRemaining = (expDateStr: string) => {
     if (!expDateStr) return null;
     const expDate = new Date(expDateStr);
@@ -184,14 +183,13 @@ export default function AdminPoolPage() {
 
   const upcoming4HoursSlots = calculateNext4HoursAvailability();
 
-  // 🎯 EXPIRATION CALCULATIONS & FILTERS
   const processedTeachers = teachersList.map(t => {
     const daysLeft = getDaysRemaining(t.expiry_date);
     return { ...t, daysLeft };
   }).sort((a, b) => {
     if (a.daysLeft === null) return 1;
     if (b.daysLeft === null) return -1;
-    return a.daysLeft - b.daysLeft; // Expiring soonest first
+    return a.daysLeft - b.daysLeft;
   });
 
   const expiredCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft <= 0).length;
@@ -248,7 +246,7 @@ export default function AdminPoolPage() {
           </div>
         </div>
 
-        {/* 🚀 TAB NAVIGATION HEADER */}
+        {/* TAB NAVIGATION HEADER */}
         <div className="flex items-center gap-2 border-b border-slate-900 pb-3">
           <button
             onClick={() => setActiveTab("pool")}
@@ -281,7 +279,6 @@ export default function AdminPoolPage() {
         {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
         {activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
-            {/* SUMMARY STATS */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
@@ -310,7 +307,6 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
-            {/* LIVE NEXT 4 HOURS AVAILABILITY WIDGET */}
             {!loading && accountKeys.length > 0 && (
               <div className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -381,7 +377,6 @@ export default function AdminPoolPage() {
               </div>
             )}
 
-            {/* VISUALIZER GRID */}
             {loading ? (
               <div className="p-12 text-center text-gray-500 text-sm animate-pulse">
                 ⚙️ Fetching Pool Slot Data...
@@ -497,7 +492,7 @@ export default function AdminPoolPage() {
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Active & Safe (> 7 Days)</p>
+                  <p className="text-xs text-gray-400 font-medium">Active &amp; Safe (&gt; 7 Days)</p>
                   <h3 className="text-2xl font-black text-emerald-400 mt-1">{activeCount}</h3>
                 </div>
                 <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">🟢</div>
@@ -599,7 +594,6 @@ export default function AdminPoolPage() {
                           );
                         }
 
-                        // WhatsApp Reminder Link
                         const waText = encodeURIComponent(
                           `Hi ${t.teacher_name}! (ID: ${t.teacher_id})\n\nDigimart LMS වෙතින් දැනුම් දීමයි. ඔබගේ LMS Package එක Expire වීමට ` +
                           (days !== null && days > 0 ? `තව දින ${days}ක්` : `කාලය ඉකුත් වී`) +
