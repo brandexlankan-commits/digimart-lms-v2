@@ -208,7 +208,7 @@ const translations = {
     timeLabel: "நேரம்",
     durationHoursLabel: "கால அளவு (மணி)",
     durationMinutesLabel: "கால அளவு (நிமிடங்கள்)",
-    passcodeLabel: "கடவுச்சොල්",
+    passcodeLabel: "கடவுச்சොல்",
     passcodePlaceholder: "Auto (தானாக உருவாக்க காலியாக விடவும்)",
     waitingRoom: "காத்திருப்பு அறை",
     hostVideo: "தொகுப்பாளர் வீடியோ",
@@ -278,13 +278,10 @@ export default function DashboardPage() {
   const [participantVideo, setParticipantVideo] = useState(false);
   const [muteOnEntry, setMuteOnEntry] = useState(true);
   
-  // 🎯 DEFAULT AUTO RECORDING IS SET TO OFF ("none")
   const [autoRecording, setAutoRecording] = useState<"none" | "cloud" | "local">("none");
-  
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    // 🗓️ AUTO-SET TODAY'S DATE AND NEAREST TIME ON INITIAL LOAD
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -305,7 +302,6 @@ export default function DashboardPage() {
     setSelectedMinute(roundedMins);
     setSelectedAmPm(ampm);
 
-    // Language & LocalStorage check
     const savedLang = (localStorage.getItem("app_lang") as "si" | "en" | "ta") || "si";
     setLang(savedLang);
 
@@ -330,12 +326,10 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
-  // 🎯 Passcode, Time සහ Join URL සඳහා ආරක්ෂිත Fallback Helpers
   const getMeetingPasscode = (item: Meeting) => {
     return item.passcode || item.password || item.pass || "123456";
   };
 
-  // 🎯 FIXED: Time එක extract කරගන්නා ආරක්ෂිත Helper එක
   const getMeetingTime = (item: any) => {
     if (item.time) return item.time;
     if (item.startTime) return item.startTime;
@@ -357,7 +351,6 @@ export default function DashboardPage() {
     return "";
   };
 
-  // 🎯 FIXED: Date + Time තනි Exact Millisecond Timestamp එකකට හරවන Function එක
   const parseDateTimeToTimestamp = (item: Meeting) => {
     const dateStr = item.date || (item as any)["Start Time"]?.split(" ")[0];
     const timeStr = getMeetingTime(item);
@@ -387,7 +380,6 @@ export default function DashboardPage() {
     return 0;
   };
 
-  // ⏱️ Duration Formatter
   const formatDuration = (rawDuration: any) => {
     if (!rawDuration) return "0 Min";
 
@@ -408,7 +400,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 🎯 Zoom Meeting ID Formatting Function
   const formatMeetingId = (id?: string) => {
     if (!id) return "Loading...";
     const clean = id.toString().replace(/\D/g, "");
@@ -420,51 +411,49 @@ export default function DashboardPage() {
     return id;
   };
 
-  // 🎯 STRICT TIME FRAME START CLASS HANDLER (Start - 1h to End + 1h)
   const handleStartClass = (item: Meeting) => {
     const startTimeMs = parseDateTimeToTimestamp(item);
     const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
     
-    // 1. පන්තිය අවසන් වන වෙලාව
     const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
-    
     const nowMs = Date.now();
     const ONE_HOUR_MS = 60 * 60 * 1000;
 
-    // 2. Start කළ හැකි මුල්ම වෙලාව (Start - 1h)
     const earliestAllowed = startTimeMs - ONE_HOUR_MS;
-    
-    // 3. Start කළ හැකි අවසානම වෙලාව (End + 1h)
     const latestAllowed = endTimeMs + ONE_HOUR_MS;
 
-    // ❌ 1h කලින් එන්න හැදුවොත්
     if (nowMs < earliestAllowed) {
       alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
       return;
     }
 
-    // ❌ Active window එක පහුවුණොත්
     if (nowMs > latestAllowed) {
       alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත.\n\nනියමිත වේලාව පසුවී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
       return;
     }
 
-    // ✅ Zoom Start
     const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${item.meeting_id_row || item.zoom_id}`;
     window.open(startUrl, "_blank");
   };
 
   const fetchTeacherData = async (id: string) => {
     try {
-      const response = await fetch(`/api/teacher/data?teacher_id=${id}`);
+      // 🎯 FIXED: Cache No-Store & Timestamp parameter added
+      const response = await fetch(`/api/teacher/data?teacher_id=${id}&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+
       if (response.ok) {
         const data = await response.json();
 
         const rawClasses: Meeting[] = data.plannedClasses || [];
         const nowMs = Date.now();
-        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000; // 🎯 පැය 12 ක Safe Grace Period එකක්
+        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 
-        // 🎯 පන්තිය ඉවර වී පැය 12කට වඩා පැරණි, Recording නැති පන්ති Auto Hide කිරීම
         const activeScheduledClasses = rawClasses.filter((item) => {
           const startTimeMs = parseDateTimeToTimestamp(item);
           const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
@@ -473,14 +462,10 @@ export default function DashboardPage() {
           const recordingUrl = (item as any)["Recording URL"] || (item as any).recording_url || "";
           const hasRecording = String(recordingUrl).trim() !== "";
 
-          // Recording එක ඇවිත් නම් Scheduled ලිස්ට් එකේ පෙන්වන්නේ නැත
           if (hasRecording) return false;
-
-          // පන්තිය ඉවර වී පැය 12ක් යනකම් Scheduled ලිස්ට් එකේ පෙන්වයි
           return nowMs < (endTimeMs + TWELVE_HOURS_MS);
         });
 
-        // Exact Timestamp එක අනුව Sort කිරීම
         const sortedClasses = activeScheduledClasses.sort((a, b) => {
           const timeA = parseDateTimeToTimestamp(a);
           const timeB = parseDateTimeToTimestamp(b);
@@ -992,7 +977,6 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* 🎯 AUTO RECORDING SELECTION DROPDOWN (DEFAULT: NONE) */}
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1.5">
                   {t.autoRecordingLabel}
@@ -1063,12 +1047,10 @@ export default function DashboardPage() {
                   const classTime = getMeetingTime(item);
                   const joinUrl = getMeetingJoinUrl(item);
 
-                  // 🎯 STRICT STATUS CHECK (Capitalization & Key Fallbacks)
+                  // 🎯 STRICT STATUS CHECK
                   const rawStatus = String(
                     item.status || 
                     (item as any).Status || 
-                    (item as any)["Status"] || 
-                    (item as any)["status"] || 
                     ""
                   ).trim().toUpperCase();
 

@@ -15,10 +15,16 @@ export async function GET(request: Request) {
     const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
     const cacheBuster = Date.now();
 
-    // 🚀 Meetings සහ Teachers කියන ෂීට් දෙකෙන්ම එකවර ඩේටා ලබාගනිමු
+    // 🚀 Meetings සහ Teachers කියන ෂීට් දෙකෙන්ම එකවර ඩේටා ලබාගනිමු (Cache Disabled)
     const [meetingsRes, teachersRes] = await Promise.all([
-      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { cache: 'no-store' }),
-      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`, { cache: 'no-store' })
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { 
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      }),
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`, { 
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      })
     ]);
 
     // ------------------- 1. MEETINGS DATA -------------------
@@ -77,6 +83,7 @@ export async function GET(request: Request) {
       }
 
       const rowData = {
+        meeting_id_row: row.c[0]?.v,
         topic: row.c[2]?.v,
         date: finalDate || (rawV.split('T')[0]),
         time: finalTime,
@@ -86,13 +93,15 @@ export async function GET(request: Request) {
         start_url: row.c[7]?.v, 
         join_url: row.c[8]?.v,  
         recording_url: row.c[9]?.v, 
-        zoom_account_id: row.c[10]?.v || "Pool Account"
+        zoom_account_id: row.c[10]?.v || "Pool Account",
+        // 🎯 CRITICAL FIX: Google Sheet එකේ Status Column එක (Index 11 / Column L) එකතු කරන ලදී
+        status: row.c[11]?.v || row.c[10]?.v || ""
       };
 
-      // 🎯 Class එක "Planned Classes" එකේ දිගටම පවතී (කනෙක්ෂන් කට් වුණත් Re-join විය හැක)
+      // 🎯 Class එක "Planned Classes" එකට ඇතුළත් කිරීම
       plannedClasses.push(rowData);
 
-      // 🎯 Multiple Recordings Split Logic (Part 1, Part 2 handle වීම)
+      // 🎯 Multiple Recordings Split Logic
       if (rowData.recording_url) {
         const rawLinks = String(rowData.recording_url).split(',');
         const cleanLinks = rawLinks.map(l => l.trim()).filter(Boolean);
@@ -123,11 +132,9 @@ export async function GET(request: Request) {
       const teachersData = JSON.parse(teachersJsonString);
       const teacherRows = teachersData.table.rows || [];
 
-      // Teacher ID එක ගැලපෙන Row එක සොයාගැනීම
       const teacherRow = teacherRows.find((r: any) => r.c?.some((cell: any) => cell?.v === teacherId));
 
       if (teacherRow) {
-        // http/https වලින් පටන්ගන්නා Image Link එක සොයාගැනීම
         const picCell = teacherRow.c?.find((cell: any) => 
           cell?.v && typeof cell.v === 'string' && (cell.v.startsWith('http://') || cell.v.startsWith('https://'))
         );
@@ -138,13 +145,11 @@ export async function GET(request: Request) {
         );
         if (nameCell) teacherName = nameCell.v;
 
-        // 🎯 Column J (Index 9): Max Concurrent Hosts
         const maxHostsVal = teacherRow.c[9]?.v;
         if (maxHostsVal !== undefined && maxHostsVal !== null) {
           maxConcurrentHosts = String(maxHostsVal);
         }
 
-        // 🎯 Column K (Index 10): Expire Date Parsing
         const expCell = teacherRow.c[10];
         if (expCell) {
           const rawExpV = expCell.v ? String(expCell.v).trim() : "";
@@ -167,7 +172,6 @@ export async function GET(request: Request) {
       console.error("Teachers Sheet කියවීමේ දෝෂයකි:", e);
     }
 
-    // 🎯 Frontend එකට Data සක්‍රීයව යැවීම
     return NextResponse.json({ 
       plannedClasses, 
       recordings,
@@ -175,6 +179,10 @@ export async function GET(request: Request) {
       teacherName,
       maxConcurrentHosts,
       expiryDate
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+      }
     });
 
   } catch (error) {
