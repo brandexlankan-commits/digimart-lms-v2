@@ -7,6 +7,8 @@ interface SlotMeeting {
   time: string;
   duration: string;
   zoom_id: string;
+  status?: string;
+  Status?: string;
 }
 
 interface PoolData {
@@ -24,10 +26,17 @@ export default function AdminPoolPage() {
     fetchPoolData(today);
   }, []);
 
+  // 🎯 REAL-TIME CACHE-FREE DATA FETCHING
   const fetchPoolData = async (dateStr: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/pool?date=${dateStr}`);
+      const res = await fetch(`/api/admin/pool?date=${dateStr}&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setPoolData(data.accounts || {});
@@ -45,7 +54,13 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
-  // 🎯 Duration එක පැය සහ විනාඩි බවට හරවන Helper Function එක
+  // 🎯 Status Check Helper (Class එක ENDED ද බලයි)
+  const isMeetingEnded = (m: SlotMeeting) => {
+    const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
+    return rawStatus === "ENDED";
+  };
+
+  // 🎯 Duration Formatter
   const formatDuration = (totalMinutes: string | number) => {
     const mins = Number(totalMinutes) || 0;
     if (mins <= 0) return "0 Mins";
@@ -62,7 +77,7 @@ export default function AdminPoolPage() {
     }
   };
 
-  // 🎯 Time string එක (e.g. "07:30 PM", "05:00 AM") Sort කිරීමට Minutes වලට හරවන Helper Function එක
+  // 🎯 Time Parser (Minutes වලට හරවයි)
   const parseTimeToMinutes = (timeStr: string) => {
     if (!timeStr) return 0;
     const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
@@ -78,7 +93,21 @@ export default function AdminPoolPage() {
     return hours * 60 + minutes;
   };
 
-  // ⚡ ඉදිරි පැය 4 සඳහා Availability එක Calculate කරන Logic එක
+  // 🎯 Class එක දැනට Live පැවැත්වෙනවාදැයි පරීක්ෂා කිරීම
+  const isMeetingLiveNow = (m: SlotMeeting) => {
+    if (isMeetingEnded(m)) return false;
+
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+
+    const mStart = parseTimeToMinutes(m.time);
+    const mDuration = Number(m.duration) || 60;
+    const mEnd = mStart + mDuration;
+
+    return currentMins >= mStart && currentMins <= mEnd;
+  };
+
+  // ⚡ ඉදිරි පැය 4 සඳහා Availability එක Calculate කරන Logic එක (ENDED Classes skip කරයි)
   const calculateNext4HoursAvailability = () => {
     const accountKeys = Object.keys(poolData);
     const totalAccounts = accountKeys.length;
@@ -103,8 +132,11 @@ export default function AdminPoolPage() {
 
       accountKeys.forEach((accId) => {
         const meetings = poolData[accId];
-        // Check if any class overlaps with this 1-hour slot
+
+        // 🎯 CRITICAL FIX: ENDED වුණු Class Busy එකට ගණන් ගන්නේ නැත!
         const isBusy = meetings.some((m) => {
+          if (isMeetingEnded(m)) return false; // Status එක ENDED නම් Account එක Free ය!
+
           const mStart = parseTimeToMinutes(m.time);
           const mDuration = Number(m.duration) || 60;
           const mEnd = mStart + mDuration;
@@ -134,7 +166,12 @@ export default function AdminPoolPage() {
   };
 
   const accountKeys = Object.keys(poolData);
-  const totalClassesToday = accountKeys.reduce((acc, key) => acc + poolData[key].length, 0);
+
+  // Active (නොනැවතුණු) පන්ති ගණන පමණක් Total Count එකට ගැනීම
+  const activeClassesToday = accountKeys.reduce((acc, key) => {
+    return acc + poolData[key].filter(m => !isMeetingEnded(m)).length;
+  }, 0);
+
   const upcoming4HoursSlots = calculateNext4HoursAvailability();
 
   return (
@@ -148,11 +185,18 @@ export default function AdminPoolPage() {
               ⚡ Zoom Pool Live Visualizer
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              Zoom Accounts වල Time Slots පිරී ඇති ආකාරය සජීවීව බලාගන්න.
+              Zoom Accounts වල Slot Capacity සහ සජීවී භාවිතය 100% Real-time නිරීක්ෂණය කරන්න.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => fetchPoolData(selectedDate)}
+              className="px-3 py-1.5 bg-blue-950/80 hover:bg-blue-900 border border-blue-800/60 text-blue-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <span>🔄</span> Refresh Data
+            </button>
+
             <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl flex items-center gap-2">
               <span className="text-xs text-gray-400 font-bold">📅 Select Date:</span>
               <input 
@@ -177,17 +221,17 @@ export default function AdminPoolPage() {
 
           <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-400 font-medium">Total Scheduled Classes</p>
-              <h3 className="text-2xl font-black text-emerald-400 mt-1">{totalClassesToday} Classes</h3>
+              <p className="text-xs text-gray-400 font-medium">Active Scheduled Classes</p>
+              <h3 className="text-2xl font-black text-emerald-400 mt-1">{activeClassesToday} Classes</h3>
             </div>
             <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">📅</div>
           </div>
 
           <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-400 font-medium">Pool Status</p>
+              <p className="text-xs text-gray-400 font-medium">Pool Demand Status</p>
               <h3 className="text-2xl font-black text-purple-400 mt-1">
-                {totalClassesToday > 10 ? "🔥 High Demand" : "✅ Normal"}
+                {activeClassesToday > 10 ? "🔥 High Demand" : "✅ Normal"}
               </h3>
             </div>
             <div className="w-10 h-10 bg-purple-950 border border-purple-900 rounded-xl flex items-center justify-center text-lg">📊</div>
@@ -272,13 +316,12 @@ export default function AdminPoolPage() {
             ⚙️ Fetching Pool Slot Data...
           </div>
         ) : accountKeys.length === 0 ? (
-          <div className="p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
+          <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
             👋 මෙම දිනය ({selectedDate}) සඳහා Zoom Pool එකේ කිසිදු පන්තියක් Schedule කර නොමැත.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {accountKeys.map((accId, idx) => {
-              // 🎯 Meetings ටික වේලාව (AM/PM) අනුව පිළිවෙලට Sort කරගැනීම
               const meetings = [...poolData[accId]].sort(
                 (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)
               );
@@ -301,23 +344,52 @@ export default function AdminPoolPage() {
 
                   {/* Scheduled Slots List */}
                   <div className="space-y-3">
-                    {meetings.map((m, mIdx) => (
-                      <div key={mIdx} className="bg-slate-950/80 border border-slate-900/80 p-3.5 rounded-xl space-y-2 hover:border-blue-800/50 transition-all">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-mono text-amber-400 font-bold">⏰ {m.time}</span>
-                          <span className="text-[10px] text-gray-400 bg-slate-900 px-2 py-0.5 rounded font-mono">
-                            ⏳ {formatDuration(m.duration)}
-                          </span>
-                        </div>
+                    {meetings.map((m, mIdx) => {
+                      const ended = isMeetingEnded(m);
+                      const live = isMeetingLiveNow(m);
 
-                        <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{m.topic}</h4>
+                      return (
+                        <div 
+                          key={mIdx} 
+                          className={`p-3.5 rounded-xl space-y-2 transition-all border ${
+                            ended
+                              ? "bg-slate-950/30 border-slate-900/50 opacity-60"
+                              : live
+                              ? "bg-rose-950/20 border-rose-800/60 shadow-lg shadow-rose-950/20"
+                              : "bg-slate-950/80 border-slate-900/80 hover:border-blue-800/50"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-mono text-amber-400 font-bold flex items-center gap-1">
+                              ⏰ {m.time}
+                            </span>
+                            
+                            {/* LIVE STATUS BADGES */}
+                            {ended ? (
+                              <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">
+                                ⚪ ENDED / FREED
+                              </span>
+                            ) : live ? (
+                              <span className="text-[9px] font-mono font-bold bg-rose-950 text-rose-400 px-2 py-0.5 rounded border border-rose-800/60 animate-pulse flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                🔴 LIVE NOW
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900/50">
+                                🟢 SCHEDULED
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900">
-                          <span>👤 {m.teacher_id}</span>
-                          <span>🆔 {m.zoom_id}</span>
+                          <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{m.topic}</h4>
+
+                          <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900/80">
+                            <span>👤 {m.teacher_id}</span>
+                            <span>⏳ {formatDuration(m.duration)}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                 </div>
