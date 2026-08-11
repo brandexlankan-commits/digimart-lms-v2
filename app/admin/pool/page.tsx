@@ -124,6 +124,37 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // 🎯 REMINDER MESSAGE COPY HELPER WITH BANK DETAILS
+  const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
+    let daysText = "";
+    if (daysLeft === null) {
+      daysText = "ලඟදීම Expire වීමට";
+    } else if (daysLeft <= 0) {
+      daysText = "කාලය ඉකුත් වී (Expired)";
+    } else {
+      daysText = `තව දින ${daysLeft}ක්`;
+    }
+
+    const reminderMsg = `👋 *Hi ${teacherName}!* (ID: ${teacherId})
+
+🔔 *Digimart LMS - Renewal Notice*
+
+ඔබගේ Digimart LMS Package එක ${daysText} ඇති බැවින්, අඛණ්ඩව Zoom සහ LMS සේවාවන් ලබා ගැනීමට කරුණාකර Renewal ගෙවීම සිදු කරන්න.
+
+💳 *Bank Account Details for Renewal:*
+• *Bank:* Sampath Bank
+• *Branch:* Rambukkana Branch
+• *Account Number:* 1188 5747 0946
+• *Account Name:* S.D.Nuwan Sameera Deshapriya
+
+📌 *Note:* ගෙවීම සිදු කිරීමෙන් පසු රිසිට්පත (Payment Slip / Screenshot) මෙයට යොමු කරන්න.
+
+*Thank you for choosing Digimart LMS!* ✨`;
+
+    navigator.clipboard.writeText(reminderMsg);
+    alert(`📋 ${teacherName} (${teacherId}) සඳහා Reminder Message එක Clipboard එකට Copy කරගන්නා ලදී!`);
+  };
+
   const calculateNext4HoursAvailability = () => {
     const accountKeys = Object.keys(poolData);
     const totalAccounts = accountKeys.length;
@@ -594,12 +625,6 @@ export default function AdminPoolPage() {
                           );
                         }
 
-                        const waText = encodeURIComponent(
-                          `Hi ${t.teacher_name}! (ID: ${t.teacher_id})\n\nDigimart LMS වෙතින් දැනුම් දීමයි. ඔබගේ LMS Package එක Expire වීමට ` +
-                          (days !== null && days > 0 ? `තව දින ${days}ක්` : `කාලය ඉකුත් වී`) +
-                          ` ඇත. කරුණාකර අඛණ්ඩ සේවාව ලබා ගැනීමට අදම Renewal එක සිදු කරගන්න. ස්තූතියි!`
-                        );
-
                         return (
                           <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
                             <td className="p-4 font-mono font-bold text-blue-400">{t.teacher_id}</td>
@@ -607,14 +632,12 @@ export default function AdminPoolPage() {
                             <td className="p-4 font-mono text-slate-300">{t.expiry_date || "N/A"}</td>
                             <td className="p-4">{statusBadge}</td>
                             <td className="p-4 text-right">
-                              <a 
-                                href={`https://wa.me/?text=${waText}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
+                              <button 
+                                onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
+                                className="px-3.5 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
                               >
-                                💬 Remind Teacher
-                              </a>
+                                📋 Copy Reminder
+                              </button>
                             </td>
                           </tr>
                         );
