@@ -31,6 +31,9 @@ export default function AdminPoolPage() {
   // Expirations Tab States
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active">("all");
+  
+  // 🎯 COPIED STATE (Pop-up එක නැතුව Button Feedback එක දීමට)
+  const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -124,7 +127,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 REMINDER MESSAGE COPY HELPER WITH BANK DETAILS
+  // 🎯 POP-UP FREE REMINDER COPY LOGIC
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -152,7 +155,12 @@ export default function AdminPoolPage() {
 *Thank you for choosing Digimart LMS!* ✨`;
 
     navigator.clipboard.writeText(reminderMsg);
-    alert(`📋 ${teacherName} (${teacherId}) සඳහා Reminder Message එක Clipboard එකට Copy කරගන්නා ලදී!`);
+
+    // 🎯 Alert එක වෙනුවට Button Feedback එක සැකසීම
+    setCopiedTeacherId(teacherId);
+    setTimeout(() => {
+      setCopiedTeacherId(null);
+    }, 2000);
   };
 
   const calculateNext4HoursAvailability = () => {
@@ -625,6 +633,8 @@ export default function AdminPoolPage() {
                           );
                         }
 
+                        const isCopied = copiedTeacherId === t.teacher_id;
+
                         return (
                           <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
                             <td className="p-4 font-mono font-bold text-blue-400">{t.teacher_id}</td>
@@ -634,9 +644,13 @@ export default function AdminPoolPage() {
                             <td className="p-4 text-right">
                               <button 
                                 onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
-                                className="px-3.5 py-1.5 bg-emerald-950 hover:bg-emerald-900 border border-emerald-800 text-emerald-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                className={`px-3.5 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+                                  isCopied
+                                    ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
+                                    : "bg-emerald-950 hover:bg-emerald-900 border-emerald-800 text-emerald-400"
+                                }`}
                               >
-                                📋 Copy Reminder
+                                {isCopied ? "✅ Copied!" : "📋 Copy Reminder"}
                               </button>
                             </td>
                           </tr>
