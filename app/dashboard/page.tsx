@@ -1100,56 +1100,48 @@ export default function DashboardPage() {
                             <span>Class Ended / Recording Processing...</span>
                           </div>
                         ) : rawStatus === "STARTED" && isTimeExpired ? (
-                          <div className="w-full py-2.5 bg-blue-950/40 border border-blue-800/50 text-blue-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
-                            <span>⚙️</span>
-                            <span>Processing Recording...</span>
+                          <div className="space-y-2">
+                            <div className="w-full py-2.5 bg-blue-950/40 border border-blue-800/50 text-blue-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
+                              <span>⚙️</span>
+                              <span>Processing Recording...</span>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const warningMsg = `⚠️ පන්තිය ඉවත් කිරීමට (Delete Schedule) පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n` +
+                                                   `• මෙම පන්තිය දැනට 'STARTED' තත්ත්වයේ පවතින බැවින්, මෙය ඉවත් කළහොත් පන්තිය නතර වේ.\n` +
+                                                   `• ඔබ පන්තිය පවත්වා ඇත්නම් සහ Recording එකක් සාර්ථකව පද්ධතියට ලැබී ඇත්නම්, එය Dashboard එකට එකතු වේ.\n` +
+                                                   `• Zoom Account Slot එක වහාම නිදහස් වන අතර නැවත මෙම Link එක භාවිත කළ නොහැක.\n\n` +
+                                                   `ඔබට මෙය අනිවාර්යයෙන්ම Delete කිරීමට අවශ්‍යද?`;
+                                if (confirm(warningMsg)) {
+                                  handleCancelClass(item.meeting_id_row, item.zoom_id);
+                                }
+                              }}
+                              className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
+                            >
+                              🗑️ Delete Schedule
+                            </button>
                           </div>
                         ) : (
                           <div className="space-y-2">
                             <div className="grid grid-cols-2 gap-2">
-                              {rawStatus === "STARTED" ? (
-                                <>
-                                  <button 
-                                    onClick={() => handleStartClass(item)}
-                                    className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
-                                  >
-                                    {t.startClassBtn}
-                                  </button>
+                              <button 
+                                onClick={() => handleStartClass(item)}
+                                className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
+                              >
+                                {t.startClassBtn}
+                              </button>
 
-                                  <button 
-                                    onClick={() => {
-                                      const formattedId = formatMeetingId(item.zoom_id);
-                                      const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
-                                      navigator.clipboard.writeText(details);
-                                      alert(t.alertCopySuccess);
-                                    }}
-                                    className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
-                                  >
-                                    {t.copyDetailsBtn}
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button 
-                                    onClick={() => handleStartClass(item)}
-                                    className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
-                                  >
-                                    {t.startClassBtn}
-                                  </button>
-
-                                  <button 
-                                    onClick={() => {
-                                      const formattedId = formatMeetingId(item.zoom_id);
-                                      const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
-                                      navigator.clipboard.writeText(details);
-                                      alert(t.alertCopySuccess);
-                                    }}
-                                    className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
-                                  >
-                                    {t.copyDetailsBtn}
-                                  </button>
-                                </>
-                              )}
+                              <button 
+                                onClick={() => {
+                                  const formattedId = formatMeetingId(item.zoom_id);
+                                  const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
+                                  navigator.clipboard.writeText(details);
+                                  alert(t.alertCopySuccess);
+                                }}
+                                className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
+                              >
+                                {t.copyDetailsBtn}
+                              </button>
                             </div>
 
                             {/* Delete Schedule / Cancel Button */}
