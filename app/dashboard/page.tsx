@@ -96,6 +96,7 @@ const translations = {
     alertGeneralError: "🚫 පන්තිය සකස් කිරීමට නොහැකි විය. වේලාව නැවත පරීක්ෂා කරන්න.",
     alertServerError: "⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි. කරුණාකර නැවත උත්සාහ කරන්න.",
     alertCancelConfirm: "⚠️ මෙම පන්තිය අවලංගු (Cancel) කිරීමට අවශ්‍ය බව තහවුරු කරන්න.\n\n• මෙම Zoom Link එක සහ Passcode එක සදහටම අක්‍රීය / අවලංගු වේ.\n• සිසුන්ට මෙම පන්තියට තවදුරටත් සම්බන්ධ විය නොහැක.\n• නැවත මෙම පන්තිය පැවැත්වීමට අවශ්‍ය නම් අලුතෙන් Class එකක් Schedule කිරීමට සිදුවේ.",
+    alertCancelStartedConfirm: "⚠️ පන්තිය අවලංගු කිරීමට (End කිරීමට) පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n• මෙම පන්තිය දැනට 'STARTED' තත්ත්වයේ පවතින බැවින්, එය අවලංගු කළහොත් පන්තිය අතරමග නතර වේ.\n• පද්ධතියේ Zoom Account Slot එක වහාම නිදහස් වන අතර නැවත මෙම Link එක භාවිත කළ නොහැක.\n• Recording එකක් සාර්ථකව පද්ධතියට ලැබී නොමැති නම්, මෙම පන්තිය නැවත ආරම්භ කිරීමට සිදු විය හැක.\n\nඔබට මෙය අනිවාර්යයෙන්ම අවලංගු කිරීමට අවශ්‍යද?",
     alertCancelSuccess: "🗑️ පන්තිය සාර්ථකව අවලංගු (Cancel) කරන ලදී.",
     alertCancelError: "❌ පන්තිය අවලංගු කිරීමට නොහැකි විය.",
     alertCopySuccess: "📝 පන්තියේ විස්තර Clipboard එකට Copy කරගන්නා ලදී.",
@@ -168,6 +169,7 @@ const translations = {
     alertGeneralError: "🚫 Unable to schedule class. Please verify the date and time.",
     alertServerError: "⚠️ Server connection error. Please try again.",
     alertCancelConfirm: "⚠️ Are you sure you want to cancel this class?\n\n• The Zoom Link and Passcode for this class will become permanently invalid.\n• Students will no longer be able to join this class.\n• You will need to schedule a new class if you wish to host it later.",
+    alertCancelStartedConfirm: "⚠️ Are you sure you want to end this started class?\n\n• Ending this class will terminate the active session.\n• The Zoom Account slot will be freed immediately.\n• If a recording has not been generated yet, you may need to reschedule.",
     alertCancelSuccess: "🗑️ Class canceled successfully.",
     alertCancelError: "❌ Failed to cancel class.",
     alertCopySuccess: "📝 Class details copied to Clipboard.",
@@ -240,6 +242,7 @@ const translations = {
     alertGeneralError: "🚫 வகுப்பை திட்டமிட முடியவில்லை. நேரத்தை மீண்டும் சரிபார்க்கவும்.",
     alertServerError: "⚠️ சர்வர் இணைப்பு பிழை. மீண்டும் முயற்சிக்கவும்.",
     alertCancelConfirm: "⚠️ இந்த வகுப்பை ரத்து செய்ய விரும்புகிறீர்களா?\n\n• இந்த Zoom இணைப்பு மற்றும் கடவுச்சொல் நிரந்தரமாக செல்லுபடியாகாது.\n• மாணவர்கள் இந்த வகுப்பில் இனி இணைய முடியாது.\n• மீண்டும் வகுப்பை நடத்த விரும்பினால் புதிய வகுப்பை திட்டமிட வேண்டும்.",
+    alertCancelStartedConfirm: "⚠️ இந்த வகுப்பை முடிக்க விரும்புகிறீர்களா?\n\n• இந்த வகுப்பை முடிப்பது செயலில் உள்ள அமர்வை நிறுத்தும்.\n• Zoom கணக்கு ஸ்லாட் உடனடியாக விடுவிக்கப்படும்.\n• ரெக்கார்டிங் இன்னும் உருவாக்கப்படவில்லை என்றால், நீங்கள் புதிய வகுப்பை திட்டமிட வேண்டியிருக்கும்.",
     alertCancelSuccess: "🗑️ வகுப்பு வெற்றிகரமாக ரத்து செய்யப்பட்டது.",
     alertCancelError: "❌ வகுப்பை ரத்து செய்ய முடியவில்லை.",
     alertCopySuccess: "📝 வகுப்பு விவரங்கள் நகலெடுக்கப்பட்டன.",
@@ -461,10 +464,7 @@ export default function DashboardPage() {
           const recordingUrl = (item as any)["Recording URL"] || (item as any).recording_url || "";
           const hasRecording = String(recordingUrl).trim() !== "";
 
-          // Recording එකක් ආවොත් Scheduled ලැයිස්තුවෙන් ඉවත් වේ
           if (hasRecording) return false;
-
-          // පන්තිය අවසන් වී (Scheduled හෝ Started) පැය 12ක් ඉක්ම ගොස් ඇත්නම් ඩෑෂ්බෝඩ් එකෙන් ඉවත් වේ
           if (nowMs > (endTimeMs + TWELVE_HOURS_MS)) return false;
 
           return true;
@@ -1096,12 +1096,7 @@ export default function DashboardPage() {
                                   </button>
                                   <button 
                                     onClick={() => {
-                                      const warningMsg = `⚠️ පන්තිය අවලංගු කිරීමට පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n` +
-                                                         `• මෙම පන්තිය 'STARTED' තත්ත්වයේ පවතින බැවින්, එය අවලංගු කිරීමෙන් Zoom session එක සක්‍රීයව පවතින සිසුන්ගේ සම්බන්ධතාවය බිඳී යා හැක.\n` +
-                                                         `• පද්ධතියේ Zoom Account Slot එක වහාම නිදහස් වනු ඇත.\n` +
-                                                         `• මෙය තහවුරු කරන්නේ නම්, ඔබට නැවත එම Link එක හරහා පන්තියට සම්බන්ධ විය නොහැක.\n\n` +
-                                                         `ඔබට මෙය අනිවාර්යයෙන්ම අවලංගු කිරීමට අවශ්‍යද?`;
-                                      if (confirm(warningMsg)) {
+                                      if (confirm(t.alertCancelStartedConfirm)) {
                                         handleCancelClass(item.meeting_id_row, item.zoom_id);
                                       }
                                     }}
