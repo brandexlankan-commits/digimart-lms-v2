@@ -461,8 +461,13 @@ export default function DashboardPage() {
           const recordingUrl = (item as any)["Recording URL"] || (item as any).recording_url || "";
           const hasRecording = String(recordingUrl).trim() !== "";
 
+          // Recording එකක් ආවොත් Scheduled ලැයිස්තුවෙන් ඉවත් වේ
           if (hasRecording) return false;
-          return nowMs < (endTimeMs + TWELVE_HOURS_MS);
+
+          // පන්තිය අවසන් වී (Scheduled හෝ Started) පැය 12ක් ඉක්ම ගොස් ඇත්නම් ඩෑෂ්බෝඩ් එකෙන් ඉවත් වේ
+          if (nowMs > (endTimeMs + TWELVE_HOURS_MS)) return false;
+
+          return true;
         });
 
         const sortedClasses = activeScheduledClasses.sort((a, b) => {
@@ -1084,27 +1089,52 @@ export default function DashboardPage() {
                         ) : (
                           <div className="space-y-2">
                             <div className="grid grid-cols-2 gap-2">
-                              <button 
-                                onClick={() => handleStartClass(item)}
-                                className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
-                              >
-                                {t.startClassBtn}
-                              </button>
+                              {rawStatus === "STARTED" ? (
+                                <div className="flex gap-1.5 col-span-2">
+                                  <button disabled className="flex-1 py-2 bg-emerald-950/40 border border-emerald-800/50 text-emerald-400 rounded-xl text-[10px] font-bold text-center cursor-not-allowed">
+                                    🟢 Running...
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      const warningMsg = `⚠️ පන්තිය අවලංගු කිරීමට පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n` +
+                                                         `• මෙම පන්තිය 'STARTED' තත්ත්වයේ පවතින බැවින්, එය අවලංගු කිරීමෙන් Zoom session එක සක්‍රීයව පවතින සිසුන්ගේ සම්බන්ධතාවය බිඳී යා හැක.\n` +
+                                                         `• පද්ධතියේ Zoom Account Slot එක වහාම නිදහස් වනු ඇත.\n` +
+                                                         `• මෙය තහවුරු කරන්නේ නම්, ඔබට නැවත එම Link එක හරහා පන්තියට සම්බන්ධ විය නොහැක.\n\n` +
+                                                         `ඔබට මෙය අනිවාර්යයෙන්ම අවලංගු කිරීමට අවශ්‍යද?`;
+                                      if (confirm(warningMsg)) {
+                                        handleCancelClass(item.meeting_id_row, item.zoom_id);
+                                      }
+                                    }}
+                                    className="px-3 py-2 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all cursor-pointer"
+                                  >
+                                    ❌ End
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button 
+                                    onClick={() => handleStartClass(item)}
+                                    className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
+                                  >
+                                    {t.startClassBtn}
+                                  </button>
 
-                              <button 
-                                onClick={() => {
-                                  const formattedId = formatMeetingId(item.zoom_id);
-                                  const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
-                                  navigator.clipboard.writeText(details);
-                                  alert(t.alertCopySuccess);
-                                }}
-                                className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
-                              >
-                                {t.copyDetailsBtn}
-                              </button>
+                                  <button 
+                                    onClick={() => {
+                                      const formattedId = formatMeetingId(item.zoom_id);
+                                      const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
+                                      navigator.clipboard.writeText(details);
+                                      alert(t.alertCopySuccess);
+                                    }}
+                                    className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
+                                  >
+                                    {t.copyDetailsBtn}
+                                  </button>
+                                </>
+                              )}
                             </div>
 
-                            {/* Status එක SCHEDULED නම් විතරයි Cancel බටන් එක පේන්නේ */}
+                            {/* Status එක SCHEDULED නම් Cancel බටන් එක පේන්නේ */}
                             {rawStatus === "SCHEDULED" && (
                               <button 
                                 onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
@@ -1162,7 +1192,7 @@ export default function DashboardPage() {
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-900 bg-slate-950/50 text-gray-400 font-medium">
-                        <th className="p-4 w-[25%]">{t.colDate}</th>
+                        <th className="p-4 w-[25%]" suppressHydrationWarning>{t.colDate}</th>
                         <th className="p-4 w-[55%]">{t.colTitle}</th>
                         <th className="p-4 w-[20%] text-right">{t.colAction}</th>
                       </tr>
@@ -1170,7 +1200,7 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-slate-900/60 text-slate-300">
                       {recordings.map((rec, idx) => (
                         <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
-                          <td className="p-4 font-mono text-gray-400">{rec.date}</td>
+                          <td className="p-4 font-mono text-gray-400" suppressHydrationWarning>{rec.date}</td>
                           <td className="p-4 font-bold text-slate-200">{rec.title}</td>
                           <td className="p-4 text-right">
                             <button 
