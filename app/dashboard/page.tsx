@@ -7,7 +7,6 @@
   ) : (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
-        {/* Start Class බටන් එක - STARTED නම් අක්‍රිය වෙනවා, නැත්නම් වැඩ කරනවා */}
         {rawStatus === "STARTED" ? (
           <button disabled className="py-2 bg-emerald-950/40 border border-emerald-800/50 text-emerald-400 rounded-xl text-[10px] font-bold text-center cursor-not-allowed transition-all">
             🟢 Running...
@@ -34,7 +33,6 @@
         </button>
       </div>
 
-      {/* Cancel Class බටන් එක පේන්නේ SCHEDULED වෙලාවේ විතරයි */}
       {rawStatus === "SCHEDULED" && (
         <button 
           onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
