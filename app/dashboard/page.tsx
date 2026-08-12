@@ -1108,8 +1108,7 @@ export default function DashboardPage() {
                             <button 
                               onClick={() => {
                                 const warningMsg = `⚠️ පන්තිය ඉවත් කිරීමට (Delete Schedule) පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n` +
-                                                   `• මෙම පන්තිය දැනට 'STARTED' තත්ත්වයේ පවතින බැවින්, මෙය ඉවත් කළහොත් පන්තිය නතර වේ.\n` +
-                                                   `• ඔබ පන්තිය පවත්වා ඇත්නම් සහ Recording එකක් සාර්ථකව පද්ධතියට ලැබී ඇත්නම්, එය Dashboard එකට එකතු වේ.\n` +
+                                                   `• මෙම පන්තිය සඳහා Cloud Recording එකක් පද්ධතියට ලැබෙන්නේ නැත (Recording එකක් එන්නේ නැත).\n` +
                                                    `• Zoom Account Slot එක වහාම නිදහස් වන අතර නැවත මෙම Link එක භාවිත කළ නොහැක.\n\n` +
                                                    `ඔබට මෙය අනිවාර්යයෙන්ම Delete කිරීමට අවශ්‍යද?`;
                                 if (confirm(warningMsg)) {
@@ -1149,8 +1148,7 @@ export default function DashboardPage() {
                               <button 
                                 onClick={() => {
                                   const warningMsg = `⚠️ පන්තිය ඉවත් කිරීමට (Delete Schedule) පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n` +
-                                                     `• මෙම පන්තිය දැනට 'STARTED' තත්ත්වයේ පවතින බැවින්, මෙය ඉවත් කළහොත් පන්තිය නතර වේ.\n` +
-                                                     `• ඔබ පන්තිය පවත්වා ඇත්නම් සහ Recording එකක් සාර්ථකව පද්ධතියට ලැබී ඇත්නම්, එය Dashboard එකට එකතු වේ.\n` +
+                                                     `• මෙම පන්තිය සඳහා Cloud Recording එකක් පද්ධතියට ලැබෙන්නේ නැත (Recording එකක් එන්නේ නැත).\n` +
                                                      `• Zoom Account Slot එක වහාම නිදහස් වන අතර නැවත මෙම Link එක භාවිත කළ නොහැක.\n\n` +
                                                      `ඔබට මෙය අනිවාර්යයෙන්ම Delete කිරීමට අවශ්‍යද?`;
                                   if (confirm(warningMsg)) {
