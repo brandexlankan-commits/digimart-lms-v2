@@ -96,7 +96,6 @@ const translations = {
     alertGeneralError: "🚫 පන්තිය සකස් කිරීමට නොහැකි විය. වේලාව නැවත පරීක්ෂා කරන්න.",
     alertServerError: "⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි. කරුණාකර නැවත උත්සාහ කරන්න.",
     alertCancelConfirm: "⚠️ මෙම පන්තිය අවලංගු (Cancel) කිරීමට අවශ්‍ය බව තහවුරු කරන්න.\n\n• මෙම Zoom Link එක සහ Passcode එක සදහටම අක්‍රීය / අවලංගු වේ.\n• සිසුන්ට මෙම පන්තියට තවදුරටත් සම්බන්ධ විය නොහැක.\n• නැවත මෙම පන්තිය පැවැත්වීමට අවශ්‍ය නම් අලුතෙන් Class එකක් Schedule කිරීමට සිදුවේ.",
-    alertCancelStartedConfirm: "⚠️ පන්තිය අවලංගු කිරීමට (End කිරීමට) පෙර කරුණාකර අවධානය යොමු කරන්න:\n\n• මෙම පන්තිය දැනට 'STARTED' තත්ත්වයේ පවතින බැවින්, එය අවලංගු කළහොත් පන්තිය අතරමග නතර වේ.\n• පද්ධතියේ Zoom Account Slot එක වහාම නිදහස් වන අතර නැවත මෙම Link එක භාවිත කළ නොහැක.\n• Recording එකක් සාර්ථකව පද්ධතියට ලැබී නොමැති නම්, මෙම පන්තිය නැවත ආරම්භ කිරීමට සිදු විය හැක.\n\nඔබට මෙය අනිවාර්යයෙන්ම අවලංගු කිරීමට අවශ්‍යද?",
     alertCancelSuccess: "🗑️ පන්තිය සාර්ථකව අවලංගු (Cancel) කරන ලදී.",
     alertCancelError: "❌ පන්තිය අවලංගු කිරීමට නොහැකි විය.",
     alertCopySuccess: "📝 පන්තියේ විස්තර Clipboard එකට Copy කරගන්නා ලදී.",
@@ -169,7 +168,6 @@ const translations = {
     alertGeneralError: "🚫 Unable to schedule class. Please verify the date and time.",
     alertServerError: "⚠️ Server connection error. Please try again.",
     alertCancelConfirm: "⚠️ Are you sure you want to cancel this class?\n\n• The Zoom Link and Passcode for this class will become permanently invalid.\n• Students will no longer be able to join this class.\n• You will need to schedule a new class if you wish to host it later.",
-    alertCancelStartedConfirm: "⚠️ Are you sure you want to end this started class?\n\n• Ending this class will terminate the active session.\n• The Zoom Account slot will be freed immediately.\n• If a recording has not been generated yet, you may need to reschedule.",
     alertCancelSuccess: "🗑️ Class canceled successfully.",
     alertCancelError: "❌ Failed to cancel class.",
     alertCopySuccess: "📝 Class details copied to Clipboard.",
@@ -242,7 +240,6 @@ const translations = {
     alertGeneralError: "🚫 வகுப்பை திட்டமிட முடியவில்லை. நேரத்தை மீண்டும் சரிபார்க்கவும்.",
     alertServerError: "⚠️ சர்வர் இணைப்பு பிழை. மீண்டும் முயற்சிக்கவும்.",
     alertCancelConfirm: "⚠️ இந்த வகுப்பை ரத்து செய்ய விரும்புகிறீர்களா?\n\n• இந்த Zoom இணைப்பு மற்றும் கடவுச்சொல் நிரந்தரமாக செல்லுபடியாகாது.\n• மாணவர்கள் இந்த வகுப்பில் இனி இணைய முடியாது.\n• மீண்டும் வகுப்பை நடத்த விரும்பினால் புதிய வகுப்பை திட்டமிட வேண்டும்.",
-    alertCancelStartedConfirm: "⚠️ இந்த வகுப்பை முடிக்க விரும்புகிறீர்களா?\n\n• இந்த வகுப்பை முடிப்பது செயலில் உள்ள அமர்வை நிறுத்தும்.\n• Zoom கணக்கு ஸ்லாட் உடனடியாக விடுவிக்கப்படும்.\n• ரெக்கார்டிங் இன்னும் உருவாக்கப்படவில்லை என்றால், நீங்கள் புதிய வகுப்பை திட்டமிட வேண்டியிருக்கும்.",
     alertCancelSuccess: "🗑️ வகுப்பு வெற்றிகரமாக ரத்து செய்யப்பட்டது.",
     alertCancelError: "❌ வகுப்பை ரத்து செய்ய முடியவில்லை.",
     alertCopySuccess: "📝 வகுப்பு விவரங்கள் நகலெடுக்கப்பட்டன.",
@@ -1056,13 +1053,30 @@ export default function DashboardPage() {
 
                   const isClassEnded = rawStatus === "ENDED";
 
+                  // Time frame calculations
+                  const startTimeMs = parseDateTimeToTimestamp(item);
+                  const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
+                  const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
+                  const nowMs = Date.now();
+                  const isTimeExpired = nowMs > endTimeMs;
+
                   return (
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
                       <div className="space-y-3">
                         <div className="flex justify-between items-center gap-2">
-                          <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">
-                            {item.date || (item as any)["Start Time"]?.split(" ")[0]}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">
+                              {item.date || (item as any)["Start Time"]?.split(" ")[0]}
+                            </span>
+                            
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              rawStatus === "STARTED" ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" :
+                              rawStatus === "SCHEDULED" ? "bg-blue-950/80 text-blue-400 border-blue-900/50" :
+                              "bg-amber-950/80 text-amber-400 border-amber-800/50"
+                            }`}>
+                              {rawStatus}
+                            </span>
+                          </div>
                           
                           <span className="text-[10px] text-gray-300 flex items-center gap-1 font-bold">
                             ⏳ {formatDuration(item.duration)}
@@ -1076,7 +1090,6 @@ export default function DashboardPage() {
                           <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
                           <p>🔑 Pass: {pass}</p>
                           <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
-                          <p className="text-[10px] text-slate-500 font-bold">Status: {rawStatus}</p>
                         </div>
                       </div>
                       
@@ -1085,6 +1098,11 @@ export default function DashboardPage() {
                           <div className="w-full py-2.5 bg-amber-950/40 border border-amber-800/50 text-amber-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
                             <span>⏳</span>
                             <span>Class Ended / Recording Processing...</span>
+                          </div>
+                        ) : rawStatus === "STARTED" && isTimeExpired ? (
+                          <div className="w-full py-2.5 bg-blue-950/40 border border-blue-800/50 text-blue-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
+                            <span>⚙️</span>
+                            <span>Processing Recording...</span>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -1102,7 +1120,7 @@ export default function DashboardPage() {
                                     }}
                                     className="px-3 py-2 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all cursor-pointer"
                                   >
-                                    ❌ End
+                                    🗑️ Delete Schedule
                                   </button>
                                 </div>
                               ) : (
