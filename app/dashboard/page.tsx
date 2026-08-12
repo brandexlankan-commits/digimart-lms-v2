@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const getMeetingPasscode = (item: Meeting) => item.passcode || item.password || item.pass || "123456";
   const getMeetingTime = (item: any) => item.time || item.startTime || item.start_time || "12:00 PM";
   const getMeetingJoinUrl = (item: Meeting) => item.join_url || item.start_url || (item.zoom_id ? `https://us06web.zoom.us/j/${item.zoom_id.toString().replace(/\D/g, "")}` : "");
+  
   const parseDateTimeToTimestamp = (item: Meeting) => {
     const dateStr = item.date || (item as any)["Start Time"]?.split(" ")[0];
     const timeStr = getMeetingTime(item);
@@ -104,11 +105,13 @@ export default function DashboardPage() {
     if (parts.length === 3 && !isNaN(parts[0])) return new Date(parts[0], parts[1] - 1, parts[2], hours, minutes).getTime();
     return 0;
   };
+
   const formatDuration = (rawDuration: any) => {
     const totalMinutes = parseInt(String(rawDuration).replace(/[^0-9]/g, ""), 10) || 0;
     const hrs = Math.floor(totalMinutes / 60); const mins = totalMinutes % 60;
     return hrs > 0 ? `${hrs} ${hrs > 1 ? "Hrs" : "Hr"} ${mins > 0 ? mins + " Min" : ""}` : `${mins} Min`;
   };
+  
   const formatMeetingId = (id?: string) => { const clean = id?.toString().replace(/\D/g, "") || ""; return clean.length >= 10 ? `${clean.slice(0, 3)} ${clean.slice(3, 7)} ${clean.slice(7)}` : id; };
 
   const handleStartClass = (item: Meeting) => {
@@ -163,46 +166,302 @@ export default function DashboardPage() {
   if (loading) return <div className="min-h-screen bg-[#070b19] flex items-center justify-center text-white">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-[#070b19] text-white font-sans p-6">
+    <div className="min-h-screen bg-[#070b19] text-white font-sans p-4 sm:p-6">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Simplified Header/Tabs - truncated for brevity but full code below */}
-        {/* (Tabs logic remains the same) */}
         
-        {activeTab === "planned" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plannedClasses.map((item, idx) => {
-              const rawStatus = String(item.status || (item as any).Status || "").trim().toUpperCase();
-              const isClassEnded = rawStatus === "ENDED";
-              return (
-                <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-2xl space-y-3.5">
-                  <h3 className="text-xs font-bold text-slate-200">{item.topic}</h3>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    <p>Status: {rawStatus}</p>
-                  </div>
-                  <div className="space-y-2 pt-1">
-                    {isClassEnded ? (
-                      <div className="py-2.5 bg-amber-950/40 text-amber-400 text-center text-xs font-bold rounded-xl">Class Ended</div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          {rawStatus === "STARTED" ? (
-                            <div className="py-2 bg-emerald-950/40 text-emerald-400 text-xs font-bold rounded-xl text-center">🟢 Running...</div>
-                          ) : (
-                            <button onClick={() => handleStartClass(item)} className="py-2 bg-slate-900 hover:bg-slate-800 rounded-xl text-xs font-bold">Start Class</button>
-                          )}
-                          <button onClick={() => { navigator.clipboard.writeText(getMeetingJoinUrl(item)); alert("Copied"); }} className="py-2 bg-emerald-600 rounded-xl text-xs font-bold">Copy</button>
-                        </div>
-                        {rawStatus === "SCHEDULED" && (
-                          <button onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)} className="w-full py-1.5 bg-rose-950/30 text-rose-400 text-xs font-bold rounded-xl">Cancel Class</button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+        {/* TOP HEADER */}
+        <div className="bg-[#0b132b]/80 border border-slate-900 backdrop-blur-md p-4 sm:p-5 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            {teacherPic ? (
+              <img src={teacherPic} alt="Profile" className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-800 shadow-md" />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center font-bold text-lg text-white shadow-md">
+                {teacherName.charAt(0)}
+              </div>
+            )}
+            <div>
+              <h1 className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                {t.welcome}, {teacherName} 👋
+              </h1>
+              <p className="text-[11px] text-slate-400 font-medium">{t.subHeader}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+            <div className="flex bg-slate-950/80 border border-slate-800 p-1 rounded-xl text-xs">
+              <button onClick={() => handleLangChange("si")} className={`px-2.5 py-1 rounded-lg font-bold transition-all ${lang === "si" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}>සිංහල</button>
+              <button onClick={() => handleLangChange("en")} className={`px-2.5 py-1 rounded-lg font-bold transition-all ${lang === "en" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}>ENG</button>
+              <button onClick={() => handleLangChange("ta")} className={`px-2.5 py-1 rounded-lg font-bold transition-all ${lang === "ta" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-white"}`}>தமிழ்</button>
+            </div>
+
+            <button onClick={() => window.open("https://wa.me/94778538626", "_blank")} className="px-3.5 py-2 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-800/50 text-emerald-400 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+              <span>💬</span> {t.supportBtn}
+            </button>
+
+            <button onClick={handleLogout} className="px-3.5 py-2 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-xs font-bold rounded-xl transition-all cursor-pointer">
+              {t.signOut}
+            </button>
+          </div>
+        </div>
+
+        {/* NAVIGATION TABS */}
+        <div className="flex gap-2 border-b border-slate-900 pb-3 overflow-x-auto">
+          <button onClick={() => setActiveTab("home")} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === "home" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "bg-[#0b132b]/40 text-slate-400 hover:text-white hover:bg-[#0b132b]"}`}>
+            🏠 {t.homeTab}
+          </button>
+          <button onClick={() => setActiveTab("schedule")} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === "schedule" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "bg-[#0b132b]/40 text-slate-400 hover:text-white hover:bg-[#0b132b]"}`}>
+            ➕ {t.scheduleTab}
+          </button>
+          <button onClick={() => setActiveTab("planned")} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === "planned" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "bg-[#0b132b]/40 text-slate-400 hover:text-white hover:bg-[#0b132b]"}`}>
+            📅 {t.plannedTab} <span className="bg-slate-800 text-slate-200 px-1.5 py-0.2 rounded-full text-[10px]">{plannedClasses.length}</span>
+          </button>
+          <button onClick={() => setActiveTab("recordings")} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === "recordings" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "bg-[#0b132b]/40 text-slate-400 hover:text-white hover:bg-[#0b132b]"}`}>
+            🎥 {t.recordingsTab} <span className="bg-slate-800 text-slate-200 px-1.5 py-0.2 rounded-full text-[10px]">{recordings.length}</span>
+          </button>
+        </div>
+
+        {/* TAB 1: HOME */}
+        {activeTab === "home" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-3xl space-y-2">
+                <p className="text-xs text-slate-400 font-medium">{t.plannedCount}</p>
+                <h3 className="text-2xl font-black text-blue-400">{plannedClasses.length}</h3>
+              </div>
+              <div className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-3xl space-y-2">
+                <p className="text-xs text-slate-400 font-medium">{t.accStatus}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-emerald-400">{t.activeAcc}</span>
+                  {remainingDays !== null && (
+                    <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                      {remainingDays > 0 ? t.daysLeftText.replace("{days}", String(remainingDays)) : t.expiredText}
+                    </span>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+              <div className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-3xl space-y-2">
+                <p className="text-xs text-slate-400 font-medium">{t.maxHostsLabel}</p>
+                <h3 className="text-2xl font-black text-purple-400">{maxConcurrentHosts} Host(s)</h3>
+              </div>
+            </div>
+
+            {/* Announcements */}
+            <div className="bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/40 border border-blue-900/30 p-6 rounded-3xl space-y-4 shadow-xl">
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-blue-600 text-white font-bold px-2.5 py-1 rounded-xl shadow-sm">📢 {t.announcements}</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div className="bg-slate-950/60 border border-slate-900 p-4 rounded-2xl space-y-3">
+                  <span className="text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold px-2 py-0.5 rounded">{t.ad1Badge}</span>
+                  <h4 className="text-xs font-bold text-slate-200">{t.ad1Title}</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">{t.ad1Desc}</p>
+                  <button onClick={() => window.open("https://wa.me/94778538626", "_blank")} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md">
+                    {t.ad1Btn}
+                  </button>
+                </div>
+                <div className="bg-slate-950/60 border border-slate-900 p-4 rounded-2xl space-y-3">
+                  <span className="text-[10px] bg-purple-500/10 border border-purple-500/30 text-purple-400 font-bold px-2 py-0.5 rounded">{t.ad2Badge}</span>
+                  <h4 className="text-xs font-bold text-slate-200">{t.ad2Title}</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">{t.ad2Desc}</p>
+                  <button onClick={() => window.open("https://wa.me/94778538626", "_blank")} className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md">
+                    {t.ad2Btn}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
+
+        {/* TAB 2: SCHEDULE CLASS */}
+        {activeTab === "schedule" && (
+          <div className="bg-[#0b132b]/60 border border-slate-900 p-6 sm:p-8 rounded-3xl max-w-2xl mx-auto space-y-6 shadow-xl">
+            <h2 className="text-sm font-bold text-slate-200 border-b border-slate-800 pb-3">📅 {t.createClassTitle}</h2>
+            <form onSubmit={handleCreateClass} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">{t.topicLabel}</label>
+                <input type="text" required value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={t.topicPlaceholder} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-600" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">{t.dateLabel}</label>
+                  <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-600" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">{t.timeLabel}</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <select value={selectedHour} onChange={(e) => setSelectedHour(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-2.5 text-xs text-white">
+                      {["01","02","03","04","05","06","07","08","09","10","11","12"].map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    <select value={selectedMinute} onChange={(e) => setSelectedMinute(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-2.5 text-xs text-white">
+                      {["00","15","30","45"].map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <select value={selectedAmPm} onChange={(e) => setSelectedAmPm(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-2 py-2.5 text-xs text-white">
+                      <option value="AM">AM</option>
+                      <option value="PM">PM</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">{t.durationHoursLabel}</label>
+                  <select value={durationHours} onChange={(e) => setDurationHours(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white">
+                    {["00 Hr", "01 Hr", "02 Hr", "03 Hr", "04 Hr"].map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">{t.durationMinutesLabel}</label>
+                  <select value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white">
+                    {["00 Min", "15 Min", "30 Min", "45 Min"].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">{t.passcodeLabel}</label>
+                <input type="text" value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder={t.passcodePlaceholder} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-600" />
+              </div>
+
+              <div className="pt-2">
+                <p className="text-xs font-bold text-slate-300 mb-2">{t.autoRecordingLabel}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setAutoRecording("none")} className={`py-2 rounded-xl text-xs font-bold border transition-all ${autoRecording === "none" ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-950 border-slate-800 text-slate-400"}`}>None</button>
+                  <button type="button" onClick={() => setAutoRecording("cloud")} className={`py-2 rounded-xl text-xs font-bold border transition-all ${autoRecording === "cloud" ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-950 border-slate-800 text-slate-400"}`}>Cloud (Zoom)</button>
+                  <button type="button" onClick={() => setAutoRecording("local")} className={`py-2 rounded-xl text-xs font-bold border transition-all ${autoRecording === "local" ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-950 border-slate-800 text-slate-400"}`}>Local</button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="rounded bg-slate-950 border-slate-800 text-blue-600" /> {t.waitingRoom}
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={muteOnEntry} onChange={(e) => setMuteOnEntry(e.target.checked)} className="rounded bg-slate-950 border-slate-800 text-blue-600" /> {t.muteOnEntry}
+                </label>
+              </div>
+
+              <button type="submit" disabled={formLoading} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-2xl transition-all shadow-lg shadow-blue-600/30 cursor-pointer mt-4">
+                {formLoading ? t.creatingBtn : t.createBtn}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 3: PLANNED CLASSES */}
+        {activeTab === "planned" && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-200">📅 {t.plannedClassesTitle} ({plannedClasses.length})</h2>
+            {plannedClasses.length === 0 ? (
+              <div className="p-12 border border-dashed border-slate-800 rounded-3xl text-center text-slate-500 text-xs space-y-3">
+                <p>{t.noPlannedClasses}</p>
+                <button onClick={() => setActiveTab("schedule")} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold cursor-pointer">{t.scheduleFirstBtn}</button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {plannedClasses.map((item, idx) => {
+                  const pass = getMeetingPasscode(item);
+                  const classTime = getMeetingTime(item);
+                  const joinUrl = getMeetingJoinUrl(item);
+                  const rawStatus = String(item.status || (item as any).Status || "").trim().toUpperCase();
+                  const isClassEnded = rawStatus === "ENDED";
+
+                  return (
+                    <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-5 rounded-3xl space-y-3.5 shadow-sm flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] bg-blue-950 text-blue-400 font-bold px-2 py-0.5 rounded border border-blue-900/30">
+                            {item.date || (item as any)["Start Time"]?.split(" ")[0]}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-bold">⏳ {formatDuration(item.duration)}</span>
+                        </div>
+                        <h3 className="text-xs font-bold text-slate-200 line-clamp-2">{item.topic}</h3>
+                        <div className="bg-slate-950/70 border border-slate-900/60 p-3 rounded-xl space-y-1 font-mono text-[11px] text-slate-400">
+                          <p>⏰ Time: {classTime}</p>
+                          <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
+                          <p>🔑 Pass: {pass}</p>
+                          <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
+                          <p className="text-[10px] text-slate-500 font-bold">Status: {rawStatus}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        {isClassEnded ? (
+                          <div className="w-full py-2.5 bg-amber-950/40 border border-amber-800/50 text-amber-400 text-[11px] font-bold rounded-xl text-center flex items-center justify-center gap-1.5">
+                            <span>⏳</span> Class Ended / Recording Processing...
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {rawStatus === "STARTED" ? (
+                                <button disabled className="py-2 bg-emerald-950/40 border border-emerald-800/50 text-emerald-400 rounded-xl text-[10px] font-bold text-center cursor-not-allowed">
+                                  🟢 Running...
+                                </button>
+                              ) : (
+                                <button onClick={() => handleStartClass(item)} className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-white transition-all cursor-pointer">
+                                  {t.startClassBtn}
+                                </button>
+                              )}
+                              <button onClick={() => {
+                                const formattedId = formatMeetingId(item.zoom_id);
+                                const details = `🎓 *${teacherName} is inviting you to a scheduled Zoom meeting.* ✨\n\n📌 *Topic:* ${item.topic}\n📅 *Date:* ${item.date || (item as any)["Start Time"]?.split(" ")[0]}\n⏰ *Time:* ${classTime}\n\n🔐 *Meeting ID:* ${formattedId}\n🔑 *Passcode:* ${pass}\n\n🌐 *Join Link:* ${joinUrl}`;
+                                navigator.clipboard.writeText(details);
+                                alert(t.alertCopySuccess);
+                              }} className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-all cursor-pointer">
+                                {t.copyDetailsBtn}
+                              </button>
+                            </div>
+                            {rawStatus === "SCHEDULED" && (
+                              <button onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)} className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all cursor-pointer">
+                                {t.cancelClassBtn}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: RECORDINGS */}
+        {activeTab === "recordings" && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-200">🎥 {t.recordingsTitle} <span className="text-[10px] text-slate-500 font-normal">{t.cloudNote}</span></h2>
+            {recordings.length === 0 ? (
+              <div className="p-12 border border-dashed border-slate-800 rounded-3xl text-center text-slate-500 text-xs">
+                {t.noRecordings}
+              </div>
+            ) : (
+              <div className="bg-[#0b132b]/60 border border-slate-900 rounded-3xl overflow-hidden shadow-xl">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-900 bg-slate-950/40 text-[10px] text-slate-400 font-bold">
+                      <th className="p-4">{t.colDate}</th>
+                      <th className="p-4">{t.colTitle}</th>
+                      <th className="p-4 text-right">{t.colAction}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900/50 text-xs">
+                    {recordings.map((rec, index) => (
+                      <tr key={index} className="hover:bg-slate-900/20 transition-colors">
+                        <td className="p-4 font-mono text-slate-400">{rec.date}</td>
+                        <td className="p-4 font-bold text-slate-200">{rec.title}</td>
+                        <td className="p-4 text-right">
+                          <button onClick={() => { navigator.clipboard.writeText(rec.link); alert(t.alertCopyVideoSuccess); }} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition-all cursor-pointer">
+                            {t.copyLinkBtn}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
