@@ -410,7 +410,6 @@ export default function DashboardPage() {
     return id;
   };
 
-  // 🎯 STRICT TIME FRAME LOGIC (NO EXTRA BUFFER TIME)
   const handleStartClass = (item: Meeting) => {
     const startTimeMs = parseDateTimeToTimestamp(item);
     const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
@@ -419,8 +418,8 @@ export default function DashboardPage() {
     const nowMs = Date.now();
     const ONE_HOUR_MS = 60 * 60 * 1000;
 
-    const earliestAllowed = startTimeMs - ONE_HOUR_MS; // නියමිත වේලාවට පැයකට පෙර සිට
-    const latestAllowed = endTimeMs;                   // 🎯 වෙන් කළ කාලය අවසන් වූ සැනින්ම (No Buffer)
+    const earliestAllowed = startTimeMs - ONE_HOUR_MS; 
+    const latestAllowed = endTimeMs;                   
 
     if (nowMs < earliestAllowed) {
       alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
@@ -1028,11 +1027,11 @@ export default function DashboardPage() {
             </h2>
             
             {plannedClasses.length === 0 ? (
-              <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs space-y-3">
+              <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
                 <p>{t.noPlannedClasses}</p>
                 <button 
                   onClick={() => setActiveTab("schedule")}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold cursor-pointer"
                 >
                   {t.scheduleFirstBtn}
                 </button>
@@ -1072,6 +1071,7 @@ export default function DashboardPage() {
                           <p>🆔 ID: {formatMeetingId(item.zoom_id)}</p>
                           <p>🔑 Pass: {pass}</p>
                           <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
+                          <p className="text-[10px] text-slate-500 font-bold">Status: {rawStatus}</p>
                         </div>
                       </div>
                       
@@ -1104,16 +1104,18 @@ export default function DashboardPage() {
                               </button>
                             </div>
 
-                            <button 
-                              onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
-                              className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
-                            >
-                              {t.cancelClassBtn}
-                            </button>
+                            {/* මෙතනදී තමයි රහස තියෙන්නේ - Status එක SCHEDULED නම් විතරයි Cancel බටන් එක පේන්නේ */}
+                            {rawStatus === "SCHEDULED" && (
+                              <button 
+                                onClick={() => handleCancelClass(item.meeting_id_row, item.zoom_id)}
+                                className="w-full py-1.5 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 text-rose-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
+                              >
+                                {t.cancelClassBtn}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
-
                     </div>
                   );
                 })}
