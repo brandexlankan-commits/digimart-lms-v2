@@ -9,6 +9,10 @@ interface SlotMeeting {
   zoom_id: string;
   status?: string;
   Status?: string;
+  startTimestamp?: number;
+  endTimestamp?: number;
+  bufferedStartTimestamp?: number;
+  bufferedEndTimestamp?: number;
 }
 
 interface PoolAccountInfo {
@@ -121,6 +125,26 @@ export default function AdminPoolPage() {
     return currentMins >= mStart && currentMins <= mEnd;
   };
 
+  // 🎯 මේ මොහොතේ Account එක Buffer time එකත් සමඟ Busy ද යන්න පරීක්ෂා කිරීම
+  const isAccountBusyRightNow = (meetings: SlotMeeting[]) => {
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    
+    return meetings.some((m) => {
+      if (isMeetingEnded(m)) return false;
+
+      const mStart = parseTimeToMinutes(m.time);
+      const mDuration = Number(m.duration) || 60;
+      const mEnd = mStart + mDuration;
+
+      // පැයක ආරක්ෂිත පරතරය (Buffer Time) සමඟ පරාසය
+      const bufferedStart = mStart - 60;
+      const bufferedEnd = mEnd + 60;
+
+      return currentMins >= bufferedStart && currentMins <= bufferedEnd;
+    });
+  };
+
   const getDaysRemaining = (expDateStr: string) => {
     if (!expDateStr) return null;
     const expDate = new Date(expDateStr);
@@ -221,6 +245,13 @@ export default function AdminPoolPage() {
   };
 
   const accountKeys = Object.keys(poolData);
+  
+  // 🎯 මේ මොහොතේ Busy වී ඇති Accounts ගණන ගණනය කිරීම
+  const busyAccountsNowCount = accountKeys.filter((accId) => {
+    const accInfo = poolData[accId];
+    return isAccountBusyRightNow(accInfo?.classes || []);
+  }).length;
+
   const activeClassesToday = accountKeys.reduce((acc, key) => {
     const meetings = poolData[key]?.classes || [];
     return acc + meetings.filter(m => !isMeetingEnded(m)).length;
@@ -324,10 +355,13 @@ export default function AdminPoolPage() {
         {activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* 🎯 UPDATED CARD: Busy Accounts Now / Total Accounts */}
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Active Zoom Accounts</p>
-                  <h3 className="text-2xl font-black text-blue-400 mt-1">{accountKeys.length} Accounts</h3>
+                  <p className="text-xs text-gray-400 font-medium">Busy / Total Accounts (Now)</p>
+                  <h3 className="text-2xl font-black text-blue-400 mt-1">
+                    {busyAccountsNowCount} <span className="text-sm font-normal text-slate-400">/ {accountKeys.length} Busy</span>
+                  </h3>
                 </div>
                 <div className="w-10 h-10 bg-blue-950 border border-blue-900 rounded-xl flex items-center justify-center text-lg">⚡</div>
               </div>
