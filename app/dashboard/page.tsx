@@ -98,8 +98,8 @@ const translations = {
     alertCancelConfirm: "⚠️ මෙම පන්තිය අවලංගු (Cancel) කිරීමට අවශ්‍ය බව තහවුරු කරන්න.\n\n• මෙම Zoom Link එක සහ Passcode එක සදහටම අක්‍රීය / අවලංගු වේ.\n• සිසුන්ට මෙම පන්තියට තවදුරටත් සම්බන්ධ විය නොහැක.\n• නැවත මෙම පන්තිය පැවැත්වීමට අවශ්‍ය නම් අලුතෙන් Class එකක් Schedule කිරීමට සිදුවේ.",
     alertCancelSuccess: "🗑️ පන්තිය සාර්ථකව අවලංගු (Cancel) කරන ලදී.",
     alertCancelError: "❌ පන්තිය අවලංගු කිරීමට නොහැකි විය.",
-    alertCopySuccess: "📝 පන්තියේ විස්තර Clipboard එකට Copy කරගන්නා ලදී.",
-    alertCopyVideoSuccess: "🎬 පටිගත කිරීමේ සබැඳිය (Video Link) සාර්ථකව Copy කරගන්නා ලදී."
+    alertCopySuccess: "📝 පන්තියේ විස්තර Clipboard එකට Copy කරගන්න ලදී.",
+    alertCopyVideoSuccess: "🎬 පටිගත කිරීමේ සබැඳිය (Video Link) සාර්ථකව Copy කරගන්න ලදී."
   },
   en: {
     welcome: "Welcome",
@@ -272,7 +272,6 @@ export default function DashboardPage() {
   const [durationMinutes, setDurationMinutes] = useState("00 Min");
   const [passcode, setPasscode] = useState("Auto");
   
-  // 🎯 DEFAULT VALUES UPDATED: Mute on Entry is true, others are false
   const [waitingRoom, setWaitingRoom] = useState(false);
   const [hostVideo, setHostVideo] = useState(false);
   const [participantVideo, setParticipantVideo] = useState(false);
@@ -462,7 +461,9 @@ export default function DashboardPage() {
           const recordingUrl = (item as any)["Recording URL"] || (item as any).recording_url || "";
           const hasRecording = String(recordingUrl).trim() !== "";
 
-          if (hasRecording) return false;
+          // 🎯 FIXED: Recording එකක් ආවත්, පන්තියට වෙන් කළ කාලය (Time window) තවම ඉවර නැත්නම් (e.g. මැදදී signal ගිහින් cut වුණා නම්) Schedule එක hide වන්නේ නැත. කාලය සම්පූර්ණයෙන්ම ඉවර නම් පමණක් hide වේ.
+          if (hasRecording && nowMs > endTimeMs) return false;
+
           if (nowMs > (endTimeMs + TWELVE_HOURS_MS)) return false;
 
           return true;
@@ -991,7 +992,6 @@ export default function DashboardPage() {
                 </select>
               </div>
 
-              {/* 🎯 CHECKBOXES: Mute on Entry is true by default, others are false */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-900">
                 <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
                   <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
