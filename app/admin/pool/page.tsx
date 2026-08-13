@@ -5,14 +5,21 @@ interface SlotMeeting {
   teacher_id: string;
   topic: string;
   time: string;
-  duration: string;
+  duration: number | string;
   zoom_id: string;
   status?: string;
   Status?: string;
 }
 
+interface PoolAccountInfo {
+  account_id: string;
+  pool_type: string;
+  status: string;
+  classes: SlotMeeting[];
+}
+
 interface PoolData {
-  [accId: string]: SlotMeeting[];
+  [accId: string]: PoolAccountInfo;
 }
 
 interface TeacherExpiry {
@@ -32,7 +39,7 @@ export default function AdminPoolPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active">("all");
   
-  // 🎯 COPIED STATE (Pop-up එක නැතුව Button Feedback එක දීමට)
+  // 🎯 COPIED STATE
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,7 +134,6 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 POP-UP FREE REMINDER COPY LOGIC
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -155,8 +161,6 @@ export default function AdminPoolPage() {
 *Thank you for choosing Digimart LMS!* ✨`;
 
     navigator.clipboard.writeText(reminderMsg);
-
-    // 🎯 Alert එක වෙනුවට Button Feedback එක සැකසීම
     setCopiedTeacherId(teacherId);
     setTimeout(() => {
       setCopiedTeacherId(null);
@@ -170,7 +174,6 @@ export default function AdminPoolPage() {
 
     const now = new Date();
     const currentHour = now.getHours();
-
     const hourlySlots = [];
 
     for (let i = 0; i < 4; i++) {
@@ -186,7 +189,9 @@ export default function AdminPoolPage() {
       const availableAccounts: string[] = [];
 
       accountKeys.forEach((accId) => {
-        const meetings = poolData[accId];
+        const accInfo = poolData[accId];
+        const meetings = accInfo?.classes || [];
+        
         const isBusy = meetings.some((m) => {
           if (isMeetingEnded(m)) return false;
 
@@ -217,7 +222,8 @@ export default function AdminPoolPage() {
 
   const accountKeys = Object.keys(poolData);
   const activeClassesToday = accountKeys.reduce((acc, key) => {
-    return acc + poolData[key].filter(m => !isMeetingEnded(m)).length;
+    const meetings = poolData[key]?.classes || [];
+    return acc + meetings.filter(m => !isMeetingEnded(m)).length;
   }, 0);
 
   const upcoming4HoursSlots = calculateNext4HoursAvailability();
@@ -240,7 +246,6 @@ export default function AdminPoolPage() {
                           t.teacher_name.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
-
     if (filterType === "expired") return t.daysLeft !== null && t.daysLeft <= 0;
     if (filterType === "soon") return t.daysLeft !== null && t.daysLeft > 0 && t.daysLeft <= 7;
     if (filterType === "active") return t.daysLeft !== null && t.daysLeft > 7;
@@ -278,7 +283,7 @@ export default function AdminPoolPage() {
                   type="date"
                   value={selectedDate}
                   onChange={handleDateChange}
-                  className="bg-slate-950 border border-slate-800 text-blue-400 font-bold px-3 py-1 rounded-lg text-xs focus:outline-none cursor-pointer color-scheme-dark"
+                  className="bg-slate-950 border border-slate-800 text-blue-400 font-bold px-3 py-1 rounded-lg text-xs focus:outline-none cursor-pointer"
                 />
               </div>
             )}
@@ -422,12 +427,13 @@ export default function AdminPoolPage() {
               </div>
             ) : accountKeys.length === 0 ? (
               <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
-                👋 මෙම දිනය ({selectedDate}) සඳහා Zoom Pool එකේ කිසිදු පන්තියක් Schedule කර නොමැත.
+                👋 මෙහි Zoom Pool accounts කිසිවක් හමු නොවීය.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {accountKeys.map((accId, idx) => {
-                  const meetings = [...poolData[accId]].sort(
+                  const accInfo = poolData[accId];
+                  const meetings = [...(accInfo?.classes || [])].sort(
                     (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)
                   );
 
@@ -435,61 +441,70 @@ export default function AdminPoolPage() {
                     <div key={idx} className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                         <div>
-                          <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-900/50">
-                            Zoom Account
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-900/50">
+                              {accInfo?.pool_type || "Zoom"}
+                            </span>
+                            <span className="text-[9px] font-mono bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900">
+                              {accInfo?.status || "ACTIVE"}
+                            </span>
+                          </div>
                           <h3 className="text-sm font-black text-white mt-1 font-mono">{accId}</h3>
                         </div>
                         <span className="bg-slate-900 text-emerald-400 font-bold text-xs px-2.5 py-1 rounded-xl border border-slate-800">
-                          {meetings.length} Slots
+                          {meetings.length} Classes
                         </span>
                       </div>
 
                       <div className="space-y-3">
-                        {meetings.map((m, mIdx) => {
-                          const ended = isMeetingEnded(m);
-                          const live = isMeetingLiveNow(m);
+                        {meetings.length === 0 ? (
+                          <p className="text-xs text-slate-500 italic py-4 text-center">No classes scheduled for today.</p>
+                        ) : (
+                          meetings.map((m, mIdx) => {
+                            const ended = isMeetingEnded(m);
+                            const live = isMeetingLiveNow(m);
 
-                          return (
-                            <div 
-                              key={mIdx} 
-                              className={`p-3.5 rounded-xl space-y-2 transition-all border ${
-                                ended
-                                  ? "bg-slate-950/30 border-slate-900/50 opacity-60"
-                                  : live
-                                  ? "bg-rose-950/20 border-rose-800/60 shadow-lg shadow-rose-950/20"
-                                  : "bg-slate-950/80 border-slate-900/80 hover:border-blue-800/50"
-                              }`}
-                            >
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="font-mono text-amber-400 font-bold flex items-center gap-1">
-                                  ⏰ {m.time}
-                                </span>
-                                {ended ? (
-                                  <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">
-                                    ⚪ ENDED / FREED
+                            return (
+                              <div 
+                                key={mIdx} 
+                                className={`p-3.5 rounded-xl space-y-2 transition-all border ${
+                                  ended
+                                    ? "bg-slate-950/30 border-slate-900/50 opacity-60"
+                                    : live
+                                    ? "bg-rose-950/20 border-rose-800/60 shadow-lg shadow-rose-950/20"
+                                    : "bg-slate-950/80 border-slate-900/80 hover:border-blue-800/50"
+                                }`}
+                              >
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="font-mono text-amber-400 font-bold flex items-center gap-1">
+                                    ⏰ {m.time}
                                   </span>
-                                ) : live ? (
-                                  <span className="text-[9px] font-mono font-bold bg-rose-950 text-rose-400 px-2 py-0.5 rounded border border-rose-800/60 animate-pulse flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                                    🔴 LIVE NOW
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900/50">
-                                    🟢 SCHEDULED
-                                  </span>
-                                )}
+                                  {ended ? (
+                                    <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">
+                                      ⚪ ENDED
+                                    </span>
+                                  ) : live ? (
+                                    <span className="text-[9px] font-mono font-bold bg-rose-950 text-rose-400 px-2 py-0.5 rounded border border-rose-800/60 animate-pulse flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                      🔴 LIVE NOW
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900/50">
+                                      🟢 {m.status || "SCHEDULED"}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{m.topic}</h4>
+
+                                <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900/80">
+                                  <span>👤 {m.teacher_id}</span>
+                                  <span>⏳ {formatDuration(m.duration)}</span>
+                                </div>
                               </div>
-
-                              <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{m.topic}</h4>
-
-                              <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900/80">
-                                <span>👤 {m.teacher_id}</span>
-                                <span>⏳ {formatDuration(m.duration)}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   );
@@ -503,7 +518,6 @@ export default function AdminPoolPage() {
         {activeTab === "expirations" && (
           <div className="space-y-6 animate-fadeIn">
             
-            {/* STATS SUMMARY CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
@@ -538,7 +552,6 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
-            {/* FILTERS AND SEARCH BAR */}
             <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full md:w-80">
                 <input 
@@ -586,7 +599,6 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
-            {/* EXPIRATION TABLE */}
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
