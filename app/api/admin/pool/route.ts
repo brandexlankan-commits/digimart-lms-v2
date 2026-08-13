@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   try {
     const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
     const cacheBuster = Date.now();
+    const BUFFER_HOURS = 1; // 🎯 පැයක ආරක්ෂිත පරතරය (Buffer Time)
 
     const [meetingsRes, teachersRes] = await Promise.all([
       fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
       })
     ]);
 
-    // 1. MEETINGS POOL DATA
+    // 1. MEETINGS POOL DATA & BUFFER LOGIC
     const meetingsText = await meetingsRes.text();
     const meetingsJsonString = meetingsText.substring(meetingsText.indexOf("{"), meetingsText.lastIndexOf("}") + 1);
     const meetingsData = JSON.parse(meetingsJsonString);
@@ -31,26 +32,36 @@ export async function GET(request: Request) {
     const accounts: { [key: string]: any[] } = {};
 
     meetingRows.forEach((row: any) => {
+      const status = String(row.c[11]?.v || row.c[10]?.v || "").trim().toUpperCase();
+      
+      // 🎯 1. ENDED පන්ති මඟහැරීම (Ended වූ පසු account එක නිදහස් ලෙස සැලකේ)
+      if (status === 'ENDED') {
+        return;
+      }
+
       const dateCell = row.c[3];
       const rawV = dateCell?.v ? String(dateCell.v).trim() : "";
       const rawF = dateCell?.f ? String(dateCell.f).trim() : "";
 
       let rowDate = "";
       let rowTime = "12:00 PM";
+      let startTimestamp = NaN;
 
       if (rawV.startsWith("Date(")) {
         const matches = rawV.match(/Date\((\d+),(\d+),(\d+),?(\d+)?,?(\d+)?/);
         if (matches) {
-          const y = matches[1];
-          const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
-          const d = String(matches[3]).padStart(2, "0");
-          rowDate = `${y}-${m}-${d}`;
+          const y = parseInt(matches[1], 10);
+          const m = parseInt(matches[2], 10);
+          const d = parseInt(matches[3], 10);
+          const hrs = parseInt(matches[4] || "0", 10);
+          const mins = parseInt(matches[5] || "0", 10);
 
-          let hrs = parseInt(matches[4] || "0", 10);
-          const mins = String(matches[5] || "0").padStart(2, "0");
+          rowDate = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          startTimestamp = Date.UTC(y, m, d, hrs, mins) - (5.5 * 60 * 60 * 1000);
+
           const ampm = hrs >= 12 ? "PM" : "AM";
-          hrs = hrs % 12 || 12;
-          rowTime = `${String(hrs).padStart(2, "0")}:${mins} ${ampm}`;
+          const formattedHrs = hrs % 12 || 12;
+          rowTime = `${String(formattedHrs).padStart(2, "0")}:${String(mins).padStart(2, "0")} ${ampm}`;
         }
       } else if (rawF || rawV) {
         const sourceText = rawF || rawV;
@@ -58,23 +69,31 @@ export async function GET(request: Request) {
         if (dateMatch) rowDate = dateMatch[1];
 
         const timeMatch = sourceText.match(/(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
+        if (timeMatch && rowDate) {
           let hrs = parseInt(timeMatch[1], 10);
-          const mins = timeMatch[2];
+          const mins = parseInt(timeMatch[2], 10);
           const isPM = sourceText.toUpperCase().includes("PM");
           const isAM = sourceText.toUpperCase().includes("AM");
-          
-          if (isPM || isAM) {
-            rowTime = `${String(hrs).padStart(2, "0")}:${mins} ${isPM ? 'PM' : 'AM'}`;
-          } else {
-            const ampm = hrs >= 12 ? "PM" : "AM";
-            hrs = hrs % 12 || 12;
-            rowTime = `${String(hrs).padStart(2, "0")}:${mins} ${ampm}`;
-          }
+
+          if (isPM && hrs < 12) hrs += 12;
+          if (isAM && hrs === 12) hrs = 0;
+
+          const [y, m, d] = rowDate.split('-').map(Number);
+          startTimestamp = Date.UTC(y, m - 1, d, hrs, mins) - (5.5 * 60 * 60 * 1000);
+
+          const ampm = hrs >= 12 ? "PM" : "AM";
+          const formattedHrs = hrs % 12 || 12;
+          rowTime = `${String(formattedHrs).padStart(2, "0")}:${String(mins).padStart(2, "0")} ${ampm}`;
         }
       }
 
-      if (rowDate === targetDate) {
+      if (rowDate === targetDate && !isNaN(startTimestamp)) {
+        const durationMin = Number(row.c[4]?.v || 120);
+        const endTimestamp = startTimestamp + (durationMin * 60 * 1000);
+        
+        // 🎯 2. Buffer Time එක එකතු කිරීම (පන්තිය ඉවර වී තවත් පැයක් යනතුරු account එක busy ලෙස පෙන්වයි)
+        const bufferedEndTimestamp = endTimestamp + (BUFFER_HOURS * 60 * 60 * 1000);
+
         const accId = row.c[10]?.v || "Pool Account";
         if (!accounts[accId]) accounts[accId] = [];
 
@@ -82,9 +101,11 @@ export async function GET(request: Request) {
           teacher_id: row.c[1]?.v || "N/A",
           topic: row.c[2]?.v || "No Topic",
           time: rowTime,
-          duration: row.c[4]?.v || "60",
+          duration: durationMin,
           zoom_id: row.c[5]?.v || "N/A",
-          status: row.c[11]?.v || row.c[10]?.v || ""
+          status: status || "SCHEDULED",
+          startTimestamp,
+          bufferedEndTimestamp
         });
       }
     });
@@ -100,7 +121,7 @@ export async function GET(request: Request) {
       teacherRows.forEach((row: any) => {
         const teacherId = row.c[0]?.v;
         const teacherName = row.c[1]?.v;
-        const expCell = row.c[10]; // Column K (Index 10)
+        const expCell = row.c[10];
 
         if (teacherId && String(teacherId).startsWith("teach_")) {
           let expiryDate = "";
