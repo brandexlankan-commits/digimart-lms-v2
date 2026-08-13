@@ -10,36 +10,75 @@ export async function GET(request: Request) {
   try {
     const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
     const cacheBuster = Date.now();
-    const BUFFER_HOURS = 1; // 🎯 පැයක ආරක්ෂිත පරතරය (Buffer Time)
+    const BUFFER_HOURS = 1; // පැයක ආරක්ෂිත පරතරය (Buffer Time)
 
-    const [meetingsRes, teachersRes] = await Promise.all([
-      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { 
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-      }),
-      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`, { 
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
-      })
+    // ෂීට් හතරම එකවර Fetch කරගැනීම (Meetings, Teachers, Zoom_Pool, Zoom_Pool_300)
+    const [meetingsRes, teachersRes, poolRes, pool300Res] = await Promise.all([
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Meetings&nocache=${cacheBuster}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Zoom_Pool&nocache=${cacheBuster}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }),
+      fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Zoom_Pool_300&nocache=${cacheBuster}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
     ]);
 
-    // 1. MEETINGS POOL DATA & BUFFER LOGIC
-    const meetingsText = await meetingsRes.text();
-    const meetingsJsonString = meetingsText.substring(meetingsText.indexOf("{"), meetingsText.lastIndexOf("}") + 1);
-    const meetingsData = JSON.parse(meetingsJsonString);
-    const meetingRows = meetingsData.table.rows || [];
+    async function parseSheet(res: Response) {
+      const text = await res.text();
+      try {
+        const jsonStr = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+        return JSON.parse(jsonStr).table.rows || [];
+      } catch (e) {
+        return [];
+      }
+    }
 
-    const accounts: { [key: string]: any[] } = {};
+    const [meetingRows, teacherRows, poolRows, pool300Rows] = await Promise.all([
+      parseSheet(meetingsRes),
+      parseSheet(teachersRes),
+      parseSheet(poolRes),
+      parseSheet(pool300Res)
+    ]);
+
+    // 1. Zoom Pool ෂීට් වලින් සියලුම Active Accounts ලබා ගැනීම
+    const allPoolAccounts: any[] = [];
+
+    const processPoolRows = (rows: any[], poolType: string) => {
+      rows.forEach((row: any) => {
+        const cells = row.c || [];
+        let accountId = "";
+        let status = "ACTIVE";
+
+        cells.forEach((cell: any, idx: number) => {
+          const val = cell?.v ? String(cell.v).trim() : "";
+          if ((idx === 0 || idx === 1) && val && !accountId && !val.toLowerCase().includes('status')) {
+            accountId = val;
+          }
+          if (val.toLowerCase() === 'active' || val.toLowerCase() === 'inactive') {
+            status = val.toUpperCase();
+          }
+        });
+
+        if (accountId && status === 'ACTIVE') {
+          allPoolAccounts.push({
+            account_id: accountId,
+            pool_type: poolType,
+            status: status
+          });
+        }
+      });
+    };
+
+    processPoolRows(poolRows, '100p');
+    processPoolRows(pool300Rows, '300p');
+
+    // 2. අදාළ දිනයට (targetDate) අදාළ Meetings සැකසීම (ENDED මඟහැර SCHEDULED සහ STARTED පමණක් ගැනීම)
+    const accountMeetingsMap: { [key: string]: any[] } = {};
 
     meetingRows.forEach((row: any) => {
-      const status = String(row.c[11]?.v || row.c[10]?.v || "").trim().toUpperCase();
-      
-      // 🎯 1. ENDED පන්ති මඟහැරීම (Ended වූ පසු account එක නිදහස් ලෙස සැලකේ)
-      if (status === 'ENDED') {
-        return;
-      }
+      const cells = row.c || [];
+      const status = String(cells[11]?.v || cells[10]?.v || "").trim().toUpperCase();
 
-      const dateCell = row.c[3];
+      if (status === 'ENDED') return;
+
+      const dateCell = cells[3];
       const rawV = dateCell?.v ? String(dateCell.v).trim() : "";
       const rawF = dateCell?.f ? String(dateCell.f).trim() : "";
 
@@ -88,79 +127,75 @@ export async function GET(request: Request) {
       }
 
       if (rowDate === targetDate && !isNaN(startTimestamp)) {
-        const durationMin = Number(row.c[4]?.v || 120);
+        const durationMin = Number(cells[4]?.v || 120);
         const endTimestamp = startTimestamp + (durationMin * 60 * 1000);
-        
-        // 🎯 2. Buffer Time එක එකතු කිරීම (පන්තිය ඉවර වී තවත් පැයක් යනතුරු account එක busy ලෙස පෙන්වයි)
+        const bufferedStartTimestamp = startTimestamp - (BUFFER_HOURS * 60 * 60 * 1000);
         const bufferedEndTimestamp = endTimestamp + (BUFFER_HOURS * 60 * 60 * 1000);
 
-        const accId = row.c[10]?.v || "Pool Account";
-        if (!accounts[accId]) accounts[accId] = [];
-
-        accounts[accId].push({
-          teacher_id: row.c[1]?.v || "N/A",
-          topic: row.c[2]?.v || "No Topic",
-          time: rowTime,
-          duration: durationMin,
-          zoom_id: row.c[5]?.v || "N/A",
-          status: status || "SCHEDULED",
-          startTimestamp,
-          bufferedEndTimestamp
-        });
+        const accId = String(cells[10]?.v || "").trim();
+        if (accId) {
+          if (!accountMeetingsMap[accId]) accountMeetingsMap[accId] = [];
+          accountMeetingsMap[accId].push({
+            teacher_id: cells[1]?.v || "N/A",
+            topic: cells[2]?.v || "No Topic",
+            time: rowTime,
+            duration: durationMin,
+            zoom_id: cells[5]?.v || "N/A",
+            status: status || "SCHEDULED", // SCHEDULED හෝ STARTED ලෙස පෙන්වයි
+            startTimestamp,
+            endTimestamp,
+            bufferedStartTimestamp,
+            bufferedEndTimestamp
+          });
+        }
       }
     });
 
-    // 2. TEACHERS SUBSCRIPTION EXPIRY DATA
+    // 3. Zoom Pool accounts සමඟ පන්ති දත්ත එකතු කිරීම
+    const formattedAccounts: { [key: string]: any } = {};
+
+    allPoolAccounts.forEach(acc => {
+      const meetingsForAcc = accountMeetingsMap[acc.account_id] || [];
+      formattedAccounts[acc.account_id] = {
+        account_id: acc.account_id,
+        pool_type: acc.pool_type,
+        status: acc.status,
+        classes: meetingsForAcc // මෙහි buffer time ඇතුළුව පන්ති ලැයිස්තුව අන්තර්ගත වේ
+      };
+    });
+
+    // 4. Teachers දත්ත සැකසීම
     const teachersList: any[] = [];
-    try {
-      const teachersText = await teachersRes.text();
-      const teachersJsonString = teachersText.substring(teachersText.indexOf("{"), teachersText.lastIndexOf("}") + 1);
-      const teachersData = JSON.parse(teachersJsonString);
-      const teacherRows = teachersData.table.rows || [];
+    teacherRows.forEach((row: any) => {
+      const cells = row.c || [];
+      const teacherId = cells[0]?.v;
+      const teacherName = cells[1]?.v;
+      const expCell = cells[10];
 
-      teacherRows.forEach((row: any) => {
-        const teacherId = row.c[0]?.v;
-        const teacherName = row.c[1]?.v;
-        const expCell = row.c[10];
-
-        if (teacherId && String(teacherId).startsWith("teach_")) {
-          let expiryDate = "";
-
-          if (expCell) {
-            const rawExpV = expCell.v ? String(expCell.v).trim() : "";
-            const rawExpF = expCell.f ? String(expCell.f).trim() : "";
-
-            if (rawExpV.startsWith("Date(")) {
-              const matches = rawExpV.match(/Date\((\d+),(\d+),(\d+)/);
-              if (matches) {
-                const y = matches[1];
-                const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
-                const d = String(matches[3]).padStart(2, "0");
-                expiryDate = `${y}-${m}-${d}`;
-              }
-            } else {
-              expiryDate = rawExpF || rawExpV;
+      if (teacherId && String(teacherId).startsWith("teach_")) {
+        let expiryDate = "";
+        if (expCell) {
+          const rawExpV = expCell.v ? String(expCell.v).trim() : "";
+          const rawExpF = expCell.f ? String(expCell.f).trim() : "";
+          if (rawExpV.startsWith("Date(")) {
+            const matches = rawExpV.match(/Date\((\d+),(\d+),(\d+)/);
+            if (matches) {
+              expiryDate = `${matches[1]}-${String(parseInt(matches[2], 10) + 1).padStart(2, "0")}-${String(matches[3]).padStart(2, "0")}`;
             }
+          } else {
+            expiryDate = rawExpF || rawExpV;
           }
-
-          teachersList.push({
-            teacher_id: teacherId,
-            teacher_name: teacherName || "N/A",
-            expiry_date: expiryDate
-          });
         }
-      });
-    } catch (e) {
-      console.error("Teachers Fetch Error:", e);
-    }
+        teachersList.push({ teacher_id: teacherId, teacher_name: teacherName || "N/A", expiry_date: expiryDate });
+      }
+    });
 
     return NextResponse.json({ 
-      accounts,
+      targetDate,
+      accounts: formattedAccounts,
       teachers: teachersList 
     }, {
-      headers: {
-        'Cache-Control': 'no-store, max-age=0, must-revalidate',
-      }
+      headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' }
     });
 
   } catch (error) {
