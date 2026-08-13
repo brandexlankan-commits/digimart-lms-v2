@@ -272,8 +272,9 @@ export default function DashboardPage() {
   const [durationMinutes, setDurationMinutes] = useState("00 Min");
   const [passcode, setPasscode] = useState("Auto");
   
-  const [waitingRoom, setWaitingRoom] = useState(true);
-  const [hostVideo, setHostVideo] = useState(true);
+  // 🎯 DEFAULT VALUES UPDATED: Mute on Entry is true, others are false
+  const [waitingRoom, setWaitingRoom] = useState(false);
+  const [hostVideo, setHostVideo] = useState(false);
   const [participantVideo, setParticipantVideo] = useState(false);
   const [muteOnEntry, setMuteOnEntry] = useState(true);
   
@@ -990,6 +991,7 @@ export default function DashboardPage() {
                 </select>
               </div>
 
+              {/* 🎯 CHECKBOXES: Mute on Entry is true by default, others are false */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-900">
                 <label className="flex items-center gap-2.5 text-xs text-gray-300 cursor-pointer select-none">
                   <input type="checkbox" checked={waitingRoom} onChange={(e) => setWaitingRoom(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 accent-blue-600" />
@@ -1053,7 +1055,6 @@ export default function DashboardPage() {
 
                   const isClassEnded = rawStatus === "ENDED";
 
-                  // Time frame calculations
                   const startTimeMs = parseDateTimeToTimestamp(item);
                   const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
                   const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
@@ -1143,7 +1144,6 @@ export default function DashboardPage() {
                               </button>
                             </div>
 
-                            {/* Delete Schedule / Cancel Button */}
                             {rawStatus === "STARTED" ? (
                               <button 
                                 onClick={() => {
