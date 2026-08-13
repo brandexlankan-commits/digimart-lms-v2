@@ -125,7 +125,7 @@ export default function AdminPoolPage() {
     return currentMins >= mStart && currentMins <= mEnd;
   };
 
-  // 🎯 මේ මොහොතේ Account එක Buffer time එකත් සමඟ Busy ද යන්න පරීක්ෂා කිරීම
+  // 🎯 UPDATED BUFFER LOGIC: 1h pre-buffer + 1h post-buffer (Total 120 mins post)
   const isAccountBusyRightNow = (meetings: SlotMeeting[]) => {
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
@@ -137,9 +137,8 @@ export default function AdminPoolPage() {
       const mDuration = Number(m.duration) || 60;
       const mEnd = mStart + mDuration;
 
-      // පැයක ආරක්ෂිත පරතරය (Buffer Time) සමඟ පරාසය
       const bufferedStart = mStart - 60;
-      const bufferedEnd = mEnd + 60;
+      const bufferedEnd = mEnd + 120; // 1h post-class cleanup + 1h next-class prep
 
       return currentMins >= bufferedStart && currentMins <= bufferedEnd;
     });
@@ -223,7 +222,11 @@ export default function AdminPoolPage() {
           const mDuration = Number(m.duration) || 60;
           const mEnd = mStart + mDuration;
 
-          return mStart < slotEndMins && mEnd > slotStartMins;
+          // 🎯 120 mins buffer logic for accurate slot availability
+          const bufferedStart = mStart - 60;
+          const bufferedEnd = mEnd + 120;
+
+          return bufferedStart < slotEndMins && bufferedEnd > slotStartMins;
         });
 
         if (isBusy) busyAccounts.push(accId);
@@ -246,7 +249,6 @@ export default function AdminPoolPage() {
 
   const accountKeys = Object.keys(poolData);
   
-  // 🎯 මේ මොහොතේ Busy වී ඇති Accounts ගණන ගණනය කිරීම
   const busyAccountsNowCount = accountKeys.filter((accId) => {
     const accInfo = poolData[accId];
     return isAccountBusyRightNow(accInfo?.classes || []);
@@ -355,7 +357,6 @@ export default function AdminPoolPage() {
         {activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* 🎯 UPDATED CARD: Busy Accounts Now / Total Accounts */}
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Busy / Total Accounts (Now)</p>
