@@ -444,11 +444,19 @@ export default function DashboardPage() {
     const confirmDelete = confirm(lang === "si" ? "⚠️ මෙම Recording එක සදහටම මකා දැමීමට අවශ්‍යද? මෙය නැවත ලබාගත නොහැක." : "⚠️ Are you sure you want to delete this recording?");
     if (!confirmDelete) return;
 
+    let fileKey = "";
+    try {
+      const urlObj = new URL(rec.link);
+      fileKey = urlObj.pathname.startsWith('/') ? urlObj.pathname.substring(1) : urlObj.pathname;
+    } catch (e) {
+      fileKey = rec.link;
+    }
+
     try {
       const response = await fetch("https://n8n.epanthiya.com/webhook/delete-recording", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_url: rec.link })
+        body: JSON.stringify({ file_key: fileKey, file_url: rec.link })
       });
 
       if (response.ok) {
