@@ -170,29 +170,24 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // 🎯 RENEWAL NOTICE (REMOVED BANK DETAILS)
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
-      daysText = "ලඟදීම Expire වීමට";
+      daysText = "ලඟදීම Expire වීමට නියමිතව";
     } else if (daysLeft <= 0) {
       daysText = "කාලය ඉකුත් වී (Expired)";
     } else {
-      daysText = `තව දින ${daysLeft}ක්`;
+      daysText = `තව දින ${daysLeft}කින් අවසන් වීමට`;
     }
 
     const reminderMsg = `👋 *Hi ${teacherName}!* (ID: ${teacherId})
 
 🔔 *Digimart LMS - Renewal Notice*
 
-ඔබගේ Digimart LMS Package එක ${daysText} ඇති බැවින්, අඛණ්ඩව Zoom සහ LMS සේවාවන් ලබා ගැනීමට කරුණාකර Renewal ගෙවීම සිදු කරන්න.
+ඔබගේ Digimart LMS Package එක ${daysText} ඇති බැවින්, අඛණ්ඩව Zoom සහ LMS සේවාවන් බාධාවකින් තොරව ලබා ගැනීමට කරුණාකර ඔබගේ Package Renewal එක සිදු කරගැනීමට කටයුතු කරන්න.
 
-💳 *Bank Account Details for Renewal:*
-• *Bank:* Sampath Bank
-• *Branch:* Rambukkana Branch
-• *Account Number:* 1188 5747 0946
-• *Account Name:* S.D.Nuwan Sameera Deshapriya
-
-📌 *Note:* ගෙවීම සිදු කිරීමෙන් පසු රිසිට්පත (Payment Slip / Screenshot) මෙයට යොමු කරන්න.
+💬 *Package Renewal විස්තර සහ Payments සිදු කිරීම සඳහා කරුණාකර අප හා සම්බන්ධ වන්න.*
 
 *Thank you for choosing Digimart LMS!* ✨`;
 
@@ -267,7 +262,6 @@ export default function AdminPoolPage() {
     return hourlySlots;
   };
 
-  // 🎯 30-MINUTE CLASS ENDING TIMELINE CALCULATOR
   const get30MinuteEndingSlots = () => {
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
@@ -347,7 +341,6 @@ export default function AdminPoolPage() {
       });
   };
 
-  // 🎯 EXTRACT EARLY ENDED MEETINGS
   const earlyEndedMeetings = Object.entries(poolData).flatMap(([accId, accInfo]) =>
     (accInfo.classes || [])
       .filter((m) => {
@@ -438,7 +431,7 @@ export default function AdminPoolPage() {
           </div>
         </div>
 
-        {/* ⚠️ EARLY ENDED MEETINGS OVERVIEW (DISPLAYS PROMINENTLY WHEN AVAILABLE) */}
+        {/* ⚠️ EARLY ENDED MEETINGS OVERVIEW */}
         {earlyEndedMeetings.length > 0 && (
           <div className="bg-gradient-to-r from-amber-950/40 via-[#0b132b] to-[#0b132b] border border-amber-500/50 rounded-2xl p-5 space-y-4 shadow-xl animate-fadeIn">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
