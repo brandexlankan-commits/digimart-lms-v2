@@ -47,8 +47,9 @@ export default function AdminPoolPage() {
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
   const [endingFilter, setEndingFilter] = useState<"all" | "active" | "ended">("all");
 
-  // 🎯 COPIED STATE
+  // Copy Feedback States
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
+  const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -60,10 +61,10 @@ export default function AdminPoolPage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/pool?date=${dateStr}&t=${Date.now()}`, {
-        cache: 'no-store',
+        cache: "no-store",
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
         }
       });
       if (res.ok) {
@@ -202,6 +203,14 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
+  const handleCopyMeetingId = (zoomId: string) => {
+    navigator.clipboard.writeText(zoomId);
+    setCopiedMeetingId(zoomId);
+    setTimeout(() => {
+      setCopiedMeetingId(null);
+    }, 2000);
+  };
+
   const calculateNext4HoursAvailability = () => {
     const accountKeys = Object.keys(poolData);
     const totalAccounts = accountKeys.length;
@@ -283,7 +292,6 @@ export default function AdminPoolPage() {
         const durationMins = Number(m.duration) || 60;
         const endMins = startMins + durationMins;
 
-        // 30-minute interval block එකට සකස් කිරීම (උදා: 6:00, 6:30, 7:00)
         const slotMins = Math.round(endMins / 30) * 30;
         const slotLabel = formatMinutesToTime(slotMins);
         const exactEndTimeStr = formatMinutesToTime(endMins);
@@ -304,10 +312,8 @@ export default function AdminPoolPage() {
       });
     });
 
-    // Grouping by slotMins
     const groups: { [slotMins: number]: typeof allEndingItems } = {};
     allEndingItems.forEach((item) => {
-      // Filter Logic
       const matchesSearch =
         item.accId.toLowerCase().includes(endingSearchTerm.toLowerCase()) ||
         item.meeting.teacher_id.toLowerCase().includes(endingSearchTerm.toLowerCase()) ||
@@ -340,6 +346,20 @@ export default function AdminPoolPage() {
         };
       });
   };
+
+  // 🎯 EXTRACT EARLY ENDED MEETINGS
+  const earlyEndedMeetings = Object.entries(poolData).flatMap(([accId, accInfo]) =>
+    (accInfo.classes || [])
+      .filter((m) => {
+        const status = String(m.status || m.Status || "").trim().toUpperCase();
+        return status === "EARLY_ENDED";
+      })
+      .map((m) => ({
+        accId,
+        poolType: accInfo.pool_type || "Zoom",
+        ...m,
+      }))
+  );
 
   const accountKeys = Object.keys(poolData);
   
@@ -392,7 +412,7 @@ export default function AdminPoolPage() {
               ⚡ Digimart Admin Management Hub
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              Zoom Pool Slots, Class End Timelines සහ Teacher Subscriptions එකම තැනින් සජීවීව නිරීක්ෂණය කරන්න.
+              Zoom Pool Slots, Early Endings සහ Teacher Subscriptions එකම තැනින් සජීවීව නිරීක්ෂණය කරන්න.
             </p>
           </div>
 
@@ -418,6 +438,81 @@ export default function AdminPoolPage() {
           </div>
         </div>
 
+        {/* ⚠️ EARLY ENDED MEETINGS OVERVIEW (DISPLAYS PROMINENTLY WHEN AVAILABLE) */}
+        {earlyEndedMeetings.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-950/40 via-[#0b132b] to-[#0b132b] border border-amber-500/50 rounded-2xl p-5 space-y-4 shadow-xl animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <h2 className="text-sm font-black text-amber-400 font-mono tracking-wide">
+                    EARLY ENDED MEETINGS ({earlyEndedMeetings.length})
+                  </h2>
+                  <p className="text-[11px] text-gray-400">
+                    නියමිත Duration එක අවසන් වීමට පෙර Disconnect හෝ End වූ Meetings.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 px-3 py-1 rounded-full border border-amber-800/60">
+                Manual Verification
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/80 text-gray-400 font-mono">
+                    <th className="p-3">ZOOM ACCOUNT</th>
+                    <th className="p-3">ZOOM MEETING ID</th>
+                    <th className="p-3">TEACHER ID</th>
+                    <th className="p-3">TOPIC</th>
+                    <th className="p-3">SCHEDULED TIME</th>
+                    <th className="p-3 text-right">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-900 text-slate-200">
+                  {earlyEndedMeetings.map((item, idx) => {
+                    const isCopied = copiedMeetingId === item.zoom_id;
+                    return (
+                      <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
+                        <td className="p-3">
+                          <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
+                            ⚡ {item.accId}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
+                          {item.zoom_id}
+                        </td>
+                        <td className="p-3 font-mono text-slate-300">
+                          👤 {item.teacher_id}
+                        </td>
+                        <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
+                          {item.topic}
+                        </td>
+                        <td className="p-3 font-mono text-gray-400">
+                          ⏰ {item.time} ({formatDuration(item.duration)})
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleCopyMeetingId(item.zoom_id)}
+                            className={`px-3 py-1 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
+                              isCopied
+                                ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
+                                : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
+                            }`}
+                          >
+                            {isCopied ? "✅ Copied!" : "📋 Copy ID"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* TAB NAVIGATION HEADER */}
         <div className="flex items-center gap-2 border-b border-slate-900 pb-3 flex-wrap">
           <button
@@ -431,7 +526,6 @@ export default function AdminPoolPage() {
             <span>⚡</span> Zoom Pool Visualizer
           </button>
 
-          {/* 🎯 NEW TAB: 30-MIN CLASS END TIMELINE */}
           <button
             onClick={() => setActiveTab("ending_schedule")}
             className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
@@ -661,10 +755,9 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== 🎯 TAB 2: 30-MIN CLASS END TIMELINE ==================== */}
+        {/* ==================== TAB 2: 30-MIN CLASS END TIMELINE ==================== */}
         {activeTab === "ending_schedule" && (
           <div className="space-y-6 animate-fadeIn">
-            {/* Header Controls */}
             <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full md:w-80">
                 <input 
@@ -726,7 +819,6 @@ export default function AdminPoolPage() {
                           : "border-slate-800"
                       }`}
                     >
-                      {/* Slot Time Banner */}
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
                         <div className="flex items-center gap-3">
                           <span className="px-3 py-1 bg-amber-950/90 text-amber-300 border border-amber-800/80 text-sm font-black font-mono rounded-xl flex items-center gap-1.5 shadow-sm">
@@ -752,7 +844,6 @@ export default function AdminPoolPage() {
                         )}
                       </div>
 
-                      {/* Cards Grid for this Ending Time */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {slotGroup.classes.map((item, cIdx) => {
                           return (
@@ -766,7 +857,6 @@ export default function AdminPoolPage() {
                                   : "bg-slate-950/80 border-slate-800/80 hover:border-blue-700/60"
                               }`}
                             >
-                              {/* Account Header */}
                               <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2">
                                   <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
@@ -792,14 +882,10 @@ export default function AdminPoolPage() {
                                 )}
                               </div>
 
-                              {/* Class Title */}
-                              <div>
-                                <h4 className="text-xs font-bold text-slate-100 line-clamp-1">
-                                  {item.meeting.topic}
-                                </h4>
-                              </div>
+                              <h4 className="text-xs font-bold text-slate-100 line-clamp-1">
+                                {item.meeting.topic}
+                              </h4>
 
-                              {/* Time Details & Teacher */}
                               <div className="space-y-1.5 pt-2 border-t border-slate-900/80 text-[11px] font-mono">
                                 <div className="flex justify-between items-center text-amber-400">
                                   <span>🕐 {item.meeting.time} ➔ {item.exactEndTimeStr}</span>
