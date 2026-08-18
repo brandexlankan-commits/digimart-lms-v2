@@ -55,7 +55,7 @@ export default function AdminPoolPage() {
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
 
-  // 🎯 Force End Meeting State
+  // 🎯 Fast Action Loading State
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,45 +92,52 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
-  // 🎯 Force End Handler Function
+  // 🎯 Instant Force End (No Alert / No Confirm Popups)
   const handleForceEndMeeting = async (meeting: SlotMeeting & { accId?: string }) => {
-    const meetingIdentifier = meeting.meeting_id_row || meeting.zoom_id;
-    
-    const confirmEnd = window.confirm(
-      `⚠️ මෙම Class එක Manual ENDED කිරීමට අවශ්‍යද?\n\n` +
-      `• Zoom Account: ${meeting.accId || 'N/A'}\n` +
-      `• Meeting ID: ${meeting.zoom_id}\n` +
-      `• Teacher: ${meeting.teacher_id}\n\n` +
-      `මෙමගින් Google Sheet එකේ Status එක 'ENDED' වන අතර Account Slot එක වහාම නිදහස් වේ.`
-    );
+    const targetZoomId = String(meeting.zoom_id || "").trim();
+    if (!targetZoomId) return;
 
-    if (!confirmEnd) return;
+    setEndingMeetingId(targetZoomId);
 
-    setEndingMeetingId(meeting.zoom_id);
+    // Instant Optimistic Update: Dashboard එකෙන් ඒ වෙලාවෙම අයින් කරයි
+    setPoolData((prevData) => {
+      const updated = { ...prevData };
+      Object.keys(updated).forEach((accKey) => {
+        if (updated[accKey]?.classes) {
+          updated[accKey].classes = updated[accKey].classes.map((cls) => {
+            if (String(cls.zoom_id).trim() === targetZoomId) {
+              return { ...cls, status: "ENDED", Status: "ENDED" };
+            }
+            return cls;
+          });
+        }
+      });
+      return updated;
+    });
 
     try {
-      const response = await fetch(N8N_FORCE_END_WEBHOOK_URL, {
+      await fetch(N8N_FORCE_END_WEBHOOK_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          meeting_id_row: meetingIdentifier,
-          zoom_id: meeting.zoom_id,
+          zoom_id: targetZoomId,
+          meeting_id_row: meeting.meeting_id_row || targetZoomId,
           teacher_id: meeting.teacher_id,
           account_id: meeting.accId,
         }),
       });
 
-      if (response.ok) {
-        alert("✅ Class Status එක සාර්ථකව ENDED ලෙස Update විය!");
-        await fetchPoolData(selectedDate);
-      } else {
-        alert("❌ Update කිරීම අසාර්ථක විය. Webhook එක පරීක්ෂා කරන්න.");
+      // Background silent re-sync
+      const res = await fetch(`/api/admin/pool?date=${selectedDate}&t=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setPoolData(data.accounts || {});
+        setTeachersList(data.teachers || []);
       }
     } catch (error) {
-      console.error("Failed to force end class:", error);
-      alert("❌ Webhook එක සම්බන්ධ කර ගැනීමට නොහැකි විය. Network සම්බන්ධතාවය පරීක්ෂා කරන්න.");
+      console.error("Failed to update status in background:", error);
     } finally {
       setEndingMeetingId(null);
     }
@@ -497,7 +504,7 @@ export default function AdminPoolPage() {
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 px-3 py-1 rounded-full border border-amber-800/60">
-                Manual Action &amp; Release
+                Direct Release
               </span>
             </div>
 
@@ -551,13 +558,13 @@ export default function AdminPoolPage() {
                               {isCopied ? "✅ Copied" : "📋 Copy ID"}
                             </button>
 
-                            {/* 🎯 End Class Button */}
+                            {/* 🎯 Direct End Class Button */}
                             <button
                               onClick={() => handleForceEndMeeting(item)}
                               disabled={isUpdating}
                               className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
                                 isUpdating
-                                  ? "bg-rose-950 border-rose-800 text-rose-300 opacity-60 cursor-not-allowed"
+                                  ? "bg-rose-950 border-rose-800 text-rose-300 opacity-60 cursor-wait"
                                   : "bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-300 hover:text-white"
                               }`}
                             >
