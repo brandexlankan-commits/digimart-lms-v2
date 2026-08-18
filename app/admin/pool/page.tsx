@@ -1,12 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 
+// 🎯 Live n8n Production Webhook URL
+const N8N_FORCE_END_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-force-end";
+
 interface SlotMeeting {
   teacher_id: string;
   topic: string;
   time: string;
   duration: number | string;
   zoom_id: string;
+  meeting_id_row?: string;
   status?: string;
   Status?: string;
   startTimestamp?: number;
@@ -51,6 +55,9 @@ export default function AdminPoolPage() {
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
 
+  // 🎯 Force End Meeting State
+  const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
+
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     setSelectedDate(today);
@@ -83,6 +90,50 @@ export default function AdminPoolPage() {
     const newDate = e.target.value;
     setSelectedDate(newDate);
     fetchPoolData(newDate);
+  };
+
+  // 🎯 Force End Handler Function
+  const handleForceEndMeeting = async (meeting: SlotMeeting & { accId?: string }) => {
+    const meetingIdentifier = meeting.meeting_id_row || meeting.zoom_id;
+    
+    const confirmEnd = window.confirm(
+      `⚠️ මෙම Class එක Manual ENDED කිරීමට අවශ්‍යද?\n\n` +
+      `• Zoom Account: ${meeting.accId || 'N/A'}\n` +
+      `• Meeting ID: ${meeting.zoom_id}\n` +
+      `• Teacher: ${meeting.teacher_id}\n\n` +
+      `මෙමගින් Google Sheet එකේ Status එක 'ENDED' වන අතර Account Slot එක වහාම නිදහස් වේ.`
+    );
+
+    if (!confirmEnd) return;
+
+    setEndingMeetingId(meeting.zoom_id);
+
+    try {
+      const response = await fetch(N8N_FORCE_END_WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_id_row: meetingIdentifier,
+          zoom_id: meeting.zoom_id,
+          teacher_id: meeting.teacher_id,
+          account_id: meeting.accId,
+        }),
+      });
+
+      if (response.ok) {
+        alert("✅ Class Status එක සාර්ථකව ENDED ලෙස Update විය!");
+        await fetchPoolData(selectedDate);
+      } else {
+        alert("❌ Update කිරීම අසාර්ථක විය. Webhook එක පරීක්ෂා කරන්න.");
+      }
+    } catch (error) {
+      console.error("Failed to force end class:", error);
+      alert("❌ Webhook එක සම්බන්ධ කර ගැනීමට නොහැකි විය. Network සම්බන්ධතාවය පරීක්ෂා කරන්න.");
+    } finally {
+      setEndingMeetingId(null);
+    }
   };
 
   const isMeetingEnded = (m: SlotMeeting) => {
@@ -170,7 +221,6 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 RENEWAL NOTICE (REMOVED BANK DETAILS)
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -447,7 +497,7 @@ export default function AdminPoolPage() {
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 px-3 py-1 rounded-full border border-amber-800/60">
-                Manual Verification
+                Manual Action &amp; Release
               </span>
             </div>
 
@@ -460,12 +510,14 @@ export default function AdminPoolPage() {
                     <th className="p-3">TEACHER ID</th>
                     <th className="p-3">TOPIC</th>
                     <th className="p-3">SCHEDULED TIME</th>
-                    <th className="p-3 text-right">ACTION</th>
+                    <th className="p-3 text-right">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-900 text-slate-200">
                   {earlyEndedMeetings.map((item, idx) => {
                     const isCopied = copiedMeetingId === item.zoom_id;
+                    const isUpdating = endingMeetingId === item.zoom_id;
+
                     return (
                       <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
                         <td className="p-3">
@@ -486,16 +538,32 @@ export default function AdminPoolPage() {
                           ⏰ {item.time} ({formatDuration(item.duration)})
                         </td>
                         <td className="p-3 text-right">
-                          <button
-                            onClick={() => handleCopyMeetingId(item.zoom_id)}
-                            className={`px-3 py-1 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
-                              isCopied
-                                ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
-                                : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
-                            }`}
-                          >
-                            {isCopied ? "✅ Copied!" : "📋 Copy ID"}
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Copy ID Button */}
+                            <button
+                              onClick={() => handleCopyMeetingId(item.zoom_id)}
+                              className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                isCopied
+                                  ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
+                                  : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
+                              }`}
+                            >
+                              {isCopied ? "✅ Copied" : "📋 Copy ID"}
+                            </button>
+
+                            {/* 🎯 End Class Button */}
+                            <button
+                              onClick={() => handleForceEndMeeting(item)}
+                              disabled={isUpdating}
+                              className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
+                                isUpdating
+                                  ? "bg-rose-950 border-rose-800 text-rose-300 opacity-60 cursor-not-allowed"
+                                  : "bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-300 hover:text-white"
+                              }`}
+                            >
+                              {isUpdating ? "⏳ Ending..." : "⏹️ End Class"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
