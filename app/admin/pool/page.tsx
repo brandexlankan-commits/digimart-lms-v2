@@ -92,6 +92,11 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
+  // 🎯 Check if Account is Active
+  const isAccountActive = (accInfo?: PoolAccountInfo) => {
+    return String(accInfo?.status || "").trim().toUpperCase() === "ACTIVE";
+  };
+
   // 🎯 Instant Force End (No Alert / No Confirm Popups)
   const handleForceEndMeeting = async (meeting: SlotMeeting & { accId?: string }) => {
     const targetZoomId = String(meeting.zoom_id || "").trim();
@@ -99,7 +104,6 @@ export default function AdminPoolPage() {
 
     setEndingMeetingId(targetZoomId);
 
-    // Instant Optimistic Update: Dashboard එකෙන් ඒ වෙලාවෙම අයින් කරයි
     setPoolData((prevData) => {
       const updated = { ...prevData };
       Object.keys(updated).forEach((accKey) => {
@@ -129,7 +133,6 @@ export default function AdminPoolPage() {
         }),
       });
 
-      // Background silent re-sync
       const res = await fetch(`/api/admin/pool?date=${selectedDate}&t=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
@@ -263,9 +266,13 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
+  // 🎯 Filter ONLY ACTIVE accounts for Pool Visualizer & 4-Hour Live Capacity
+  const activeAccountKeys = Object.keys(poolData).filter((accId) =>
+    isAccountActive(poolData[accId])
+  );
+
   const calculateNext4HoursAvailability = () => {
-    const accountKeys = Object.keys(poolData);
-    const totalAccounts = accountKeys.length;
+    const totalAccounts = activeAccountKeys.length;
     if (totalAccounts === 0) return [];
 
     const now = new Date();
@@ -284,7 +291,7 @@ export default function AdminPoolPage() {
       const busyAccounts: string[] = [];
       const availableAccounts: string[] = [];
 
-      accountKeys.forEach((accId) => {
+      activeAccountKeys.forEach((accId) => {
         const accInfo = poolData[accId];
         const meetings = accInfo?.classes || [];
         
@@ -337,6 +344,7 @@ export default function AdminPoolPage() {
       isLive: boolean;
     }> = [];
 
+    // Include classes from all accounts that had scheduled meetings
     Object.entries(poolData).forEach(([accId, accInfo]) => {
       (accInfo.classes || []).forEach((m) => {
         const startMins = parseTimeToMinutes(m.time);
@@ -411,14 +419,12 @@ export default function AdminPoolPage() {
       }))
   );
 
-  const accountKeys = Object.keys(poolData);
-  
-  const busyAccountsNowCount = accountKeys.filter((accId) => {
+  const busyAccountsNowCount = activeAccountKeys.filter((accId) => {
     const accInfo = poolData[accId];
     return isAccountBusyRightNow(accInfo?.classes || []);
   }).length;
 
-  const activeClassesToday = accountKeys.reduce((acc, key) => {
+  const activeClassesToday = activeAccountKeys.reduce((acc, key) => {
     const meetings = poolData[key]?.classes || [];
     return acc + meetings.filter(m => !isMeetingEnded(m)).length;
   }, 0);
@@ -546,7 +552,6 @@ export default function AdminPoolPage() {
                         </td>
                         <td className="p-3 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {/* Copy ID Button */}
                             <button
                               onClick={() => handleCopyMeetingId(item.zoom_id)}
                               className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
@@ -558,7 +563,6 @@ export default function AdminPoolPage() {
                               {isCopied ? "✅ Copied" : "📋 Copy ID"}
                             </button>
 
-                            {/* 🎯 Direct End Class Button */}
                             <button
                               onClick={() => handleForceEndMeeting(item)}
                               disabled={isUpdating}
@@ -627,15 +631,15 @@ export default function AdminPoolPage() {
           </button>
         </div>
 
-        {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
+        {/* ==================== TAB 1: ZOOM POOL VISUALIZER (ACTIVE ACCOUNTS ONLY) ==================== */}
         {activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Busy / Total Accounts (Now)</p>
+                  <p className="text-xs text-gray-400 font-medium">Busy / Total Active Accounts (Now)</p>
                   <h3 className="text-2xl font-black text-blue-400 mt-1">
-                    {busyAccountsNowCount} <span className="text-sm font-normal text-slate-400">/ {accountKeys.length} Busy</span>
+                    {busyAccountsNowCount} <span className="text-sm font-normal text-slate-400">/ {activeAccountKeys.length} Busy</span>
                   </h3>
                 </div>
                 <div className="w-10 h-10 bg-blue-950 border border-blue-900 rounded-xl flex items-center justify-center text-lg">⚡</div>
@@ -660,7 +664,7 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
-            {!loading && accountKeys.length > 0 && (
+            {!loading && activeAccountKeys.length > 0 && (
               <div className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
                   <div className="flex items-center gap-2">
@@ -669,17 +673,19 @@ export default function AdminPoolPage() {
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                     </span>
                     <h2 className="text-sm font-black text-white font-mono tracking-wide">
-                      🕒 NEXT 4 HOURS LIVE AVAILABILITY
+                      🕒 NEXT 4 HOURS LIVE AVAILABILITY (ACTIVE POOL)
                     </h2>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
-                    Real-time Slot Capacity
+                    Active Slots Capacity
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {upcoming4HoursSlots.map((slot, idx) => {
-                    const availabilityPercent = Math.round((slot.availableCount / slot.totalAccounts) * 100);
+                    const availabilityPercent = slot.totalAccounts > 0 
+                      ? Math.round((slot.availableCount / slot.totalAccounts) * 100) 
+                      : 0;
                     let badgeColor = "bg-emerald-950/80 text-emerald-400 border-emerald-800/60";
                     let progressColor = "bg-emerald-500";
 
@@ -714,7 +720,7 @@ export default function AdminPoolPage() {
 
                         <div className="pt-2 border-t border-slate-900/80 flex flex-wrap gap-1">
                           {slot.availableAccounts.length === 0 ? (
-                            <span className="text-[10px] text-rose-400/80 italic font-mono">❌ All Accounts Busy</span>
+                            <span className="text-[10px] text-rose-400/80 italic font-mono">❌ All Active Accounts Busy</span>
                           ) : (
                             slot.availableAccounts.map((acc, aIdx) => (
                               <span key={aIdx} className="text-[9px] font-mono bg-blue-950/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-900/30">
@@ -734,13 +740,13 @@ export default function AdminPoolPage() {
               <div className="p-12 text-center text-gray-500 text-sm animate-pulse">
                 ⚙️ Fetching Pool Slot Data...
               </div>
-            ) : accountKeys.length === 0 ? (
+            ) : activeAccountKeys.length === 0 ? (
               <div className="p-8 sm:p-12 border border-dashed border-slate-800 rounded-2xl text-center text-gray-500 text-xs">
-                👋 මෙහි Zoom Pool accounts කිසිවක් හමු නොවීය.
+                👋 Status එක "ACTIVE" ලෙස සකසා ඇති Zoom Pool accounts කිසිවක් හමු නොවීය.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {accountKeys.map((accId, idx) => {
+                {activeAccountKeys.map((accId, idx) => {
                   const accInfo = poolData[accId];
                   const meetings = [...(accInfo?.classes || [])].sort(
                     (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)
@@ -755,7 +761,7 @@ export default function AdminPoolPage() {
                               {accInfo?.pool_type || "Zoom"}
                             </span>
                             <span className="text-[9px] font-mono bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900">
-                              {accInfo?.status || "ACTIVE"}
+                              ACTIVE
                             </span>
                           </div>
                           <h3 className="text-sm font-black text-white mt-1 font-mono">{accId}</h3>
