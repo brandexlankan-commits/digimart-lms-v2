@@ -94,7 +94,7 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
-  // 🎯 Strict Active Status Verification
+  // 🎯 Strict Verification: Status එක 'ACTIVE' පමණක් විය යුතුයි
   const isAccountActive = (accInfo?: PoolAccountInfo) => {
     if (!accInfo) return false;
     const rawStatus = String(
@@ -275,7 +275,7 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 ACTIVE ZOOM ACCOUNTS ONLY (Strict Filter)
+  // 🎯 STRICT FILTER: ACTIVE ACCOUNTS ONLY
   const activeAccountKeys = Object.keys(poolData).filter((accId) =>
     isAccountActive(poolData[accId])
   );

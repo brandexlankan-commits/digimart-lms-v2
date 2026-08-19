@@ -48,15 +48,16 @@ export async function GET(request: Request) {
       rows.forEach((row: any) => {
         const cells = row?.c || [];
         let accountId = "";
-        let status = "ACTIVE";
+        let status = "INACTIVE"; // 🎯 Default INACTIVE (Blank status accounts are skipped)
 
         cells.forEach((cell: any, idx: number) => {
           const val = cell?.v ? String(cell.v).trim() : "";
           if ((idx === 0 || idx === 1) && val && !accountId && !val.toLowerCase().includes('status')) {
             accountId = val;
           }
-          if (val.toLowerCase() === 'active' || val.toLowerCase() === 'inactive') {
-            status = val.toUpperCase();
+          // Sheet එකේ Active ලෙස Type කර තිබුණහොත් පමණක් ACTIVE වේ
+          if (val.toLowerCase() === 'active') {
+            status = "ACTIVE";
           }
         });
 
