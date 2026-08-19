@@ -22,7 +22,9 @@ interface SlotMeeting {
 interface PoolAccountInfo {
   account_id: string;
   pool_type: string;
-  status: string;
+  status?: string;
+  Status?: string;
+  account_status?: string;
   classes: SlotMeeting[];
 }
 
@@ -92,9 +94,16 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
-  // 🎯 Check if Account is Active
+  // 🎯 Strict Active Status Verification
   const isAccountActive = (accInfo?: PoolAccountInfo) => {
-    return String(accInfo?.status || "").trim().toUpperCase() === "ACTIVE";
+    if (!accInfo) return false;
+    const rawStatus = String(
+      accInfo.status || 
+      accInfo.Status || 
+      accInfo.account_status || 
+      ""
+    ).trim().toUpperCase();
+    return rawStatus === "ACTIVE";
   };
 
   // 🎯 Instant Force End (No Alert / No Confirm Popups)
@@ -266,7 +275,7 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 Filter ONLY ACTIVE accounts for Pool Visualizer & 4-Hour Live Capacity
+  // 🎯 ACTIVE ZOOM ACCOUNTS ONLY (Strict Filter)
   const activeAccountKeys = Object.keys(poolData).filter((accId) =>
     isAccountActive(poolData[accId])
   );
@@ -344,7 +353,6 @@ export default function AdminPoolPage() {
       isLive: boolean;
     }> = [];
 
-    // Include classes from all accounts that had scheduled meetings
     Object.entries(poolData).forEach(([accId, accInfo]) => {
       (accInfo.classes || []).forEach((m) => {
         const startMins = parseTimeToMinutes(m.time);
@@ -631,7 +639,7 @@ export default function AdminPoolPage() {
           </button>
         </div>
 
-        {/* ==================== TAB 1: ZOOM POOL VISUALIZER (ACTIVE ACCOUNTS ONLY) ==================== */}
+        {/* ==================== TAB 1: ZOOM POOL VISUALIZER (ACTIVE POOL ONLY) ==================== */}
         {activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
