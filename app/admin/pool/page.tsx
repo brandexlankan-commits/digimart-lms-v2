@@ -56,6 +56,7 @@ export default function AdminPoolPage() {
   // Copy Feedback States
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
+  const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null); // 🎯 Teacher ID Only Copy State
 
   // 🎯 Fast Action Loading State
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
@@ -272,6 +273,15 @@ export default function AdminPoolPage() {
     setCopiedMeetingId(zoomId);
     setTimeout(() => {
       setCopiedMeetingId(null);
+    }, 2000);
+  };
+
+  // 🎯 Teacher ID Click Handler
+  const handleCopyTeacherIdOnly = (teacherId: string) => {
+    navigator.clipboard.writeText(teacherId);
+    setCopiedIdOnly(teacherId);
+    setTimeout(() => {
+      setCopiedIdOnly(null);
     }, 2000);
   };
 
@@ -1122,10 +1132,31 @@ export default function AdminPoolPage() {
                         }
 
                         const isCopied = copiedTeacherId === t.teacher_id;
+                        const isIdCopied = copiedIdOnly === t.teacher_id;
 
                         return (
                           <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                            <td className="p-4 font-mono font-bold text-blue-400">{t.teacher_id}</td>
+                            {/* 🎯 CLICKABLE TEACHER ID WITH AUTO COPY */}
+                            <td className="p-4 font-mono font-bold text-blue-400">
+                              <button
+                                onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
+                                title="Click to copy Teacher ID"
+                                className="hover:text-blue-300 inline-flex items-center gap-2 group cursor-pointer transition-all active:scale-95"
+                              >
+                                <span className="underline underline-offset-4 decoration-blue-500/40 hover:decoration-blue-400">
+                                  {t.teacher_id}
+                                </span>
+                                {isIdCopied ? (
+                                  <span className="text-[10px] font-mono bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-800 animate-fadeIn">
+                                    ✅ Copied!
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] opacity-40 group-hover:opacity-100 transition-opacity">
+                                    📋
+                                  </span>
+                                )}
+                              </button>
+                            </td>
                             <td className="p-4 font-bold text-white">{t.teacher_name}</td>
                             <td className="p-4 font-mono text-slate-300">{t.expiry_date || "N/A"}</td>
                             <td className="p-4">{statusBadge}</td>
