@@ -430,11 +430,19 @@ export default function AdminPoolPage() {
         const status = String(m.status || m.Status || "").trim().toUpperCase();
         return status === "EARLY_ENDED";
       })
-      .map((m) => ({
-        accId,
-        poolType: accInfo.pool_type || "Zoom",
-        ...m,
-      }))
+      .map((m) => {
+        const startMins = parseTimeToMinutes(m.time);
+        const durationMins = Number(m.duration) || 60;
+        const endMins = startMins + durationMins;
+        const scheduledEndTimeStr = formatMinutesToTime(endMins);
+
+        return {
+          accId,
+          poolType: accInfo.pool_type || "Zoom",
+          scheduledEndTimeStr,
+          ...m,
+        };
+      })
   );
 
   const busyAccountsNowCount = activeAccountKeys.filter((accId) => {
@@ -541,6 +549,7 @@ export default function AdminPoolPage() {
                     <th className="p-3">TEACHER ID</th>
                     <th className="p-3">TOPIC</th>
                     <th className="p-3">SCHEDULED TIME</th>
+                    <th className="p-3">SCHEDULED END TIME</th>
                     <th className="p-3 text-right">ACTIONS</th>
                   </tr>
                 </thead>
@@ -567,6 +576,9 @@ export default function AdminPoolPage() {
                         </td>
                         <td className="p-3 font-mono text-gray-400">
                           ⏰ {item.time} ({formatDuration(item.duration)})
+                        </td>
+                        <td className="p-3 font-mono font-bold text-rose-300">
+                          🏁 {item.scheduledEndTimeStr}
                         </td>
                         <td className="p-3 text-right">
                           <div className="flex items-center justify-end gap-2">
