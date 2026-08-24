@@ -35,6 +35,7 @@ interface PoolData {
 interface TeacherExpiry {
   teacher_id: string;
   teacher_name: string;
+  username?: string;
   expiry_date: string;
 }
 
@@ -56,7 +57,8 @@ export default function AdminPoolPage() {
   // Copy Feedback States
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
-  const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null); // 🎯 Teacher ID Only Copy State
+  const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null);
+  const [copiedUsername, setCopiedUsername] = useState<string | null>(null);
 
   // 🎯 Fast Action Loading State
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
@@ -95,7 +97,6 @@ export default function AdminPoolPage() {
     fetchPoolData(newDate);
   };
 
-  // 🎯 Strict Verification: Status එක 'ACTIVE' පමණක් විය යුතුයි
   const isAccountActive = (accInfo?: PoolAccountInfo) => {
     if (!accInfo) return false;
     const rawStatus = String(
@@ -107,7 +108,6 @@ export default function AdminPoolPage() {
     return rawStatus === "ACTIVE";
   };
 
-  // 🎯 Instant Force End (No Alert / No Confirm Popups)
   const handleForceEndMeeting = async (meeting: SlotMeeting & { accId?: string }) => {
     const targetZoomId = String(meeting.zoom_id || "").trim();
     if (!targetZoomId) return;
@@ -276,7 +276,6 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 Teacher ID Click Handler
   const handleCopyTeacherIdOnly = (teacherId: string) => {
     navigator.clipboard.writeText(teacherId);
     setCopiedIdOnly(teacherId);
@@ -285,7 +284,15 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 STRICT FILTER: ACTIVE ACCOUNTS ONLY
+  const handleCopyUsernameOnly = (username: string) => {
+    if (!username || username === "N/A") return;
+    navigator.clipboard.writeText(username);
+    setCopiedUsername(username);
+    setTimeout(() => {
+      setCopiedUsername(null);
+    }, 2000);
+  };
+
   const activeAccountKeys = Object.keys(poolData).filter((accId) =>
     isAccountActive(poolData[accId])
   );
@@ -472,8 +479,11 @@ export default function AdminPoolPage() {
   const activeCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft > 7).length;
 
   const filteredTeachers = processedTeachers.filter(t => {
-    const matchesSearch = t.teacher_id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          t.teacher_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = 
+      t.teacher_id.toLowerCase().includes(q) || 
+      t.teacher_name.toLowerCase().includes(q) ||
+      (t.username && t.username.toLowerCase().includes(q));
 
     if (!matchesSearch) return false;
     if (filterType === "expired") return t.daysLeft !== null && t.daysLeft <= 0;
@@ -1054,7 +1064,7 @@ export default function AdminPoolPage() {
               <div className="w-full md:w-80">
                 <input 
                   type="text"
-                  placeholder="🔍 Search Teacher Name or ID..."
+                  placeholder="🔍 Search Teacher ID, Username, or Name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
@@ -1103,6 +1113,7 @@ export default function AdminPoolPage() {
                   <thead>
                     <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
                       <th className="p-4">TEACHER ID</th>
+                      <th className="p-4">USERNAME</th>
                       <th className="p-4">TEACHER NAME</th>
                       <th className="p-4">EXPIRE DATE</th>
                       <th className="p-4">STATUS / REMAINING DAYS</th>
@@ -1112,7 +1123,7 @@ export default function AdminPoolPage() {
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
                     {filteredTeachers.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-gray-500 font-mono">
+                        <td colSpan={6} className="p-8 text-center text-gray-500 font-mono">
                           ❌ No teacher records found.
                         </td>
                       </tr>
@@ -1145,10 +1156,11 @@ export default function AdminPoolPage() {
 
                         const isCopied = copiedTeacherId === t.teacher_id;
                         const isIdCopied = copiedIdOnly === t.teacher_id;
+                        const isUserCopied = copiedUsername === t.username;
 
                         return (
                           <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                            {/* 🎯 CLICKABLE TEACHER ID WITH AUTO COPY */}
+                            {/* 🎯 TEACHER ID (Click to Copy) */}
                             <td className="p-4 font-mono font-bold text-blue-400">
                               <button
                                 onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
@@ -1169,9 +1181,41 @@ export default function AdminPoolPage() {
                                 )}
                               </button>
                             </td>
+
+                            {/* 🎯 USERNAME (Click to Copy) */}
+                            <td className="p-4 font-mono font-semibold text-purple-300">
+                              {t.username && t.username !== "N/A" ? (
+                                <button
+                                  onClick={() => handleCopyUsernameOnly(t.username || "")}
+                                  title="Click to copy Username"
+                                  className="hover:text-purple-200 inline-flex items-center gap-2 group cursor-pointer transition-all active:scale-95 bg-purple-950/30 hover:bg-purple-900/40 px-2.5 py-1 rounded-lg border border-purple-800/40"
+                                >
+                                  <span>@{t.username}</span>
+                                  {isUserCopied ? (
+                                    <span className="text-[9px] font-mono bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-800">
+                                      ✅
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] opacity-40 group-hover:opacity-100 transition-opacity">
+                                      📋
+                                    </span>
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="text-gray-500 font-mono text-[11px]">N/A</span>
+                              )}
+                            </td>
+
+                            {/* TEACHER NAME */}
                             <td className="p-4 font-bold text-white">{t.teacher_name}</td>
+
+                            {/* EXPIRE DATE */}
                             <td className="p-4 font-mono text-slate-300">{t.expiry_date || "N/A"}</td>
+
+                            {/* STATUS */}
                             <td className="p-4">{statusBadge}</td>
+
+                            {/* ACTION BUTTON */}
                             <td className="p-4 text-right">
                               <button 
                                 onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}

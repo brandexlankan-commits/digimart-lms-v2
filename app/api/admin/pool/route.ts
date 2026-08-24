@@ -48,14 +48,13 @@ export async function GET(request: Request) {
       rows.forEach((row: any) => {
         const cells = row?.c || [];
         let accountId = "";
-        let status = "INACTIVE"; // 🎯 Default INACTIVE (Blank status accounts are skipped)
+        let status = "INACTIVE";
 
         cells.forEach((cell: any, idx: number) => {
           const val = cell?.v ? String(cell.v).trim() : "";
           if ((idx === 0 || idx === 1) && val && !accountId && !val.toLowerCase().includes('status')) {
             accountId = val;
           }
-          // Sheet එකේ Active ලෙස Type කර තිබුණහොත් පමණක් ACTIVE වේ
           if (val.toLowerCase() === 'active') {
             status = "ACTIVE";
           }
@@ -120,7 +119,7 @@ export async function GET(request: Request) {
             const isAM = sourceText.toUpperCase().includes("AM");
 
             if (isPM && hrs < 12) hrs += 12;
-            if (isAM && hrs === 12) hrs = 0;
+            if (isAM && hrs === 12) hours = 0;
 
             const parts = rowDate.split('-').map(Number);
             if (parts.length === 3) {
@@ -178,6 +177,7 @@ export async function GET(request: Request) {
         const cells = row?.c || [];
         const teacherId = cells[0]?.v;
         const teacherName = cells[1]?.v;
+        const username = cells[2]?.v || ""; // 🎯 Teachers Sheet Column C (Username)
         const expCell = cells[10];
 
         if (teacherId && String(teacherId).startsWith("teach_")) {
@@ -194,7 +194,12 @@ export async function GET(request: Request) {
               expiryDate = rawExpF || rawExpV;
             }
           }
-          teachersList.push({ teacher_id: teacherId, teacher_name: teacherName || "N/A", expiry_date: expiryDate });
+          teachersList.push({ 
+            teacher_id: teacherId, 
+            teacher_name: teacherName || "N/A", 
+            username: username ? String(username).trim() : "N/A",
+            expiry_date: expiryDate 
+          });
         }
       });
     }
