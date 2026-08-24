@@ -119,7 +119,7 @@ export async function GET(request: Request) {
             const isAM = sourceText.toUpperCase().includes("AM");
 
             if (isPM && hrs < 12) hrs += 12;
-            if (isAM && hrs === 12) hours = 0;
+            if (isAM && hrs === 12) hrs = 0; // 🎯 Fixed: Changed 'hours = 0' to 'hrs = 0'
 
             const parts = rowDate.split('-').map(Number);
             if (parts.length === 3) {
@@ -177,7 +177,7 @@ export async function GET(request: Request) {
         const cells = row?.c || [];
         const teacherId = cells[0]?.v;
         const teacherName = cells[1]?.v;
-        const username = cells[2]?.v || ""; // 🎯 Teachers Sheet Column C (Username)
+        const username = cells[2]?.v || "";
         const expCell = cells[10];
 
         if (teacherId && String(teacherId).startsWith("teach_")) {
