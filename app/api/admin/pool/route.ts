@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// 🎯 n8n Teacher Update Webhook URL
+const N8N_UPDATE_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-update-teacher";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const targetDate = searchParams.get('date') || new Date().toISOString().split("T")[0];
@@ -119,7 +122,7 @@ export async function GET(request: Request) {
             const isAM = sourceText.toUpperCase().includes("AM");
 
             if (isPM && hrs < 12) hrs += 12;
-            if (isAM && hrs === 12) hrs = 0; // 🎯 Fixed: Changed 'hours = 0' to 'hrs = 0'
+            if (isAM && hrs === 12) hrs = 0;
 
             const parts = rowDate.split('-').map(Number);
             if (parts.length === 3) {
@@ -180,6 +183,15 @@ export async function GET(request: Request) {
         const username = cells[2]?.v || "";
         const expCell = cells[10];
 
+        // 🎯 Payment Status Extraction (Scans for PAID / UNPAID)
+        let paymentStatus = "UNPAID";
+        cells.forEach((c: any) => {
+          const v = String(c?.v || "").trim().toUpperCase();
+          if (v === "PAID" || v === "UNPAID") {
+            paymentStatus = v;
+          }
+        });
+
         if (teacherId && String(teacherId).startsWith("teach_")) {
           let expiryDate = "";
           if (expCell) {
@@ -198,7 +210,8 @@ export async function GET(request: Request) {
             teacher_id: teacherId, 
             teacher_name: teacherName || "N/A", 
             username: username ? String(username).trim() : "N/A",
-            expiry_date: expiryDate 
+            expiry_date: expiryDate,
+            payment_status: paymentStatus
           });
         }
       });
@@ -215,5 +228,20 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Admin Pool API Error:", error);
     return NextResponse.json({ accounts: {}, teachers: [], error: 'Server Error' }, { status: 200 });
+  }
+}
+
+// 🎯 POST Endpoint to update Google Sheets via n8n
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    await fetch(N8N_UPDATE_TEACHER_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Failed to update Google Sheet" }, { status: 500 });
   }
 }

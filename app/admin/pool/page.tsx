@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 
-// 🎯 Live n8n Production Webhook URL
+// 🎯 Live n8n Production Webhook URLs
 const N8N_FORCE_END_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-force-end";
+const N8N_UPDATE_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-update-teacher";
 
 interface SlotMeeting {
   teacher_id: string;
@@ -37,6 +38,7 @@ interface TeacherExpiry {
   teacher_name: string;
   username?: string;
   expiry_date: string;
+  payment_status?: string;
 }
 
 export default function AdminPoolPage() {
@@ -48,7 +50,7 @@ export default function AdminPoolPage() {
 
   // Expirations Tab States
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active">("all");
+  const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active" | "unpaid" | "paid">("all");
   
   // Ending Schedule Tab States
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
@@ -60,8 +62,9 @@ export default function AdminPoolPage() {
   const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null);
   const [copiedUsername, setCopiedUsername] = useState<string | null>(null);
 
-  // 🎯 Fast Action Loading State
+  // 🎯 Action Loading States
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
+  const [savingTeacherId, setSavingTeacherId] = useState<string | null>(null);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -108,6 +111,58 @@ export default function AdminPoolPage() {
     return rawStatus === "ACTIVE";
   };
 
+  // 🎯 Instant Teacher Details Update (Paid/Unpaid & Expiry Date)
+  const handleUpdateTeacher = async (teacherId: string, updates: { expiry_date?: string; payment_status?: string }) => {
+    setSavingTeacherId(teacherId);
+
+    // 1. Instant Optimistic UI Update
+    setTeachersList((prev) =>
+      prev.map((t) => (t.teacher_id === teacherId ? { ...t, ...updates } : t))
+    );
+
+    // 2. Background Sync to Google Sheets via n8n
+    try {
+      const targetTeacher = teachersList.find((t) => t.teacher_id === teacherId);
+      const payload = {
+        teacher_id: teacherId,
+        teacher_name: targetTeacher?.teacher_name || "",
+        username: targetTeacher?.username || "",
+        expiry_date: updates.expiry_date !== undefined ? updates.expiry_date : (targetTeacher?.expiry_date || ""),
+        payment_status: updates.payment_status !== undefined ? updates.payment_status : (targetTeacher?.payment_status || "UNPAID"),
+      };
+
+      await fetch(N8N_UPDATE_TEACHER_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error("Failed to update teacher:", err);
+    } finally {
+      setSavingTeacherId(null);
+    }
+  };
+
+  // 🎯 ⚡ Quick Renew (+30 Days & Mark Paid)
+  const handleQuickRenew = (teacher: TeacherExpiry) => {
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 30);
+    const newExpDate = baseDate.toISOString().split("T")[0];
+
+    handleUpdateTeacher(teacher.teacher_id, {
+      expiry_date: newExpDate,
+      payment_status: "PAID",
+    });
+  };
+
+  // 🎯 Toggle Paid / Unpaid
+  const handleTogglePaymentStatus = (teacher: TeacherExpiry) => {
+    const current = (teacher.payment_status || "UNPAID").toUpperCase();
+    const nextStatus = current === "PAID" ? "UNPAID" : "PAID";
+    handleUpdateTeacher(teacher.teacher_id, { payment_status: nextStatus });
+  };
+
+  // 🎯 Instant Force End
   const handleForceEndMeeting = async (meeting: SlotMeeting & { accId?: string }) => {
     const targetZoomId = String(meeting.zoom_id || "").trim();
     if (!targetZoomId) return;
@@ -132,9 +187,7 @@ export default function AdminPoolPage() {
     try {
       await fetch(N8N_FORCE_END_WEBHOOK_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           zoom_id: targetZoomId,
           meeting_id_row: meeting.meeting_id_row || targetZoomId,
@@ -465,7 +518,7 @@ export default function AdminPoolPage() {
   const upcoming4HoursSlots = calculateNext4HoursAvailability();
   const endingTimelineSlots = get30MinuteEndingSlots();
 
-  const processedTeachers = teachersList.map(t => {
+  const processedTeachers = teachersList.map((t) => {
     const daysLeft = getDaysRemaining(t.expiry_date);
     return { ...t, daysLeft };
   }).sort((a, b) => {
@@ -477,8 +530,10 @@ export default function AdminPoolPage() {
   const expiredCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft <= 0).length;
   const expiringSoonCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft > 0 && t.daysLeft <= 7).length;
   const activeCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft > 7).length;
+  const unpaidCount = processedTeachers.filter(t => (t.payment_status || "UNPAID").toUpperCase() === "UNPAID").length;
+  const paidCount = processedTeachers.filter(t => (t.payment_status || "").toUpperCase() === "PAID").length;
 
-  const filteredTeachers = processedTeachers.filter(t => {
+  const filteredTeachers = processedTeachers.filter((t) => {
     const q = searchTerm.toLowerCase();
     const matchesSearch = 
       t.teacher_id.toLowerCase().includes(q) || 
@@ -489,6 +544,8 @@ export default function AdminPoolPage() {
     if (filterType === "expired") return t.daysLeft !== null && t.daysLeft <= 0;
     if (filterType === "soon") return t.daysLeft !== null && t.daysLeft > 0 && t.daysLeft <= 7;
     if (filterType === "active") return t.daysLeft !== null && t.daysLeft > 7;
+    if (filterType === "unpaid") return (t.payment_status || "UNPAID").toUpperCase() === "UNPAID";
+    if (filterType === "paid") return (t.payment_status || "").toUpperCase() === "PAID";
 
     return true;
   });
@@ -504,7 +561,7 @@ export default function AdminPoolPage() {
               ⚡ Digimart Admin Management Hub
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              Zoom Pool Slots, Early Endings සහ Teacher Subscriptions එකම තැනින් සජීවීව නිරීක්ෂණය කරන්න.
+              Zoom Pool Slots, Early Endings සහ Teacher Subscriptions එකම තැනින් සජීවීව නිරීක්ෂණය සහ Manage කරන්න.
             </p>
           </div>
 
@@ -671,7 +728,7 @@ export default function AdminPoolPage() {
           </button>
         </div>
 
-        {/* ==================== TAB 1: ZOOM POOL VISUALIZER (ACTIVE POOL ONLY) ==================== */}
+        {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
         {activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1022,11 +1079,11 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 3: TEACHER EXPIRATIONS TRACKER ==================== */}
+        {/* ==================== TAB 3: TEACHER EXPIRATIONS & PAYMENT TRACKER ==================== */}
         {activeTab === "expirations" && (
           <div className="space-y-6 animate-fadeIn">
             
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Total Teachers</p>
@@ -1045,7 +1102,7 @@ export default function AdminPoolPage() {
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Expiring Soon (≤ 7 Days)</p>
+                  <p className="text-xs text-gray-400 font-medium">Expiring Soon (≤ 7D)</p>
                   <h3 className="text-2xl font-black text-amber-400 mt-1">{expiringSoonCount}</h3>
                 </div>
                 <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">⚠️</div>
@@ -1053,10 +1110,18 @@ export default function AdminPoolPage() {
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Active &amp; Safe (&gt; 7 Days)</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{activeCount}</h3>
+                  <p className="text-xs text-gray-400 font-medium">Unpaid Subscriptions</p>
+                  <h3 className="text-2xl font-black text-rose-400 mt-1">{unpaidCount}</h3>
                 </div>
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">🟢</div>
+                <div className="w-10 h-10 bg-rose-950 border border-rose-900 rounded-xl flex items-center justify-center text-lg">💳</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between col-span-2 sm:col-span-1">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Active &amp; Paid</p>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{paidCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">✅</div>
               </div>
             </div>
 
@@ -1081,6 +1146,14 @@ export default function AdminPoolPage() {
                   All ({processedTeachers.length})
                 </button>
                 <button
+                  onClick={() => setFilterType("unpaid")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    filterType === "unpaid" ? "bg-rose-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  💳 Unpaid ({unpaidCount})
+                </button>
+                <button
                   onClick={() => setFilterType("soon")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     filterType === "soon" ? "bg-amber-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
@@ -1091,18 +1164,18 @@ export default function AdminPoolPage() {
                 <button
                   onClick={() => setFilterType("expired")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    filterType === "expired" ? "bg-rose-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                    filterType === "expired" ? "bg-red-900 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
                   🔴 Expired ({expiredCount})
                 </button>
                 <button
-                  onClick={() => setFilterType("active")}
+                  onClick={() => setFilterType("paid")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    filterType === "active" ? "bg-emerald-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                    filterType === "paid" ? "bg-emerald-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
-                  🟢 Active ({activeCount})
+                  🟢 Paid ({paidCount})
                 </button>
               </div>
             </div>
@@ -1115,21 +1188,24 @@ export default function AdminPoolPage() {
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">USERNAME</th>
                       <th className="p-4">TEACHER NAME</th>
-                      <th className="p-4">EXPIRE DATE</th>
+                      <th className="p-4">PAYMENT STATUS</th>
+                      <th className="p-4">EXPIRE DATE (SET)</th>
                       <th className="p-4">STATUS / REMAINING DAYS</th>
-                      <th className="p-4 text-right">ACTION</th>
+                      <th className="p-4 text-right">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
                     {filteredTeachers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-gray-500 font-mono">
+                        <td colSpan={7} className="p-8 text-center text-gray-500 font-mono">
                           ❌ No teacher records found.
                         </td>
                       </tr>
                     ) : (
                       filteredTeachers.map((t, idx) => {
                         const days = t.daysLeft;
+                        const isSaving = savingTeacherId === t.teacher_id;
+                        const isPaid = (t.payment_status || "UNPAID").toUpperCase() === "PAID";
 
                         let statusBadge = null;
                         if (days === null) {
@@ -1207,26 +1283,66 @@ export default function AdminPoolPage() {
                             </td>
 
                             {/* TEACHER NAME */}
-                            <td className="p-4 font-bold text-white">{t.teacher_name}</td>
+                            <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
-                            {/* EXPIRE DATE */}
-                            <td className="p-4 font-mono text-slate-300">{t.expiry_date || "N/A"}</td>
-
-                            {/* STATUS */}
-                            <td className="p-4">{statusBadge}</td>
-
-                            {/* ACTION BUTTON */}
-                            <td className="p-4 text-right">
-                              <button 
-                                onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
-                                className={`px-3.5 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
-                                  isCopied
-                                    ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
-                                    : "bg-emerald-950 hover:bg-emerald-900 border-emerald-800 text-emerald-400"
+                            {/* 🎯 PAYMENT STATUS (Click to Toggle) */}
+                            <td className="p-4">
+                              <button
+                                onClick={() => handleTogglePaymentStatus(t)}
+                                disabled={isSaving}
+                                title="Click to toggle Payment Status"
+                                className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold border transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5 ${
+                                  isPaid
+                                    ? "bg-emerald-950/80 hover:bg-emerald-900 border-emerald-600 text-emerald-300"
+                                    : "bg-rose-950/80 hover:bg-rose-900 border-rose-600 text-rose-300 animate-pulse"
                                 }`}
                               >
-                                {isCopied ? "✅ Copied!" : "📋 Copy Reminder"}
+                                <span>{isPaid ? "✅ PAID" : "💳 UNPAID"}</span>
+                                {isSaving && <span className="text-[9px] animate-spin">⏳</span>}
                               </button>
+                            </td>
+
+                            {/* 🎯 INLINE EXPIRE DATE PICKER */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="date"
+                                  value={t.expiry_date || ""}
+                                  onChange={(e) => handleUpdateTeacher(t.teacher_id, { expiry_date: e.target.value })}
+                                  disabled={isSaving}
+                                  className="bg-slate-950 border border-slate-700 hover:border-blue-500 focus:border-blue-500 text-blue-300 font-mono font-bold px-2.5 py-1 rounded-lg text-xs focus:outline-none cursor-pointer"
+                                />
+                              </div>
+                            </td>
+
+                            {/* STATUS / DAYS LEFT */}
+                            <td className="p-4">{statusBadge}</td>
+
+                            {/* 🎯 ACTIONS (Quick Renew & Reminder) */}
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {/* ⚡ Quick Renew (+30D & Paid) */}
+                                <button
+                                  onClick={() => handleQuickRenew(t)}
+                                  disabled={isSaving}
+                                  title="Renew 30 Days and Mark as Paid"
+                                  className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 font-bold text-[11px] rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
+                                >
+                                  <span>⚡</span> +30D Paid
+                                </button>
+
+                                {/* Copy Reminder */}
+                                <button 
+                                  onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
+                                  className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
+                                    isCopied
+                                      ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
+                                      : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-400"
+                                  }`}
+                                >
+                                  {isCopied ? "✅ Copied!" : "📋 Reminder"}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
