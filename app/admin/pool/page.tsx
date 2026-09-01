@@ -1187,17 +1187,18 @@ export default function AdminPoolPage() {
                     <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">USERNAME</th>
+                      <th className="p-4">STATUS / REMAINING DAYS</th>
+                      <th className="p-4">REMINDER</th>
                       <th className="p-4">TEACHER NAME</th>
                       <th className="p-4">PAYMENT STATUS</th>
                       <th className="p-4">EXPIRE DATE (SET)</th>
-                      <th className="p-4">STATUS / REMAINING DAYS</th>
-                      <th className="p-4 text-right">ACTIONS</th>
+                      <th className="p-4 text-right">QUICK RENEW</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
                     {filteredTeachers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-gray-500 font-mono">
+                        <td colSpan={8} className="p-8 text-center text-gray-500 font-mono">
                           ❌ No teacher records found.
                         </td>
                       </tr>
@@ -1212,19 +1213,19 @@ export default function AdminPoolPage() {
                           statusBadge = <span className="text-gray-500 font-mono">N/A</span>;
                         } else if (days <= 0) {
                           statusBadge = (
-                            <span className="px-2.5 py-1 bg-rose-950/80 border border-rose-800 text-rose-400 font-bold font-mono rounded-lg inline-flex items-center gap-1">
+                            <span className="px-2.5 py-1 bg-rose-950/80 border border-rose-800 text-rose-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 whitespace-nowrap">
                               🔴 Expired {Math.abs(days)} Days Ago
                             </span>
                           );
                         } else if (days <= 7) {
                           statusBadge = (
-                            <span className="px-2.5 py-1 bg-amber-950/80 border border-amber-800 text-amber-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 animate-pulse">
+                            <span className="px-2.5 py-1 bg-amber-950/80 border border-amber-800 text-amber-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 animate-pulse whitespace-nowrap">
                               ⚠️ {days} {days === 1 ? "Day" : "Days"} Left
                             </span>
                           );
                         } else {
                           statusBadge = (
-                            <span className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold font-mono rounded-lg inline-flex items-center gap-1">
+                            <span className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 whitespace-nowrap">
                               🟢 {days} Days Left
                             </span>
                           );
@@ -1236,8 +1237,8 @@ export default function AdminPoolPage() {
 
                         return (
                           <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                            {/* 🎯 TEACHER ID (Click to Copy) */}
-                            <td className="p-4 font-mono font-bold text-blue-400">
+                            {/* 1. 🎯 TEACHER ID (Click to Copy) */}
+                            <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
                               <button
                                 onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
                                 title="Click to copy Teacher ID"
@@ -1258,8 +1259,8 @@ export default function AdminPoolPage() {
                               </button>
                             </td>
 
-                            {/* 🎯 USERNAME (Click to Copy) */}
-                            <td className="p-4 font-mono font-semibold text-purple-300">
+                            {/* 2. 🎯 USERNAME (Click to Copy) */}
+                            <td className="p-4 font-mono font-semibold text-purple-300 whitespace-nowrap">
                               {t.username && t.username !== "N/A" ? (
                                 <button
                                   onClick={() => handleCopyUsernameOnly(t.username || "")}
@@ -1282,11 +1283,28 @@ export default function AdminPoolPage() {
                               )}
                             </td>
 
-                            {/* TEACHER NAME */}
+                            {/* 3. 🎯 STATUS / REMAINING DAYS */}
+                            <td className="p-4 whitespace-nowrap">{statusBadge}</td>
+
+                            {/* 4. 🎯 REMINDER (1-Click Copy) */}
+                            <td className="p-4 whitespace-nowrap">
+                              <button 
+                                onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
+                                className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
+                                  isCopied
+                                    ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
+                                    : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-400"
+                                }`}
+                              >
+                                {isCopied ? "✅ Copied!" : "📋 Reminder"}
+                              </button>
+                            </td>
+
+                            {/* 5. 🎯 TEACHER NAME */}
                             <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
-                            {/* 🎯 PAYMENT STATUS (Click to Toggle) */}
-                            <td className="p-4">
+                            {/* 6. 🎯 PAYMENT STATUS (Click to Toggle) */}
+                            <td className="p-4 whitespace-nowrap">
                               <button
                                 onClick={() => handleTogglePaymentStatus(t)}
                                 disabled={isSaving}
@@ -1302,8 +1320,8 @@ export default function AdminPoolPage() {
                               </button>
                             </td>
 
-                            {/* 🎯 INLINE EXPIRE DATE PICKER */}
-                            <td className="p-4">
+                            {/* 7. 🎯 INLINE EXPIRE DATE PICKER */}
+                            <td className="p-4 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <input
                                   type="date"
@@ -1315,34 +1333,16 @@ export default function AdminPoolPage() {
                               </div>
                             </td>
 
-                            {/* STATUS / DAYS LEFT */}
-                            <td className="p-4">{statusBadge}</td>
-
-                            {/* 🎯 ACTIONS (Quick Renew & Reminder) */}
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                {/* ⚡ Quick Renew (+30D & Paid) */}
-                                <button
-                                  onClick={() => handleQuickRenew(t)}
-                                  disabled={isSaving}
-                                  title="Renew 30 Days and Mark as Paid"
-                                  className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 font-bold text-[11px] rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
-                                >
-                                  <span>⚡</span> +30D Paid
-                                </button>
-
-                                {/* Copy Reminder */}
-                                <button 
-                                  onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
-                                  className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
-                                    isCopied
-                                      ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
-                                      : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-400"
-                                  }`}
-                                >
-                                  {isCopied ? "✅ Copied!" : "📋 Reminder"}
-                                </button>
-                              </div>
+                            {/* 8. 🎯 QUICK RENEW (+30D & Paid) */}
+                            <td className="p-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => handleQuickRenew(t)}
+                                disabled={isSaving}
+                                title="Renew 30 Days and Mark as Paid"
+                                className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 font-bold text-[11px] rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 inline-flex items-center gap-1"
+                              >
+                                <span>⚡</span> +30D Paid
+                              </button>
                             </td>
                           </tr>
                         );
