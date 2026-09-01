@@ -60,7 +60,9 @@ export default function AdminPoolPage() {
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
   const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null);
-  const [copiedUsername, setCopiedUsername] = useState<string | null>(null);
+  
+  // 🎯 Persistent Copied Username State (No timeout - stays until next click)
+  const [lastCopiedUsername, setLastCopiedUsername] = useState<string | null>(null);
 
   // 🎯 Action Loading States
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
@@ -337,13 +339,11 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
+  // 🎯 Persistent Copy Username Handler (No Timeout)
   const handleCopyUsernameOnly = (username: string) => {
     if (!username || username === "N/A") return;
     navigator.clipboard.writeText(username);
-    setCopiedUsername(username);
-    setTimeout(() => {
-      setCopiedUsername(null);
-    }, 2000);
+    setLastCopiedUsername(username);
   };
 
   const activeAccountKeys = Object.keys(poolData).filter((accId) =>
@@ -1139,7 +1139,7 @@ export default function AdminPoolPage() {
               <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
                 <button
                   onClick={() => setFilterType("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     filterType === "all" ? "bg-blue-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
@@ -1147,7 +1147,7 @@ export default function AdminPoolPage() {
                 </button>
                 <button
                   onClick={() => setFilterType("unpaid")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     filterType === "unpaid" ? "bg-rose-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
@@ -1155,7 +1155,7 @@ export default function AdminPoolPage() {
                 </button>
                 <button
                   onClick={() => setFilterType("soon")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     filterType === "soon" ? "bg-amber-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
@@ -1163,7 +1163,7 @@ export default function AdminPoolPage() {
                 </button>
                 <button
                   onClick={() => setFilterType("expired")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     filterType === "expired" ? "bg-red-900 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
@@ -1171,7 +1171,7 @@ export default function AdminPoolPage() {
                 </button>
                 <button
                   onClick={() => setFilterType("paid")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     filterType === "paid" ? "bg-emerald-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
@@ -1233,10 +1233,17 @@ export default function AdminPoolPage() {
 
                         const isCopied = copiedTeacherId === t.teacher_id;
                         const isIdCopied = copiedIdOnly === t.teacher_id;
-                        const isUserCopied = copiedUsername === t.username;
+                        const isUserCopied = Boolean(t.username && lastCopiedUsername === t.username);
 
                         return (
-                          <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
+                          <tr 
+                            key={idx} 
+                            className={`transition-all ${
+                              isUserCopied 
+                                ? "bg-emerald-950/20 border-l-4 border-l-emerald-500" 
+                                : "hover:bg-slate-900/40"
+                            }`}
+                          >
                             {/* 1. 🎯 TEACHER ID (Click to Copy) */}
                             <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
                               <button
@@ -1259,18 +1266,22 @@ export default function AdminPoolPage() {
                               </button>
                             </td>
 
-                            {/* 2. 🎯 USERNAME (Click to Copy) */}
-                            <td className="p-4 font-mono font-semibold text-purple-300 whitespace-nowrap">
+                            {/* 2. 🎯 USERNAME (Persistent Copied Indicator) */}
+                            <td className="p-4 font-mono font-semibold whitespace-nowrap">
                               {t.username && t.username !== "N/A" ? (
                                 <button
                                   onClick={() => handleCopyUsernameOnly(t.username || "")}
                                   title="Click to copy Username"
-                                  className="hover:text-purple-200 inline-flex items-center gap-2 group cursor-pointer transition-all active:scale-95 bg-purple-950/30 hover:bg-purple-900/40 px-2.5 py-1 rounded-lg border border-purple-800/40"
+                                  className={`inline-flex items-center gap-2 group cursor-pointer transition-all active:scale-95 px-3 py-1.5 rounded-xl border shadow-sm ${
+                                    isUserCopied
+                                      ? "bg-emerald-600 border-emerald-400 text-white font-black shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/50 scale-105"
+                                      : "bg-purple-950/30 hover:bg-purple-900/50 border-purple-800/40 text-purple-300 hover:text-purple-100"
+                                  }`}
                                 >
                                   <span>@{t.username}</span>
                                   {isUserCopied ? (
-                                    <span className="text-[9px] font-mono bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-800">
-                                      ✅
+                                    <span className="text-[10px] font-black bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded-md border border-emerald-500">
+                                      ✅ Copied
                                     </span>
                                   ) : (
                                     <span className="text-[10px] opacity-40 group-hover:opacity-100 transition-opacity">
