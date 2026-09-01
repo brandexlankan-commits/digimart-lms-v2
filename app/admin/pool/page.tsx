@@ -50,7 +50,7 @@ export default function AdminPoolPage() {
 
   // Expirations Tab States
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active" | "unpaid" | "paid">("all");
+  const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active" | "unpaid" | "paid" | "need_reminder" | "reminded">("all");
   
   // Ending Schedule Tab States
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
@@ -61,8 +61,11 @@ export default function AdminPoolPage() {
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
   const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null);
   
-  // 🎯 Persistent Copied Username State (No timeout - stays until next click)
+  // 🎯 Persistent Copied Username State
   const [lastCopiedUsername, setLastCopiedUsername] = useState<string | null>(null);
+
+  // 🎯 Reminded Teachers Set (Saved in LocalStorage for today)
+  const [remindedTeacherIds, setRemindedTeacherIds] = useState<string[]>([]);
 
   // 🎯 Action Loading States
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
@@ -72,6 +75,16 @@ export default function AdminPoolPage() {
     const today = new Date().toISOString().split("T")[0];
     setSelectedDate(today);
     fetchPoolData(today);
+
+    // Load today's reminded teachers from LocalStorage
+    try {
+      const stored = localStorage.getItem(`digimart_reminded_${today}`);
+      if (stored) {
+        setRemindedTeacherIds(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Failed to load reminded teachers:", e);
+    }
   }, []);
 
   const fetchPoolData = async (dateStr: string) => {
@@ -296,6 +309,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // 🎯 Copy Reminder & Mark as Reminded in LocalStorage
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -318,9 +332,45 @@ export default function AdminPoolPage() {
 
     navigator.clipboard.writeText(reminderMsg);
     setCopiedTeacherId(teacherId);
+
+    // Save to reminded list & localstorage
+    setRemindedTeacherIds((prev) => {
+      if (!prev.includes(teacherId)) {
+        const updated = [...prev, teacherId];
+        const today = new Date().toISOString().split("T")[0];
+        try {
+          localStorage.setItem(`digimart_reminded_${today}`, JSON.stringify(updated));
+        } catch (e) {
+          console.error(e);
+        }
+        return updated;
+      }
+      return prev;
+    });
+
     setTimeout(() => {
       setCopiedTeacherId(null);
     }, 2000);
+  };
+
+  // Toggle Reminded status manually if needed
+  const handleToggleRemindedStatus = (e: React.MouseEvent, teacherId: string) => {
+    e.stopPropagation();
+    setRemindedTeacherIds((prev) => {
+      const today = new Date().toISOString().split("T")[0];
+      let updated: string[];
+      if (prev.includes(teacherId)) {
+        updated = prev.filter((id) => id !== teacherId);
+      } else {
+        updated = [...prev, teacherId];
+      }
+      try {
+        localStorage.setItem(`digimart_reminded_${today}`, JSON.stringify(updated));
+      } catch (err) {
+        console.error(err);
+      }
+      return updated;
+    });
   };
 
   const handleCopyMeetingId = (zoomId: string) => {
@@ -339,7 +389,7 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 Persistent Copy Username Handler (No Timeout)
+  // Persistent Copy Username Handler
   const handleCopyUsernameOnly = (username: string) => {
     if (!username || username === "N/A") return;
     navigator.clipboard.writeText(username);
@@ -520,7 +570,8 @@ export default function AdminPoolPage() {
 
   const processedTeachers = teachersList.map((t) => {
     const daysLeft = getDaysRemaining(t.expiry_date);
-    return { ...t, daysLeft };
+    const isReminded = remindedTeacherIds.includes(t.teacher_id);
+    return { ...t, daysLeft, isReminded };
   }).sort((a, b) => {
     if (a.daysLeft === null) return 1;
     if (b.daysLeft === null) return -1;
@@ -532,6 +583,10 @@ export default function AdminPoolPage() {
   const activeCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft > 7).length;
   const unpaidCount = processedTeachers.filter(t => (t.payment_status || "UNPAID").toUpperCase() === "UNPAID").length;
   const paidCount = processedTeachers.filter(t => (t.payment_status || "").toUpperCase() === "PAID").length;
+
+  // Reminded Counts
+  const remindedCount = processedTeachers.filter(t => t.isReminded).length;
+  const needReminderCount = processedTeachers.filter(t => !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7)).length;
 
   const filteredTeachers = processedTeachers.filter((t) => {
     const q = searchTerm.toLowerCase();
@@ -546,6 +601,8 @@ export default function AdminPoolPage() {
     if (filterType === "active") return t.daysLeft !== null && t.daysLeft > 7;
     if (filterType === "unpaid") return (t.payment_status || "UNPAID").toUpperCase() === "UNPAID";
     if (filterType === "paid") return (t.payment_status || "").toUpperCase() === "PAID";
+    if (filterType === "need_reminder") return !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7);
+    if (filterType === "reminded") return t.isReminded;
 
     return true;
   });
@@ -720,11 +777,15 @@ export default function AdminPoolPage() {
             }`}
           >
             <span>📅</span> Teacher Expirations Tracker
-            {expiringSoonCount > 0 && (
+            {needReminderCount > 0 ? (
               <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                {expiringSoonCount}
+                {needReminderCount} Need Remind
               </span>
-            )}
+            ) : expiringSoonCount > 0 ? (
+              <span className="bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black">
+                All Reminded
+              </span>
+            ) : null}
           </button>
         </div>
 
@@ -1083,6 +1144,7 @@ export default function AdminPoolPage() {
         {activeTab === "expirations" && (
           <div className="space-y-6 animate-fadeIn">
             
+            {/* STAT CARDS */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
@@ -1125,6 +1187,7 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
+            {/* SEARCH & FILTERS */}
             <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full md:w-80">
                 <input 
@@ -1136,7 +1199,7 @@ export default function AdminPoolPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
+              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto flex-wrap">
                 <button
                   onClick={() => setFilterType("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1145,6 +1208,37 @@ export default function AdminPoolPage() {
                 >
                   All ({processedTeachers.length})
                 </button>
+
+                {/* 🎯 NEW: Need Reminder Filter */}
+                <button
+                  onClick={() => setFilterType("need_reminder")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    filterType === "need_reminder" 
+                      ? "bg-amber-500 text-slate-950 shadow-md font-black" 
+                      : "bg-amber-950/40 border border-amber-800/60 text-amber-300 hover:bg-amber-900/40"
+                  }`}
+                >
+                  <span>📩 Need Remind</span>
+                  <span className="bg-amber-400/30 px-1.5 py-0.2 rounded-full text-[10px]">
+                    {needReminderCount}
+                  </span>
+                </button>
+
+                {/* 🎯 NEW: Reminded Filter */}
+                <button
+                  onClick={() => setFilterType("reminded")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    filterType === "reminded" 
+                      ? "bg-emerald-600 text-white shadow-md font-black" 
+                      : "bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/40"
+                  }`}
+                >
+                  <span>🔔 Reminded</span>
+                  <span className="bg-emerald-400/30 px-1.5 py-0.2 rounded-full text-[10px]">
+                    {remindedCount}
+                  </span>
+                </button>
+
                 <button
                   onClick={() => setFilterType("unpaid")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1180,6 +1274,7 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
+            {/* TEACHERS TABLE */}
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -1188,7 +1283,7 @@ export default function AdminPoolPage() {
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">USERNAME</th>
                       <th className="p-4">STATUS / REMAINING DAYS</th>
-                      <th className="p-4">REMINDER</th>
+                      <th className="p-4">REMINDER STATUS</th>
                       <th className="p-4">TEACHER NAME</th>
                       <th className="p-4">PAYMENT STATUS</th>
                       <th className="p-4">EXPIRE DATE (SET)</th>
@@ -1207,6 +1302,7 @@ export default function AdminPoolPage() {
                         const days = t.daysLeft;
                         const isSaving = savingTeacherId === t.teacher_id;
                         const isPaid = (t.payment_status || "UNPAID").toUpperCase() === "PAID";
+                        const isReminded = t.isReminded;
 
                         let statusBadge = null;
                         if (days === null) {
@@ -1244,7 +1340,7 @@ export default function AdminPoolPage() {
                                 : "hover:bg-slate-900/40"
                             }`}
                           >
-                            {/* 1. 🎯 TEACHER ID (Click to Copy) */}
+                            {/* 1. 🎯 TEACHER ID */}
                             <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
                               <button
                                 onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
@@ -1266,7 +1362,7 @@ export default function AdminPoolPage() {
                               </button>
                             </td>
 
-                            {/* 2. 🎯 USERNAME (Persistent Copied Indicator) */}
+                            {/* 2. 🎯 USERNAME */}
                             <td className="p-4 font-mono font-semibold whitespace-nowrap">
                               {t.username && t.username !== "N/A" ? (
                                 <button
@@ -1297,24 +1393,48 @@ export default function AdminPoolPage() {
                             {/* 3. 🎯 STATUS / REMAINING DAYS */}
                             <td className="p-4 whitespace-nowrap">{statusBadge}</td>
 
-                            {/* 4. 🎯 REMINDER (1-Click Copy) */}
+                            {/* 4. 🎯 REMINDER STATUS & ACTION BUTTON */}
                             <td className="p-4 whitespace-nowrap">
-                              <button 
-                                onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
-                                className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm active:scale-95 ${
-                                  isCopied
-                                    ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
-                                    : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-400"
-                                }`}
-                              >
-                                {isCopied ? "✅ Copied!" : "📋 Reminder"}
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button 
+                                  onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
+                                  title="Click to Copy Reminder and mark as sent"
+                                  className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+                                    isCopied
+                                      ? "bg-emerald-600 border-emerald-400 text-white shadow-emerald-600/30 font-black ring-2 ring-emerald-400/40"
+                                      : isReminded
+                                      ? "bg-emerald-950/50 hover:bg-emerald-900/60 border-emerald-800/70 text-emerald-300 font-semibold"
+                                      : (days !== null && days <= 7)
+                                      ? "bg-amber-600 hover:bg-amber-500 border-amber-500 text-slate-950 font-black animate-pulse"
+                                      : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-400"
+                                  }`}
+                                >
+                                  {isCopied ? (
+                                    <span>✅ Copied!</span>
+                                  ) : isReminded ? (
+                                    <span>🔔 Reminded</span>
+                                  ) : (
+                                    <span>📩 Send Remind</span>
+                                  )}
+                                </button>
+
+                                {/* Small manual reset/toggle check */}
+                                {isReminded && (
+                                  <button
+                                    onClick={(e) => handleToggleRemindedStatus(e, t.teacher_id)}
+                                    title="Click to toggle / reset reminder mark"
+                                    className="text-[11px] text-gray-500 hover:text-rose-400 p-1 rounded-lg hover:bg-slate-900 transition-colors"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
                             </td>
 
                             {/* 5. 🎯 TEACHER NAME */}
                             <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
-                            {/* 6. 🎯 PAYMENT STATUS (Click to Toggle) */}
+                            {/* 6. 🎯 PAYMENT STATUS */}
                             <td className="p-4 whitespace-nowrap">
                               <button
                                 onClick={() => handleTogglePaymentStatus(t)}
