@@ -268,6 +268,9 @@ export default function AdminPoolPage() {
   const isMeetingLiveNow = (m: SlotMeeting) => {
     if (isMeetingEnded(m)) return false;
 
+    const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
+    if (rawStatus === "STARTED" || rawStatus === "LIVE") return true;
+
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
 
@@ -276,6 +279,27 @@ export default function AdminPoolPage() {
     const mEnd = mStart + mDuration;
 
     return currentMins >= mStart && currentMins <= mEnd;
+  };
+
+  // 🎯 Fix: 7 සිට 8 දක්වා Schedule කළ පන්තියක් 8 පසුවන තුරුත් (End Time පසු වනතුරුත්) Start නොකළ විට පමණක් හඳුනාගැනීම
+  const isMeetingUnstartedOverdue = (m: SlotMeeting) => {
+    const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
+    if (rawStatus === "ENDED" || rawStatus === "STARTED" || rawStatus === "LIVE" || rawStatus === "EARLY_ENDED") {
+      return false;
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (selectedDate < todayStr) return true; // පෙර දිනයන්හි Schedule කර තිබූ නමුත් Ended නොවූ ඒවා
+    if (selectedDate > todayStr) return false; // ඉදිරි දින සඳහා අදාළ නොවේ
+
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const mStart = parseTimeToMinutes(m.time);
+    const mDuration = Number(m.duration) || 60;
+    const mEnd = mStart + mDuration; // පන්තිය අවසන් වන නියමිත වේලාව (End Time)
+
+    // End Time එක පසු වූ සැණින් (උදා: රාත්‍රී 8:00 ට පසු) තවමත් Start කර නොමැති නම් පමණක් True වේ
+    return currentMins >= mEnd;
   };
 
   const isAccountBusyRightNow = (meetings: SlotMeeting[]) => {
@@ -333,7 +357,6 @@ export default function AdminPoolPage() {
     navigator.clipboard.writeText(reminderMsg);
     setCopiedTeacherId(teacherId);
 
-    // Save to reminded list & localstorage
     setRemindedTeacherIds((prev) => {
       if (!prev.includes(teacherId)) {
         const updated = [...prev, teacherId];
@@ -353,7 +376,6 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // Toggle Reminded status manually if needed
   const handleToggleRemindedStatus = (e: React.MouseEvent, teacherId: string) => {
     e.stopPropagation();
     setRemindedTeacherIds((prev) => {
@@ -389,7 +411,6 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // Persistent Copy Username Handler
   const handleCopyUsernameOnly = (username: string) => {
     if (!username || username === "N/A") return;
     navigator.clipboard.writeText(username);
@@ -534,12 +555,32 @@ export default function AdminPoolPage() {
       });
   };
 
+  // 1. Early Ended Meetings
   const earlyEndedMeetings = Object.entries(poolData).flatMap(([accId, accInfo]) =>
     (accInfo.classes || [])
       .filter((m) => {
         const status = String(m.status || m.Status || "").trim().toUpperCase();
         return status === "EARLY_ENDED";
       })
+      .map((m) => {
+        const startMins = parseTimeToMinutes(m.time);
+        const durationMins = Number(m.duration) || 60;
+        const endMins = startMins + durationMins;
+        const scheduledEndTimeStr = formatMinutesToTime(endMins);
+
+        return {
+          accId,
+          poolType: accInfo.pool_type || "Zoom",
+          scheduledEndTimeStr,
+          ...m,
+        };
+      })
+  );
+
+  // 2. 🎯 NEW: Overdue Unstarted Meetings (7 සිට 8 දක්වා නම්, 8 පසුවන තුරුත් Start නොකළ ඒවා)
+  const unstartedOverdueMeetings = Object.entries(poolData).flatMap(([accId, accInfo]) =>
+    (accInfo.classes || [])
+      .filter((m) => isMeetingUnstartedOverdue(m))
       .map((m) => {
         const startMins = parseTimeToMinutes(m.time);
         const durationMins = Number(m.duration) || 60;
@@ -584,7 +625,6 @@ export default function AdminPoolPage() {
   const unpaidCount = processedTeachers.filter(t => (t.payment_status || "UNPAID").toUpperCase() === "UNPAID").length;
   const paidCount = processedTeachers.filter(t => (t.payment_status || "").toUpperCase() === "PAID").length;
 
-  // Reminded Counts
   const remindedCount = processedTeachers.filter(t => t.isReminded).length;
   const needReminderCount = processedTeachers.filter(t => !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7)).length;
 
@@ -643,6 +683,102 @@ export default function AdminPoolPage() {
             )}
           </div>
         </div>
+
+        {/* 🎯 🚨 UNSTARTED OVERDUE CLASSES BANNER (End Time පසුවන තුරුත් Start නොකළ ඒවා) */}
+        {unstartedOverdueMeetings.length > 0 && (
+          <div className="bg-gradient-to-r from-rose-950/50 via-[#0b132b] to-[#0b132b] border border-rose-500/60 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl animate-bounce">🚨</span>
+                <div>
+                  <h2 className="text-sm font-black text-rose-400 font-mono tracking-wide">
+                    OVERDUE UNSTARTED CLASSES ({unstartedOverdueMeetings.length}) - LOCKING ZOOM POOL
+                  </h2>
+                  <p className="text-[11px] text-gray-400">
+                    පන්තියේ නියමිත කාලසීමාව (End Time) අවසන් වනතුරුත් Start නොකරන ලද පන්ති. Zoom Account එක නිදහස් කිරීමට "End &amp; Free Account" ඔබන්න.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-black bg-rose-950 text-rose-300 px-3 py-1 rounded-full border border-rose-800/80 animate-pulse">
+                Action Required
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/80 text-gray-400 font-mono">
+                    <th className="p-3">ZOOM ACCOUNT</th>
+                    <th className="p-3">ZOOM MEETING ID</th>
+                    <th className="p-3">TEACHER ID</th>
+                    <th className="p-3">TOPIC</th>
+                    <th className="p-3">SCHEDULED TIME</th>
+                    <th className="p-3">SCHEDULED END TIME</th>
+                    <th className="p-3 text-right">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-900 text-slate-200">
+                  {unstartedOverdueMeetings.map((item, idx) => {
+                    const isCopied = copiedMeetingId === item.zoom_id;
+                    const isUpdating = endingMeetingId === item.zoom_id;
+
+                    return (
+                      <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-rose-950/10">
+                        <td className="p-3">
+                          <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
+                            ⚡ {item.accId}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
+                          {item.zoom_id}
+                        </td>
+                        <td className="p-3 font-mono text-slate-300">
+                          👤 {item.teacher_id}
+                        </td>
+                        <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
+                          {item.topic}
+                        </td>
+                        <td className="p-3 font-mono text-slate-300">
+                          ⏰ {item.time} ({formatDuration(item.duration)})
+                        </td>
+                        <td className="p-3 font-mono font-bold text-rose-400">
+                          🏁 {item.scheduledEndTimeStr} (Ended)
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleCopyMeetingId(item.zoom_id)}
+                              className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                isCopied
+                                  ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
+                                  : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
+                              }`}
+                            >
+                              {isCopied ? "✅ Copied" : "📋 Copy ID"}
+                            </button>
+
+                            <button
+                              onClick={() => handleForceEndMeeting(item)}
+                              disabled={isUpdating}
+                              title="Force End this unstarted class to free the Zoom account immediately"
+                              className={`px-3 py-1.5 border text-[11px] font-mono font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-md active:scale-95 ${
+                                isUpdating
+                                  ? "bg-rose-950 border-rose-800 text-rose-300 opacity-60 cursor-wait"
+                                  : "bg-rose-600 hover:bg-rose-500 border-rose-400 text-white shadow-rose-600/30"
+                              }`}
+                            >
+                              {isUpdating ? "⏳ Freeing Account..." : "⏹️ End & Free Account"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* ⚠️ EARLY ENDED MEETINGS OVERVIEW */}
         {earlyEndedMeetings.length > 0 && (
@@ -936,6 +1072,7 @@ export default function AdminPoolPage() {
                           meetings.map((m, mIdx) => {
                             const ended = isMeetingEnded(m);
                             const live = isMeetingLiveNow(m);
+                            const overdue = isMeetingUnstartedOverdue(m);
 
                             return (
                               <div 
@@ -943,6 +1080,8 @@ export default function AdminPoolPage() {
                                 className={`p-3.5 rounded-xl space-y-2 transition-all border ${
                                   ended
                                     ? "bg-slate-950/30 border-slate-900/50 opacity-60"
+                                    : overdue
+                                    ? "bg-rose-950/30 border-rose-600/70 shadow-md"
                                     : live
                                     ? "bg-rose-950/20 border-rose-800/60 shadow-lg shadow-rose-950/20"
                                     : "bg-slate-950/80 border-slate-900/80 hover:border-blue-800/50"
@@ -955,6 +1094,10 @@ export default function AdminPoolPage() {
                                   {ended ? (
                                     <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">
                                       ⚪ ENDED
+                                    </span>
+                                  ) : overdue ? (
+                                    <span className="text-[9px] font-mono font-black bg-rose-950 text-rose-300 px-2 py-0.5 rounded border border-rose-700 animate-pulse">
+                                      ⚠️ OVERDUE (NOT STARTED)
                                     </span>
                                   ) : live ? (
                                     <span className="text-[9px] font-mono font-bold bg-rose-950 text-rose-400 px-2 py-0.5 rounded border border-rose-800/60 animate-pulse flex items-center gap-1">
@@ -972,7 +1115,18 @@ export default function AdminPoolPage() {
 
                                 <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900/80">
                                   <span>👤 {m.teacher_id}</span>
-                                  <span>⏳ {formatDuration(m.duration)}</span>
+                                  
+                                  {/* Overdue Inline Force End Action */}
+                                  {overdue && !ended ? (
+                                    <button
+                                      onClick={() => handleForceEndMeeting({ ...m, accId })}
+                                      className="text-[10px] font-bold text-rose-400 hover:text-white bg-rose-950 hover:bg-rose-900 border border-rose-800 px-2 py-0.5 rounded transition-all cursor-pointer"
+                                    >
+                                      ⏹️ Force End
+                                    </button>
+                                  ) : (
+                                    <span>⏳ {formatDuration(m.duration)}</span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1209,7 +1363,6 @@ export default function AdminPoolPage() {
                   All ({processedTeachers.length})
                 </button>
 
-                {/* 🎯 NEW: Need Reminder Filter */}
                 <button
                   onClick={() => setFilterType("need_reminder")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
@@ -1224,7 +1377,6 @@ export default function AdminPoolPage() {
                   </span>
                 </button>
 
-                {/* 🎯 NEW: Reminded Filter */}
                 <button
                   onClick={() => setFilterType("reminded")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
@@ -1418,7 +1570,6 @@ export default function AdminPoolPage() {
                                   )}
                                 </button>
 
-                                {/* Small manual reset/toggle check */}
                                 {isReminded && (
                                   <button
                                     onClick={(e) => handleToggleRemindedStatus(e, t.teacher_id)}
