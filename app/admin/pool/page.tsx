@@ -26,6 +26,9 @@ interface PoolAccountInfo {
   status?: string;
   Status?: string;
   account_status?: string;
+  expire_date?: string;
+  expiry_date?: string;
+  email?: string;
   classes: SlotMeeting[];
 }
 
@@ -42,7 +45,7 @@ interface TeacherExpiry {
 }
 
 export default function AdminPoolPage() {
-  const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "expirations">("pool");
+  const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "expirations" | "zoom_accounts">("pool");
   const [selectedDate, setSelectedDate] = useState("");
   const [poolData, setPoolData] = useState<PoolData>({});
   const [teachersList, setTeachersList] = useState<TeacherExpiry[]>([]);
@@ -55,6 +58,11 @@ export default function AdminPoolPage() {
   // Ending Schedule Tab States
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
   const [endingFilter, setEndingFilter] = useState<"all" | "active" | "ended">("all");
+
+  // 🎯 Zoom Accounts Tab States
+  const [zoomSearchTerm, setZoomSearchTerm] = useState("");
+  const [zoomFilterType, setZoomFilterType] = useState<"all" | "expired" | "soon" | "active" | "inactive">("all");
+  const [copiedZoomAccId, setCopiedZoomAccId] = useState<string | null>(null);
 
   // Copy Feedback States
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
@@ -130,12 +138,10 @@ export default function AdminPoolPage() {
   const handleUpdateTeacher = async (teacherId: string, updates: { expiry_date?: string; payment_status?: string }) => {
     setSavingTeacherId(teacherId);
 
-    // 1. Instant Optimistic UI Update
     setTeachersList((prev) =>
       prev.map((t) => (t.teacher_id === teacherId ? { ...t, ...updates } : t))
     );
 
-    // 2. Background Sync to Google Sheets via n8n
     try {
       const targetTeacher = teachersList.find((t) => t.teacher_id === teacherId);
       const payload = {
@@ -281,7 +287,7 @@ export default function AdminPoolPage() {
     return currentMins >= mStart && currentMins <= mEnd;
   };
 
-  // 🎯 Fix: 7 සිට 8 දක්වා Schedule කළ පන්තියක් 8 පසුවන තුරුත් (End Time පසු වනතුරුත්) Start නොකළ විට පමණක් හඳුනාගැනීම
+  // 🎯 End Time එක පසු වනතුරුත් Start නොකළ පන්ති හඳුනාගැනීම
   const isMeetingUnstartedOverdue = (m: SlotMeeting) => {
     const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
     if (rawStatus === "ENDED" || rawStatus === "STARTED" || rawStatus === "LIVE" || rawStatus === "EARLY_ENDED") {
@@ -289,16 +295,15 @@ export default function AdminPoolPage() {
     }
 
     const todayStr = new Date().toISOString().split("T")[0];
-    if (selectedDate < todayStr) return true; // පෙර දිනයන්හි Schedule කර තිබූ නමුත් Ended නොවූ ඒවා
-    if (selectedDate > todayStr) return false; // ඉදිරි දින සඳහා අදාළ නොවේ
+    if (selectedDate < todayStr) return true;
+    if (selectedDate > todayStr) return false;
 
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
     const mStart = parseTimeToMinutes(m.time);
     const mDuration = Number(m.duration) || 60;
-    const mEnd = mStart + mDuration; // පන්තිය අවසන් වන නියමිත වේලාව (End Time)
+    const mEnd = mStart + mDuration;
 
-    // End Time එක පසු වූ සැණින් (උදා: රාත්‍රී 8:00 ට පසු) තවමත් Start කර නොමැති නම් පමණක් True වේ
     return currentMins >= mEnd;
   };
 
@@ -320,10 +325,24 @@ export default function AdminPoolPage() {
     });
   };
 
-  const getDaysRemaining = (expDateStr: string) => {
+  // 🎯 Flexible Days Remaining Calculator (Supports 'M/D/YYYY' and 'YYYY-MM-DD')
+  const getDaysRemaining = (expDateStr?: string) => {
     if (!expDateStr) return null;
-    const expDate = new Date(expDateStr);
-    if (isNaN(expDate.getTime())) return null;
+    let expDate: Date | null = null;
+
+    if (expDateStr.includes("/")) {
+      const parts = expDateStr.split("/");
+      if (parts.length === 3) {
+        const m = parseInt(parts[0], 10) - 1;
+        const d = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        expDate = new Date(y, m, d);
+      }
+    } else {
+      expDate = new Date(expDateStr);
+    }
+
+    if (!expDate || isNaN(expDate.getTime())) return null;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -333,7 +352,6 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 Copy Reminder & Mark as Reminded in LocalStorage
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -415,6 +433,14 @@ export default function AdminPoolPage() {
     if (!username || username === "N/A") return;
     navigator.clipboard.writeText(username);
     setLastCopiedUsername(username);
+  };
+
+  const handleCopyZoomAccountId = (accId: string) => {
+    navigator.clipboard.writeText(accId);
+    setCopiedZoomAccId(accId);
+    setTimeout(() => {
+      setCopiedZoomAccId(null);
+    }, 2000);
   };
 
   const activeAccountKeys = Object.keys(poolData).filter((accId) =>
@@ -577,7 +603,7 @@ export default function AdminPoolPage() {
       })
   );
 
-  // 2. 🎯 NEW: Overdue Unstarted Meetings (7 සිට 8 දක්වා නම්, 8 පසුවන තුරුත් Start නොකළ ඒවා)
+  // 2. Unstarted Overdue Meetings (End Time පසුවන තුරුත් Start නොකළ ඒවා)
   const unstartedOverdueMeetings = Object.entries(poolData).flatMap(([accId, accInfo]) =>
     (accInfo.classes || [])
       .filter((m) => isMeetingUnstartedOverdue(m))
@@ -609,6 +635,7 @@ export default function AdminPoolPage() {
   const upcoming4HoursSlots = calculateNext4HoursAvailability();
   const endingTimelineSlots = get30MinuteEndingSlots();
 
+  // Teachers Processing
   const processedTeachers = teachersList.map((t) => {
     const daysLeft = getDaysRemaining(t.expiry_date);
     const isReminded = remindedTeacherIds.includes(t.teacher_id);
@@ -624,7 +651,6 @@ export default function AdminPoolPage() {
   const activeCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft > 7).length;
   const unpaidCount = processedTeachers.filter(t => (t.payment_status || "UNPAID").toUpperCase() === "UNPAID").length;
   const paidCount = processedTeachers.filter(t => (t.payment_status || "").toUpperCase() === "PAID").length;
-
   const remindedCount = processedTeachers.filter(t => t.isReminded).length;
   const needReminderCount = processedTeachers.filter(t => !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7)).length;
 
@@ -647,6 +673,52 @@ export default function AdminPoolPage() {
     return true;
   });
 
+  // 🎯 Zoom Accounts Processing (From poolData)
+  const processedZoomAccounts = Object.entries(poolData).map(([accId, accInfo]) => {
+    const rawStatus = String(
+      accInfo.status || 
+      accInfo.Status || 
+      accInfo.account_status || 
+      ""
+    ).trim();
+    const isActive = rawStatus.toUpperCase() === "ACTIVE";
+    const expDateStr = accInfo.expire_date || accInfo.expiry_date || (accInfo as any)["Expire Date"] || "";
+    const daysLeft = getDaysRemaining(expDateStr);
+
+    return {
+      accId,
+      poolType: accInfo.pool_type || "100P",
+      status: rawStatus || "Inactive",
+      isActive,
+      expireDate: expDateStr,
+      email: accInfo.email || (accInfo as any)["email"] || "",
+      classesCount: (accInfo.classes || []).length,
+      daysLeft,
+    };
+  }).sort((a, b) => {
+    if (a.daysLeft === null) return 1;
+    if (b.daysLeft === null) return -1;
+    return a.daysLeft - b.daysLeft;
+  });
+
+  const zoomExpiredCount = processedZoomAccounts.filter(a => a.daysLeft !== null && a.daysLeft <= 0).length;
+  const zoomExpiringSoonCount = processedZoomAccounts.filter(a => a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 7).length;
+  const zoomActiveCount = processedZoomAccounts.filter(a => a.isActive).length;
+  const zoomInactiveCount = processedZoomAccounts.filter(a => !a.isActive).length;
+
+  const filteredZoomAccounts = processedZoomAccounts.filter((a) => {
+    const q = zoomSearchTerm.toLowerCase();
+    const matchesSearch = a.accId.toLowerCase().includes(q) || (a.email && a.email.toLowerCase().includes(q));
+    if (!matchesSearch) return false;
+
+    if (zoomFilterType === "expired") return a.daysLeft !== null && a.daysLeft <= 0;
+    if (zoomFilterType === "soon") return a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 7;
+    if (zoomFilterType === "active") return a.isActive;
+    if (zoomFilterType === "inactive") return !a.isActive;
+
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-[#070b19] text-white p-4 sm:p-6 font-sans selection:bg-blue-600/30">
       <div className="max-w-[1500px] mx-auto space-y-6">
@@ -658,7 +730,7 @@ export default function AdminPoolPage() {
               ⚡ Digimart Admin Management Hub
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              Zoom Pool Slots, Early Endings සහ Teacher Subscriptions එකම තැනින් සජීවීව නිරීක්ෂණය සහ Manage කරන්න.
+              Zoom Pool Slots, Unstarted Overdue Classes, Teacher Subscriptions සහ Zoom Accounts Expirations එකම තැනින් සජීවීව Manage කරන්න.
             </p>
           </div>
 
@@ -670,7 +742,7 @@ export default function AdminPoolPage() {
               <span>🔄</span> Refresh Data
             </button>
 
-            {activeTab !== "expirations" && (
+            {activeTab !== "expirations" && activeTab !== "zoom_accounts" && (
               <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-bold pl-2">📅 Date:</span>
                 <input 
@@ -684,7 +756,7 @@ export default function AdminPoolPage() {
           </div>
         </div>
 
-        {/* 🎯 🚨 UNSTARTED OVERDUE CLASSES BANNER (End Time පසුවන තුරුත් Start නොකළ ඒවා) */}
+        {/* 🎯 🚨 UNSTARTED OVERDUE CLASSES BANNER */}
         {unstartedOverdueMeetings.length > 0 && (
           <div className="bg-gradient-to-r from-rose-950/50 via-[#0b132b] to-[#0b132b] border border-rose-500/60 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
@@ -923,6 +995,23 @@ export default function AdminPoolPage() {
               </span>
             ) : null}
           </button>
+
+          {/* 🎯 NEW TAB: ZOOM ACCOUNTS TRACKER */}
+          <button
+            onClick={() => setActiveTab("zoom_accounts")}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
+              activeTab === "zoom_accounts" 
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
+            }`}
+          >
+            <span>🛡️</span> Zoom Accounts Tracker
+            {zoomExpiringSoonCount > 0 && (
+              <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                {zoomExpiringSoonCount} Expiring Soon
+              </span>
+            )}
+          </button>
         </div>
 
         {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
@@ -1116,7 +1205,6 @@ export default function AdminPoolPage() {
                                 <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900/80">
                                   <span>👤 {m.teacher_id}</span>
                                   
-                                  {/* Overdue Inline Force End Action */}
                                   {overdue && !ended ? (
                                     <button
                                       onClick={() => handleForceEndMeeting({ ...m, accId })}
@@ -1492,7 +1580,6 @@ export default function AdminPoolPage() {
                                 : "hover:bg-slate-900/40"
                             }`}
                           >
-                            {/* 1. 🎯 TEACHER ID */}
                             <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
                               <button
                                 onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
@@ -1514,7 +1601,6 @@ export default function AdminPoolPage() {
                               </button>
                             </td>
 
-                            {/* 2. 🎯 USERNAME */}
                             <td className="p-4 font-mono font-semibold whitespace-nowrap">
                               {t.username && t.username !== "N/A" ? (
                                 <button
@@ -1542,10 +1628,8 @@ export default function AdminPoolPage() {
                               )}
                             </td>
 
-                            {/* 3. 🎯 STATUS / REMAINING DAYS */}
                             <td className="p-4 whitespace-nowrap">{statusBadge}</td>
 
-                            {/* 4. 🎯 REMINDER STATUS & ACTION BUTTON */}
                             <td className="p-4 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <button 
@@ -1582,10 +1666,8 @@ export default function AdminPoolPage() {
                               </div>
                             </td>
 
-                            {/* 5. 🎯 TEACHER NAME */}
                             <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
-                            {/* 6. 🎯 PAYMENT STATUS */}
                             <td className="p-4 whitespace-nowrap">
                               <button
                                 onClick={() => handleTogglePaymentStatus(t)}
@@ -1602,7 +1684,6 @@ export default function AdminPoolPage() {
                               </button>
                             </td>
 
-                            {/* 7. 🎯 INLINE EXPIRE DATE PICKER */}
                             <td className="p-4 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <input
@@ -1615,7 +1696,6 @@ export default function AdminPoolPage() {
                               </div>
                             </td>
 
-                            {/* 8. 🎯 QUICK RENEW (+30D & Paid) */}
                             <td className="p-4 text-right whitespace-nowrap">
                               <button
                                 onClick={() => handleQuickRenew(t)}
@@ -1624,6 +1704,245 @@ export default function AdminPoolPage() {
                                 className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 font-bold text-[11px] rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 inline-flex items-center gap-1"
                               >
                                 <span>⚡</span> +30D Paid
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ==================== 🎯 TAB 4: ZOOM POOL ACCOUNTS TRACKER ==================== */}
+        {activeTab === "zoom_accounts" && (
+          <div className="space-y-6 animate-fadeIn">
+            
+            {/* STAT CARDS */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Total Accounts</p>
+                  <h3 className="text-2xl font-black text-blue-400 mt-1">{processedZoomAccounts.length}</h3>
+                </div>
+                <div className="w-10 h-10 bg-blue-950 border border-blue-900 rounded-xl flex items-center justify-center text-lg">⚡</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Active Accounts</p>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{zoomActiveCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">🟢</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Expiring Soon (≤ 7D)</p>
+                  <h3 className="text-2xl font-black text-amber-400 mt-1">{zoomExpiringSoonCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">⚠️</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Expired Accounts</p>
+                  <h3 className="text-2xl font-black text-rose-400 mt-1">{zoomExpiredCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-rose-950 border border-rose-900 rounded-xl flex items-center justify-center text-lg">🔴</div>
+              </div>
+            </div>
+
+            {/* SEARCH & FILTERS */}
+            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="w-full md:w-80">
+                <input 
+                  type="text"
+                  placeholder="🔍 Search Account ID (e.g. zoom1, zoom8)..."
+                  value={zoomSearchTerm}
+                  onChange={(e) => setZoomSearchTerm(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto flex-wrap">
+                <button
+                  onClick={() => setZoomFilterType("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "all" ? "bg-blue-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  All ({processedZoomAccounts.length})
+                </button>
+                <button
+                  onClick={() => setZoomFilterType("soon")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "soon" ? "bg-amber-600 text-white font-black shadow-md" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  ⚠️ Expiring Soon ({zoomExpiringSoonCount})
+                </button>
+                <button
+                  onClick={() => setZoomFilterType("expired")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "expired" ? "bg-rose-900 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  🔴 Expired ({zoomExpiredCount})
+                </button>
+                <button
+                  onClick={() => setZoomFilterType("active")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "active" ? "bg-emerald-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  🟢 Active ({zoomActiveCount})
+                </button>
+                <button
+                  onClick={() => setZoomFilterType("inactive")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "inactive" ? "bg-slate-700 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  ⚪ Inactive ({zoomInactiveCount})
+                </button>
+              </div>
+            </div>
+
+            {/* ZOOM ACCOUNTS TABLE */}
+            <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
+                      <th className="p-4">ZOOM ACCOUNT ID</th>
+                      <th className="p-4">POOL TYPE</th>
+                      <th className="p-4">STATUS / REMAINING DAYS</th>
+                      <th className="p-4">EXPIRE DATE</th>
+                      <th className="p-4">ACCOUNT STATUS</th>
+                      <th className="p-4">TODAY ACTIVITY</th>
+                      <th className="p-4 text-right">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900/60 text-slate-300">
+                    {filteredZoomAccounts.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-gray-500 font-mono">
+                          ❌ No zoom account records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredZoomAccounts.map((a, idx) => {
+                        const days = a.daysLeft;
+                        const isCopied = copiedZoomAccId === a.accId;
+
+                        let statusBadge = null;
+                        if (days === null) {
+                          statusBadge = <span className="text-gray-500 font-mono">No Date Set</span>;
+                        } else if (days <= 0) {
+                          statusBadge = (
+                            <span className="px-2.5 py-1 bg-rose-950/80 border border-rose-800 text-rose-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 whitespace-nowrap">
+                              🔴 Expired {Math.abs(days)} Days Ago
+                            </span>
+                          );
+                        } else if (days <= 7) {
+                          statusBadge = (
+                            <span className="px-2.5 py-1 bg-amber-950/80 border border-amber-800 text-amber-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 animate-pulse whitespace-nowrap">
+                              ⚠️ {days} {days === 1 ? "Day" : "Days"} Left
+                            </span>
+                          );
+                        } else {
+                          statusBadge = (
+                            <span className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 whitespace-nowrap">
+                              🟢 {days} Days Left
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
+                            {/* ACCOUNT ID */}
+                            <td className="p-4 font-mono font-bold whitespace-nowrap">
+                              <button
+                                onClick={() => handleCopyZoomAccountId(a.accId)}
+                                title="Click to copy Account ID"
+                                className="inline-flex items-center gap-2 group cursor-pointer transition-all active:scale-95"
+                              >
+                                <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-mono font-black text-xs rounded-lg group-hover:border-blue-500">
+                                  ⚡ {a.accId}
+                                </span>
+                                {isCopied ? (
+                                  <span className="text-[10px] font-mono bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-800 animate-fadeIn">
+                                    ✅ Copied!
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] opacity-40 group-hover:opacity-100 transition-opacity">
+                                    📋
+                                  </span>
+                                )}
+                              </button>
+                            </td>
+
+                            {/* POOL TYPE */}
+                            <td className="p-4 font-mono text-slate-300 whitespace-nowrap">
+                              <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-900/50">
+                                {a.poolType}
+                              </span>
+                            </td>
+
+                            {/* STATUS / REMAINING DAYS */}
+                            <td className="p-4 whitespace-nowrap">{statusBadge}</td>
+
+                            {/* EXPIRE DATE */}
+                            <td className="p-4 font-mono font-bold text-slate-300 whitespace-nowrap">
+                              {a.expireDate ? (
+                                <span className="px-2.5 py-1 bg-slate-950 border border-slate-800 rounded-lg text-blue-300">
+                                  📅 {a.expireDate}
+                                </span>
+                              ) : (
+                                <span className="text-gray-500 font-mono text-[11px]">Not Specified</span>
+                              )}
+                            </td>
+
+                            {/* ACCOUNT ACTIVE STATUS */}
+                            <td className="p-4 whitespace-nowrap">
+                              {a.isActive ? (
+                                <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-900">
+                                  🟢 ACTIVE
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-900 text-slate-400 border border-slate-800">
+                                  ⚪ INACTIVE
+                                </span>
+                              )}
+                            </td>
+
+                            {/* TODAY ACTIVITY */}
+                            <td className="p-4 font-mono text-xs whitespace-nowrap">
+                              {a.classesCount > 0 ? (
+                                <span className="text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/40">
+                                  📅 {a.classesCount} Classes Scheduled
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">Free Today</span>
+                              )}
+                            </td>
+
+                            {/* ACTIONS */}
+                            <td className="p-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => handleCopyZoomAccountId(a.accId)}
+                                className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                  isCopied
+                                    ? "bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30"
+                                    : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-blue-400 hover:text-white"
+                                }`}
+                              >
+                                {isCopied ? "✅ Copied" : "📋 Copy Account ID"}
                               </button>
                             </td>
                           </tr>
