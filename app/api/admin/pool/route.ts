@@ -46,30 +46,53 @@ export async function GET(request: Request) {
 
     const allPoolAccounts: any[] = [];
 
+    // 🎯 Process Zoom Pool Accounts (Extracts Account ID, Status, Expire Date, and Email)
     const processPoolRows = (rows: any[], poolType: string) => {
       if (!Array.isArray(rows)) return;
       rows.forEach((row: any) => {
         const cells = row?.c || [];
-        let accountId = "";
-        let status = "INACTIVE";
+        if (!cells || cells.length === 0) return;
 
-        cells.forEach((cell: any, idx: number) => {
-          const val = cell?.v ? String(cell.v).trim() : "";
-          if ((idx === 0 || idx === 1) && val && !accountId && !val.toLowerCase().includes('status')) {
-            accountId = val;
-          }
-          if (val.toLowerCase() === 'active') {
-            status = "ACTIVE";
-          }
-        });
+        // Account ID: Column A (Index 0)
+        const rawAccId = String(cells[0]?.v || "").trim();
+        if (!rawAccId || rawAccId.toLowerCase().includes("account id")) return;
 
-        if (accountId && status === 'ACTIVE') {
-          allPoolAccounts.push({
-            account_id: accountId,
-            pool_type: poolType,
-            status: status
-          });
+        // Status: Column E (Index 4)
+        const statusVal = String(cells[4]?.v || "").trim().toUpperCase();
+        const status = statusVal === "ACTIVE" ? "ACTIVE" : "INACTIVE";
+
+        // 🎯 Expire Date: Column F (Index 5)
+        const expCell = cells[5];
+        let expireDate = "";
+        if (expCell) {
+          const rawExpV = expCell.v ? String(expCell.v).trim() : "";
+          const rawExpF = expCell.f ? String(expCell.f).trim() : "";
+          if (rawExpV.startsWith("Date(")) {
+            const matches = rawExpV.match(/Date\((\d+),(\d+),(\d+)/);
+            if (matches) {
+              const y = matches[1];
+              const m = String(parseInt(matches[2], 10) + 1).padStart(2, "0");
+              const d = String(matches[3]).padStart(2, "0");
+              expireDate = `${y}-${m}-${d}`;
+            }
+          } else {
+            expireDate = rawExpF || rawExpV;
+          }
         }
+
+        // 🎯 Email: Column G (Index 6)
+        let email = "";
+        if (cells[6]) {
+          email = String(cells[6]?.v || cells[6]?.f || "").trim();
+        }
+
+        allPoolAccounts.push({
+          account_id: rawAccId,
+          pool_type: poolType,
+          status: status,
+          expire_date: expireDate,
+          email: email
+        });
       });
     };
 
@@ -170,6 +193,8 @@ export async function GET(request: Request) {
         account_id: acc.account_id,
         pool_type: acc.pool_type,
         status: acc.status,
+        expire_date: acc.expire_date,
+        email: acc.email,
         classes: meetingsForAcc
       };
     });
