@@ -46,22 +46,19 @@ export async function GET(request: Request) {
 
     const allPoolAccounts: any[] = [];
 
-    // 🎯 Process Zoom Pool Accounts (Extracts Account ID, Status, Expire Date, and Email)
+    // 🎯 Process Zoom Pool Accounts
     const processPoolRows = (rows: any[], poolType: string) => {
       if (!Array.isArray(rows)) return;
       rows.forEach((row: any) => {
         const cells = row?.c || [];
         if (!cells || cells.length === 0) return;
 
-        // Account ID: Column A (Index 0)
         const rawAccId = String(cells[0]?.v || "").trim();
         if (!rawAccId || rawAccId.toLowerCase().includes("account id")) return;
 
-        // Status: Column E (Index 4)
         const statusVal = String(cells[4]?.v || "").trim().toUpperCase();
         const status = statusVal === "ACTIVE" ? "ACTIVE" : "INACTIVE";
 
-        // 🎯 Expire Date: Column F (Index 5)
         const expCell = cells[5];
         let expireDate = "";
         if (expCell) {
@@ -80,7 +77,6 @@ export async function GET(request: Request) {
           }
         }
 
-        // 🎯 Email: Column G (Index 6)
         let email = "";
         if (cells[6]) {
           email = String(cells[6]?.v || cells[6]?.f || "").trim();
@@ -208,7 +204,7 @@ export async function GET(request: Request) {
         const username = cells[2]?.v || "";
         const expCell = cells[10];
 
-        // 🎯 Payment Status Extraction (Scans for PAID / UNPAID)
+        // 🎯 Payment Status Extraction
         let paymentStatus = "UNPAID";
         cells.forEach((c: any) => {
           const v = String(c?.v || "").trim().toUpperCase();
@@ -216,6 +212,21 @@ export async function GET(request: Request) {
             paymentStatus = v;
           }
         });
+
+        // 🎯 💳 Slip URL Extraction (Column M - Index 12)
+        let slipUrl = "";
+        if (cells[12]) {
+          slipUrl = String(cells[12]?.v || cells[12]?.f || "").trim();
+        }
+        // Fallback: ස්කෑන් කර බැලීම (slip URL එකක් ඇත්නම් සොයාගැනීම)
+        if (!slipUrl) {
+          cells.forEach((c: any) => {
+            const v = String(c?.v || c?.f || "").trim();
+            if (v.startsWith("http") && v.includes("/slips/")) {
+              slipUrl = v;
+            }
+          });
+        }
 
         if (teacherId && String(teacherId).startsWith("teach_")) {
           let expiryDate = "";
@@ -232,11 +243,12 @@ export async function GET(request: Request) {
             }
           }
           teachersList.push({ 
-            teacher_id: teacherId, 
-            teacher_name: teacherName || "N/A", 
+            teacher_id: String(teacherId).trim(), 
+            teacher_name: teacherName ? String(teacherName).trim() : "N/A", 
             username: username ? String(username).trim() : "N/A",
             expiry_date: expiryDate,
-            payment_status: paymentStatus
+            payment_status: paymentStatus,
+            slip_url: slipUrl // 👈 මෙන්න Dashboard එකට අවශ්‍ය ප්‍රධාන Slip URL එක!
           });
         }
       });
