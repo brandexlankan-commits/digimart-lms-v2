@@ -377,7 +377,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 ENHANCED WHATSAPP REMINDER COPY (WITH BANK DETAILS, PRICES & DIRECT UPLOAD LINK)
+  // 🎯 DYNAMIC LIVE ORIGIN WHATSAPP REMINDER COPY
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -387,6 +387,10 @@ export default function AdminPoolPage() {
     } else {
       daysText = `තව දින ${daysLeft}කින් අවසන් වීමට`;
     }
+
+    // 🎯 Live URL එක dynamic ලෙස ඔබ දැනට බ්‍රවුසර් එකේ open කරගෙන සිටින domain එකෙන් ලබා ගැනීම
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "https://epanthiya.com";
+    const uploadLink = `${currentOrigin}/dashboard?action=pay`;
 
     const reminderMsg = `👋 *Hi ${teacherName}!* (Teacher ID: ${teacherId})
 
@@ -406,7 +410,7 @@ export default function AdminPoolPage() {
 
 🚀 *Instant Activation (ස්ලිප් එක දමා ක්ෂණිකව Active කරගැනීමට):*
 මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip) ඔබගේ Dashboard එකට Upload කළ සැණින් Account එක Auto-Active (Paid) වේ.
-👉 *Upload Slip Link:* https://epanthiya.com/dashboard?action=pay
+👉 *Upload Slip Link:* ${uploadLink}
 
 (නැතහොත් මෙම WhatsApp අංකයට Slip එක එවන්න)
 
