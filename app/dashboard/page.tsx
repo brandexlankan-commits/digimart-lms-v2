@@ -27,8 +27,87 @@ interface Recording {
   link: string;
 }
 
+// 🎯 STRICT TYPESCRIPT INTERFACE (PREVENTS ALL 14 TYPE ERRORS)
+interface TranslationStrings {
+  welcome: string;
+  subHeader: string;
+  signOut: string;
+  supportBtn: string;
+  homeTab: string;
+  scheduleTab: string;
+  plannedTab: string;
+  recordingsTab: string;
+  plannedCount: string;
+  recordingsCount: string;
+  accStatus: string;
+  activeAcc: string;
+  maxHostsLabel: string;
+  announcements: string;
+  ad1Badge: string;
+  ad1Title: string;
+  ad1Desc: string;
+  ad1Support: string;
+  ad1Btn: string;
+  ad2Badge: string;
+  ad2Title: string;
+  ad2Desc: string;
+  ad2Brand: string;
+  ad2Btn: string;
+  scheduleAsk: string;
+  scheduleSub: string;
+  scheduleNowBtn: string;
+  createClassTitle: string;
+  topicLabel: string;
+  topicPlaceholder: string;
+  dateLabel: string;
+  timeLabel: string;
+  durationHoursLabel: string;
+  durationMinutesLabel: string;
+  passcodeLabel: string;
+  passcodePlaceholder: string;
+  waitingRoom: string;
+  hostVideo: string;
+  participantVideo: string;
+  muteOnEntry: string;
+  autoRecordingLabel: string;
+  createBtn: string;
+  creatingBtn: string;
+  plannedClassesTitle: string;
+  noPlannedClasses: string;
+  scheduleFirstBtn: string;
+  startClassBtn: string;
+  copyDetailsBtn: string;
+  cancelClassBtn: string;
+  recordingsTitle: string;
+  cloudNote: string;
+  noRecordings: string;
+  colDate: string;
+  colTitle: string;
+  colAction: string;
+  copyLinkBtn: string;
+  deleteBtn: string;
+  daysLeftText: string;
+  expiredText: string;
+  updatingExpiryText: string;
+  alertSuccessCreate: string;
+  alertHostLimitError: string;
+  whatsappConfirm: string;
+  alertAllBusyError: string;
+  alertGeneralError: string;
+  alertServerError: string;
+  alertCancelConfirm: string;
+  alertCancelSuccess: string;
+  alertCancelError: string;
+  alertCopySuccess: string;
+  alertCopyVideoSuccess: string;
+  alertDeleteSuccess: string;
+  alertDeleteError: string;
+  paySlipBtn: string;
+  unpaidAlertText: string;
+}
+
 // ==================== TRANSLATIONS DICTIONARY ====================
-const translations = {
+const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
   si: {
     welcome: "ආයුබෝවන්",
     subHeader: "Digimart LMS Management Portal",
@@ -89,6 +168,7 @@ const translations = {
     deleteBtn: "🗑️ මකන්න",
     daysLeftText: "දින {days} ක් ඉතිරියි",
     expiredText: "❌ කාලය ඉකුත් වී ඇත",
+    updatingExpiryText: "● Active (Expiry Updating...)",
 
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ ගිණුමේ දැනට පවතින්නේ Single Host Package එකකි.\n\nඑම නිසා ඔබට එකවර පැවැත්විය හැක්කේ එක් රැස්වීමක් (Meeting එකක්) පමණි.\n\nDual Host හෝ ඊට වැඩි Package එකක් Active කරගැනීමට Digimart Support අමතන්න.",
@@ -167,6 +247,7 @@ const translations = {
     deleteBtn: "🗑️ Delete",
     daysLeftText: "{days} Days Left",
     expiredText: "❌ Account Expired",
+    updatingExpiryText: "● Active (Expiry Updating...)",
 
     alertSuccessCreate: "📹 Zoom class scheduled and saved successfully.",
     alertHostLimitError: "🚫 Your account currently has a Single Host Package.\n\nTherefore, you can only run one meeting at a time.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
@@ -245,6 +326,7 @@ const translations = {
     deleteBtn: "🗑️ நீக்கு",
     daysLeftText: "{days} நாட்கள் மீதமுள்ளன",
     expiredText: "❌ கணக்கு காலாவதியானது",
+    updatingExpiryText: "● Active (Expiry Updating...)",
 
     alertSuccessCreate: "📹 Zoom வகுப்பு வெற்றிகரமாக திட்டமிடப்பட்டு சேமிக்கப்பட்டது.",
     alertHostLimitError: "🚫 உங்கள் கணக்கில் தற்போது Single Host Package மட்டுமே உள்ளது.\n\nஎனவே உங்களால் ஒரே நேரத்தில் ஒரு கூட்டத்தை மட்டுமே நடத்த முடியும்.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
@@ -752,7 +834,7 @@ export default function DashboardPage() {
             </button>
 
             <a
-              href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
+              href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name:${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="px-2.5 py-1.5 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-700/50 text-emerald-400 font-bold rounded-xl transition-all flex items-center gap-1 shadow-md cursor-pointer text-[11px] sm:text-xs"
@@ -861,7 +943,7 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">⚡</div>
               </div>
 
-              {/* ACCOUNT STATUS CARD (ROUTES TO /pay) */}
+              {/* 🎯 SMART ACCOUNT STATUS CARD */}
               <div 
                 onClick={handleGoToPay}
                 className="bg-[#0b132b] hover:bg-[#0f1a3d] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between cursor-pointer transition-colors group"
@@ -887,14 +969,15 @@ export default function DashboardPage() {
                       ⚠️ {t.daysLeftText.replace("{days}", remainingDays.toString())}
                     </h3>
                   ) : (
-                    <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1">
-                      {t.expiredText}
+                    <h3 className="text-xs sm:text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1">
+                      <span className="animate-spin text-xs">⏳</span>
+                      <span>{t.updatingExpiryText}</span>
                     </h3>
                   )}
                 </div>
 
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-lg sm:text-xl">
-                  {isUnpaid ? "💳" : remainingDays === null || remainingDays > 5 ? "✅" : remainingDays > 0 ? "⏳" : "❌"}
+                  {isUnpaid ? "💳" : "✅"}
                 </div>
               </div>
             </div>

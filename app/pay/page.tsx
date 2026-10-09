@@ -51,7 +51,6 @@ function PayContent() {
   const price30 = appliedPromo ? 1400 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : 1400;
   const finalPayableAmount = selectedPlanDays === 15 ? price15 : price30;
 
-  // 🎯 PDF / JPG / PNG File Selection
   const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -123,18 +122,28 @@ function PayContent() {
         </div>
 
         {uploadSuccess ? (
-          <div className="bg-slate-950 border border-emerald-500/60 p-6 rounded-2xl text-center space-y-3 animate-fadeIn">
+          <div className="bg-slate-950 border border-emerald-500/60 p-6 rounded-2xl text-center space-y-4 animate-fadeIn">
             <span className="text-4xl">🎉</span>
             <h2 className="text-lg font-black text-emerald-400">බැංකු රිසිට්පත සාර්ථකව ලැබුණි!</h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              ඔබගේ Digimart LMS ගිණුම සක්‍රිය (Paid) කර ඇති අතර නියමිත දින ගණන දීර්ඝ කර ඇත. ඔබට දැන් සුපුරුදු පරිදි පන්ති පැවැත්විය හැක.
-            </p>
+            
+            <div className="bg-emerald-950/40 border border-emerald-900/60 p-4 rounded-xl text-left space-y-2 text-xs text-slate-200">
+              <p className="flex items-center gap-2 text-emerald-300 font-bold">
+                <span>✅</span> ඔබගේ Account එක දැන් ක්ෂණිකව Active (Paid) වී ඇත.
+              </p>
+              <p className="flex items-center gap-2 text-slate-300">
+                <span>🚀</span> ඔබට දැන් කිසිදු බාධාවකින් තොරව Login වී Classes පැවැත්විය හැක.
+              </p>
+              <p className="flex items-center gap-2 text-amber-300 font-medium">
+                <span>⏳</span> නව Expiry Date එක පැය 24ක් ඇතුළත පද්ධතියේ Verify වී Dashboard හි Update වනු ඇත.
+              </p>
+            </div>
+
             <div className="pt-2">
               <a
                 href="/login"
-                className="inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition"
+                className="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition"
               >
-                Go to LMS Dashboard
+                Go to LMS Dashboard ➔
               </a>
             </div>
           </div>
@@ -271,7 +280,7 @@ function PayContent() {
               )}
             </div>
 
-            {/* 🎯 SLIP UPLOAD INPUT (SUPPORTS JPG, PNG & PDF) */}
+            {/* SLIP UPLOAD INPUT (JPG, PNG, PDF) */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-gray-300">
                 බැංකු රිසිට්පත තෝරන්න (JPG / PNG / PDF)
