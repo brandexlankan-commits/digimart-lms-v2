@@ -377,7 +377,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 DYNAMIC LIVE ORIGIN DIRECT PAY LINK (Login නැතිව කෙලින්ම ගුරුවරයාගේ ID එකට Open වන Link එක)
+  // 🎯 DYNAMIC LIVE ORIGIN DIRECT PAY LINK
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -388,7 +388,6 @@ export default function AdminPoolPage() {
       daysText = `තව දින ${daysLeft}කින් අවසන් වීමට`;
     }
 
-    // 🎯 Live URL එක dynamic ලෙස ඔබ දැනට බ්‍රවුසර් එකේ open කරගෙන සිටින domain එකෙන්ම ලබා ගනී
     const currentOrigin = typeof window !== "undefined" ? window.location.origin : "https://epanthiya.com";
     const directPayLink = `${currentOrigin}/pay?id=${teacherId}`;
 
@@ -409,7 +408,7 @@ export default function AdminPoolPage() {
 • Branch: *Rambukkana Branch*
 
 🚀 *Instant Activation (ස්ලිප් එක දමා Login වීමකින් තොරව ක්ෂණිකව Active කරගැනීමට):*
-මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip) පහත ලින්ක් එකෙන් කෙලින්ම Upload කළ සැණින් Account එක Auto-Active (Paid) වේ.
+මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip - JPG/PNG හෝ PDF) පහත ලින්ක් එකෙන් කෙලින්ම Upload කළ සැණින් Account එක Auto-Active (Paid) වේ.
 👉 *Upload Slip Here:* ${directPayLink}
 
 (නැතහොත් මෙම WhatsApp අංකයට Slip එක එවන්න)
@@ -627,6 +626,7 @@ export default function AdminPoolPage() {
       });
   };
 
+  // 🎯 1. EARLY ENDED CLASSES (නියමිත වේලාවට පෙර අවසන් කළ පන්ති)
   const earlyEndedMeetings = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => {
@@ -648,6 +648,7 @@ export default function AdminPoolPage() {
       })
   );
 
+  // 🎯 2. OVERDUE UNSTARTED CLASSES (නියමිත වේලාව අවසන් වනතුරුත් Start නොකළ පන්ති)
   const unstartedOverdueMeetings = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => isMeetingUnstartedOverdue(m))
@@ -928,8 +929,10 @@ export default function AdminPoolPage() {
         {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
         {!loading && activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
+            
+            {/* 🔴 OVERDUE UNSTARTED CLASSES BANNER */}
             {unstartedOverdueMeetings.length > 0 && (
-              <div className="bg-gradient-to-r from-rose-950/50 via-[#0b132b] to-[#0b132b] border border-rose-500/60 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
+              <div className="bg-gradient-to-r from-rose-950/60 via-[#0b132b] to-[#0b132b] border border-rose-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
                   <div className="flex items-center gap-2.5">
                     <span className="text-xl animate-bounce">🚨</span>
@@ -938,7 +941,7 @@ export default function AdminPoolPage() {
                         OVERDUE UNSTARTED CLASSES ({unstartedOverdueMeetings.length}) - LOCKING ZOOM POOL
                       </h2>
                       <p className="text-[11px] text-gray-400">
-                        පන්තියේ නියමිත කාලසීමාව (End Time) අවසන් වනතුරුත් Start නොකරන ලද පන්ති. Zoom Account එක නිදහස් කිරීමට "End &amp; Free Account" ඔබන්න.
+                        නියමිත වේලාව අවසන් වනතුරුත් ආරම්භ නොකළ පන්ති. Zoom Account එක නිදහස් කිරීමට "End &amp; Free Account" ඔබන්න.
                       </p>
                     </div>
                   </div>
@@ -966,7 +969,7 @@ export default function AdminPoolPage() {
                         const isUpdating = endingMeetingId === item.zoom_id;
 
                         return (
-                          <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-rose-950/10">
+                          <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-rose-950/15">
                             <td className="p-3">
                               <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
                                 ⚡ {item.accId}
@@ -1010,6 +1013,101 @@ export default function AdminPoolPage() {
                                   }`}
                                 >
                                   {isUpdating ? "⏳ Freeing Account..." : "⏹️ End & Free Account"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ⚡ EARLY ENDED CLASSES BANNER (නියමිත වේලාවට පෙර අවසන් වූ පන්ති) */}
+            {earlyEndedMeetings.length > 0 && (
+              <div className="bg-gradient-to-r from-amber-950/60 via-[#0b132b] to-[#0b132b] border border-amber-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">⚡</span>
+                    <div>
+                      <h2 className="text-sm font-black text-amber-400 font-mono tracking-wide">
+                        EARLY ENDED CLASSES ({earlyEndedMeetings.length}) - AVAILABLE TO FREE SLOT
+                      </h2>
+                      <p className="text-[11px] text-gray-400">
+                        නියමිත කාලසීමාවට පෙර සාර්ථකව අවසන් කරන ලද පන්ති. වෙනත් පන්තියකට ඉඩ ලබාදීම සඳහා Zoom Slot එක නිදහස් කරන්න.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-black bg-amber-950 text-amber-300 px-3 py-1 rounded-full border border-amber-800/80">
+                    Slot Ready to Free
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/80 text-gray-400 font-mono">
+                        <th className="p-3">ZOOM ACCOUNT</th>
+                        <th className="p-3">ZOOM MEETING ID</th>
+                        <th className="p-3">TEACHER ID</th>
+                        <th className="p-3">TOPIC</th>
+                        <th className="p-3">SCHEDULED TIME</th>
+                        <th className="p-3">SCHEDULED END TIME</th>
+                        <th className="p-3 text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-slate-200">
+                      {earlyEndedMeetings.map((item, idx) => {
+                        const isCopied = copiedMeetingId === item.zoom_id;
+                        const isUpdating = endingMeetingId === item.zoom_id;
+
+                        return (
+                          <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-amber-950/15">
+                            <td className="p-3">
+                              <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
+                                ⚡ {item.accId}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
+                              {item.zoom_id}
+                            </td>
+                            <td className="p-3 font-mono text-slate-300">
+                              👤 {item.teacher_id}
+                            </td>
+                            <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
+                              {item.topic}
+                            </td>
+                            <td className="p-3 font-mono text-slate-300">
+                              ⏰ {item.time} ({formatDuration(item.duration)})
+                            </td>
+                            <td className="p-3 font-mono font-bold text-amber-400">
+                              🏁 {item.scheduledEndTimeStr}
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => handleCopyMeetingId(item.zoom_id)}
+                                  className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                    isCopied
+                                      ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
+                                      : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
+                                  }`}
+                                >
+                                  {isCopied ? "✅ Copied" : "📋 Copy ID"}
+                                </button>
+
+                                <button
+                                  onClick={() => handleForceEndMeeting(item)}
+                                  disabled={isUpdating}
+                                  className={`px-3 py-1.5 border text-[11px] font-mono font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-md active:scale-95 ${
+                                    isUpdating
+                                      ? "bg-amber-950 border-amber-800 text-amber-300 opacity-60 cursor-wait"
+                                      : "bg-emerald-600 hover:bg-emerald-500 border-emerald-400 text-white shadow-emerald-600/30"
+                                  }`}
+                                >
+                                  {isUpdating ? "⏳ Freeing Slot..." : "⚡ Free Slot Now"}
                                 </button>
                               </div>
                             </td>
@@ -1364,6 +1462,7 @@ export default function AdminPoolPage() {
                       filteredSlips.map((t, idx) => {
                         const isSaving = savingTeacherId === t.teacher_id;
                         const slipUrl = t.slipUrl;
+                        const isPdf = slipUrl.toLowerCase().includes(".pdf");
 
                         return (
                           <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
@@ -1373,12 +1472,19 @@ export default function AdminPoolPage() {
                                 className="w-14 h-14 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden cursor-pointer hover:border-blue-500 transition-all flex items-center justify-center group relative shadow-md"
                               >
                                 {slipUrl ? (
-                                  <>
-                                    <img src={slipUrl} alt="Slip" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition-opacity">
-                                      🔍
+                                  isPdf ? (
+                                    <div className="flex flex-col items-center justify-center text-[10px] text-rose-400 font-bold font-mono">
+                                      <span className="text-xl">📄</span>
+                                      <span>PDF</span>
                                     </div>
-                                  </>
+                                  ) : (
+                                    <>
+                                      <img src={slipUrl} alt="Slip" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition-opacity">
+                                        🔍
+                                      </div>
+                                    </>
+                                  )
                                 ) : (
                                   <span className="text-gray-600 text-xs">No Slip</span>
                                 )}
@@ -1620,6 +1726,7 @@ export default function AdminPoolPage() {
                       const isIdCopied = copiedIdOnly === t.teacher_id;
                       const isUserCopied = Boolean(t.username && lastCopiedUsername === t.username);
                       const slipUrl = t.slipUrl;
+                      const isPdf = slipUrl.toLowerCase().includes(".pdf");
 
                       let statusBadge = null;
                       if (days === null) {
@@ -1718,8 +1825,8 @@ export default function AdminPoolPage() {
                                 onClick={() => setSlipModalTeacher(t)}
                                 className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 text-emerald-300 font-bold rounded-lg text-[10px] flex items-center gap-1 cursor-pointer shadow-sm"
                               >
-                                <span>💳</span>
-                                <span>View Slip</span>
+                                <span>{isPdf ? "📄" : "💳"}</span>
+                                <span>{isPdf ? "View PDF" : "View Slip"}</span>
                               </button>
                             ) : (
                               <span className="text-gray-600 text-[11px] font-mono">No Slip</span>
@@ -1728,7 +1835,6 @@ export default function AdminPoolPage() {
 
                           <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
-                          {/* PAYMENT STATUS TOGGLE */}
                           <td className="p-4 whitespace-nowrap">
                             <button
                               onClick={() => handleTogglePaymentStatus(t)}
@@ -1743,7 +1849,6 @@ export default function AdminPoolPage() {
                             </button>
                           </td>
 
-                          {/* EXPIRE DATE INPUT */}
                           <td className="p-4 whitespace-nowrap">
                             <input
                               type="date"
@@ -1754,7 +1859,6 @@ export default function AdminPoolPage() {
                             />
                           </td>
 
-                          {/* QUICK RENEW */}
                           <td className="p-4 text-right whitespace-nowrap">
                             <button
                               onClick={() => handleQuickRenew(t)}
@@ -1858,7 +1962,7 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== 🖼️ ENHANCED BANK SLIP PREVIEW & APPROVAL MODAL ==================== */}
+        {/* ==================== 🖼️ ENHANCED BANK SLIP PREVIEW & APPROVAL MODAL (PDF + IMAGE SUPPORT) ==================== */}
         {slipModalTeacher && (
           <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
             <div className="bg-[#0b132b] border border-slate-800 w-full max-w-3xl rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
@@ -1889,20 +1993,39 @@ export default function AdminPoolPage() {
                     onClick={() => window.open(getTeacherSlipUrl(slipModalTeacher), "_blank")}
                     className="px-3 py-1.5 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/80 text-blue-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-md cursor-pointer"
                   >
-                    <span>🔍</span> Open in New Tab (Full Zoom)
+                    <span>🔍</span> Open in New Tab
                   </button>
                 )}
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2 flex items-center justify-center min-h-[300px] max-h-[520px] overflow-hidden relative group">
+              {/* SLIP PREVIEW CONTAINER (SUPPORTS BOTH IMAGES AND PDFS) */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center min-h-[300px] max-h-[520px] overflow-hidden relative group">
                 {getTeacherSlipUrl(slipModalTeacher) ? (
-                  <img
-                    src={getTeacherSlipUrl(slipModalTeacher)}
-                    alt="Bank Slip Full"
-                    onClick={() => window.open(getTeacherSlipUrl(slipModalTeacher), "_blank")}
-                    className="max-h-[500px] w-auto object-contain rounded-xl cursor-zoom-in group-hover:scale-[1.02] transition-transform"
-                    title="Click to open full high-resolution image"
-                  />
+                  getTeacherSlipUrl(slipModalTeacher).toLowerCase().includes(".pdf") ? (
+                    <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
+                      <span className="text-5xl animate-bounce">📄</span>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">PDF Bank Receipt Document</h4>
+                        <p className="text-xs text-gray-400 mt-0.5">මෙම ලියවිල්ල PDF ආකෘතියෙන් පවතී.</p>
+                      </div>
+                      <a
+                        href={getTeacherSlipUrl(slipModalTeacher)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition"
+                      >
+                        Open / Download PDF ↗
+                      </a>
+                    </div>
+                  ) : (
+                    <img
+                      src={getTeacherSlipUrl(slipModalTeacher)}
+                      alt="Bank Slip Full"
+                      onClick={() => window.open(getTeacherSlipUrl(slipModalTeacher), "_blank")}
+                      className="max-h-[500px] w-auto object-contain rounded-xl cursor-zoom-in group-hover:scale-[1.02] transition-transform"
+                      title="Click to open full high-resolution image"
+                    />
+                  )
                 ) : (
                   <div className="py-20 text-slate-500 text-xs italic">Slip image not available.</div>
                 )}

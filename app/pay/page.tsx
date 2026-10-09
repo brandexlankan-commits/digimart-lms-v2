@@ -51,6 +51,7 @@ function PayContent() {
   const price30 = appliedPromo ? 1400 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : 1400;
   const finalPayableAmount = selectedPlanDays === 15 ? price15 : price30;
 
+  // 🎯 PDF / JPG / PNG File Selection
   const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -69,13 +70,13 @@ function PayContent() {
       return;
     }
     if (!slipPreview || !slipFile) {
-      alert("⚠️ කරුණාකර බැංකු රිසිට්පතේ (Slip) ඡායාරූපයක් තෝරන්න.");
+      alert("⚠️ කරුණාකර බැංකු රිසිට්පතේ (Slip - JPG / PNG / PDF) ගොනුවක් තෝරන්න.");
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = slipFile.name.split('.').pop() || 'jpg';
+      const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,6 +102,8 @@ function PayContent() {
       setUploading(false);
     }
   };
+
+  const isPdf = slipFile?.type === "application/pdf" || slipFile?.name.toLowerCase().endsWith(".pdf");
 
   return (
     <div className="min-h-screen bg-[#070b19] text-white flex items-center justify-center p-4 selection:bg-blue-600/30">
@@ -268,21 +271,31 @@ function PayContent() {
               )}
             </div>
 
-            {/* SLIP UPLOAD INPUT */}
+            {/* 🎯 SLIP UPLOAD INPUT (SUPPORTS JPG, PNG & PDF) */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-gray-300">
-                බැංකු රිසිට්පතේ පැහැදිලි ඡායාරූපයක් තෝරන්න (JPG / PNG)
+                බැංකු රිසිට්පත තෝරන්න (JPG / PNG / PDF)
               </label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png, image/jpeg, image/jpg, application/pdf"
                 onChange={handleSlipFileSelect}
                 className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 p-2 rounded-2xl border border-slate-900"
               />
 
-              {slipPreview && (
-                <div className="relative rounded-2xl overflow-hidden border border-slate-800 max-h-48 bg-slate-950 flex items-center justify-center p-2">
-                  <img src={slipPreview} alt="Slip Preview" className="max-h-44 object-contain rounded-xl" />
+              {slipFile && (
+                <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 p-3 flex items-center justify-center">
+                  {isPdf ? (
+                    <div className="flex items-center gap-3 py-2">
+                      <span className="text-3xl">📄</span>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-200 truncate max-w-[240px]">{slipFile.name}</p>
+                        <p className="text-[10px] text-emerald-400 font-mono">{(slipFile.size / 1024).toFixed(1)} KB (PDF Ready)</p>
+                      </div>
+                    </div>
+                  ) : slipPreview ? (
+                    <img src={slipPreview} alt="Slip Preview" className="max-h-44 object-contain rounded-xl" />
+                  ) : null}
                 </div>
               )}
             </div>
