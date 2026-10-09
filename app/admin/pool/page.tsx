@@ -62,9 +62,12 @@ export default function AdminPoolPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active" | "unpaid" | "paid" | "need_reminder" | "reminded" | "has_slip">("all");
   
-  // Bank Slips Tab States
+  // 🎯 Bank Slips Sub-Tabs & States (Pending / Approved / Rejected)
+  const [slipSubTab, setSlipSubTab] = useState<"pending" | "approved" | "rejected">("pending");
   const [slipSearchTerm, setSlipSearchTerm] = useState("");
   const [slipModalTeacher, setSlipModalTeacher] = useState<TeacherExpiry | null>(null);
+  const [approvedSlips, setApprovedSlips] = useState<{ [teacherId: string]: string }>({});
+  const [rejectedSlips, setRejectedSlips] = useState<{ [teacherId: string]: string }>({});
 
   // Ending Schedule Tab States
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
@@ -94,12 +97,16 @@ export default function AdminPoolPage() {
     fetchPoolData(today);
 
     try {
-      const stored = localStorage.getItem(`digimart_reminded_${today}`);
-      if (stored) {
-        setRemindedTeacherIds(JSON.parse(stored));
-      }
+      const storedReminded = localStorage.getItem(`digimart_reminded_${today}`);
+      if (storedReminded) setRemindedTeacherIds(JSON.parse(storedReminded));
+
+      const storedApproved = localStorage.getItem("digimart_approved_slips");
+      if (storedApproved) setApprovedSlips(JSON.parse(storedApproved));
+
+      const storedRejected = localStorage.getItem("digimart_rejected_slips");
+      if (storedRejected) setRejectedSlips(JSON.parse(storedRejected));
     } catch (e) {
-      console.error("Failed to load reminded teachers:", e);
+      console.error("Failed to load local storage state:", e);
     }
   }, []);
 
@@ -192,10 +199,47 @@ export default function AdminPoolPage() {
     baseDate.setDate(baseDate.getDate() + daysToAdd);
     const newExpDate = baseDate.toISOString().split("T")[0];
 
+    const currentSlipUrl = getTeacherSlipUrl(teacher);
+    setApprovedSlips((prev) => {
+      const updated = { ...prev, [teacher.teacher_id]: currentSlipUrl };
+      localStorage.setItem("digimart_approved_slips", JSON.stringify(updated));
+      return updated;
+    });
+
+    setRejectedSlips((prev) => {
+      const updated = { ...prev };
+      delete updated[teacher.teacher_id];
+      localStorage.setItem("digimart_rejected_slips", JSON.stringify(updated));
+      return updated;
+    });
+
     await handleUpdateTeacher(teacher.teacher_id, {
       expiry_date: newExpDate,
       payment_status: "PAID",
     });
+  };
+
+  const handleRejectSlip = async (teacher: TeacherExpiry) => {
+    if (!confirm(`⚠️ Teacher: ${teacher.teacher_name} (ID: ${teacher.teacher_id}) ගේ Bank Slip එක Reject කිරීමට අවශ්‍ය බව තහවුරු කරන්න.`)) return;
+
+    const currentSlipUrl = getTeacherSlipUrl(teacher);
+    setRejectedSlips((prev) => {
+      const updated = { ...prev, [teacher.teacher_id]: currentSlipUrl };
+      localStorage.setItem("digimart_rejected_slips", JSON.stringify(updated));
+      return updated;
+    });
+
+    setApprovedSlips((prev) => {
+      const updated = { ...prev };
+      delete updated[teacher.teacher_id];
+      localStorage.setItem("digimart_approved_slips", JSON.stringify(updated));
+      return updated;
+    });
+
+    await handleUpdateTeacher(teacher.teacher_id, {
+      payment_status: "UNPAID",
+    });
+    setSlipModalTeacher(null);
   };
 
   const handleQuickRenew = async (teacher: TeacherExpiry) => {
@@ -377,7 +421,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 DYNAMIC LIVE ORIGIN DIRECT PAY LINK
+  // 🎯 DYNAMIC LIVE ORIGIN DIRECT PAY LINK (WITH 24H EXPIRY EXPLANATION)
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -407,8 +451,12 @@ export default function AdminPoolPage() {
 • Account No: *1188 5747 0946*
 • Branch: *Rambukkana Branch*
 
-🚀 *Instant Activation (ස්ලිප් එක දමා Login වීමකින් තොරව ක්ෂණිකව Active කරගැනීමට):*
-මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip - JPG/PNG හෝ PDF) පහත ලින්ක් එකෙන් කෙලින්ම Upload කළ සැණින් Account එක Auto-Active (Paid) වේ.
+🚀 *Instant Activation & Instructions:*
+1. මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip - JPG/PNG හෝ PDF) පහත ලින්ක් එකෙන් කෙලින්ම Upload කරන්න.
+2. *ස්ලිප් එක දැමූ සැණින් ඔබගේ Account එක Auto-Active (Paid) වේ.*
+3. ඔබගේ Zoom Classes පැවැත්වීමට හෝ Login වීමට කිසිදු බාධාවක් නොමැත.
+4. ඔබගේ නව Expiry Date එක පැය 24ක් ඇතුළත පද්ධතියේ Verify වී Dashboard එකේ Update වනු ඇත.
+
 👉 *Upload Slip Here:* ${directPayLink}
 
 (නැතහොත් මෙම WhatsApp අංකයට Slip එක එවන්න)
@@ -626,7 +674,6 @@ export default function AdminPoolPage() {
       });
   };
 
-  // 🎯 1. EARLY ENDED CLASSES (නියමිත වේලාවට පෙර අවසන් කළ පන්ති)
   const earlyEndedMeetings = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => {
@@ -648,7 +695,6 @@ export default function AdminPoolPage() {
       })
   );
 
-  // 🎯 2. OVERDUE UNSTARTED CLASSES (නියමිත වේලාව අවසන් වනතුරුත් Start නොකළ පන්ති)
   const unstartedOverdueMeetings = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => isMeetingUnstartedOverdue(m))
@@ -698,7 +744,31 @@ export default function AdminPoolPage() {
   const paidCount = processedTeachers.filter(t => String(t.payment_status || "").toUpperCase() === "PAID").length;
   const remindedCount = processedTeachers.filter(t => t.isReminded).length;
   const needReminderCount = processedTeachers.filter(t => !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7)).length;
+  
+  // 🎯 Teachers With Slips Categorization (Pending, Approved, Rejected)
   const teachersWithSlips = processedTeachers.filter(t => Boolean(t.slipUrl));
+
+  const pendingSlips = teachersWithSlips.filter(t => {
+    const currentUrl = t.slipUrl;
+    const isApproved = approvedSlips[t.teacher_id] === currentUrl;
+    const isRejected = rejectedSlips[t.teacher_id] === currentUrl;
+    return !isApproved && !isRejected;
+  });
+
+  const approvedSlipsList = teachersWithSlips.filter(t => {
+    const currentUrl = t.slipUrl;
+    return approvedSlips[t.teacher_id] === currentUrl;
+  });
+
+  const rejectedSlipsList = teachersWithSlips.filter(t => {
+    const currentUrl = t.slipUrl;
+    return rejectedSlips[t.teacher_id] === currentUrl;
+  });
+
+  const currentSlipsToDisplay = 
+    slipSubTab === "pending" ? pendingSlips :
+    slipSubTab === "approved" ? approvedSlipsList :
+    rejectedSlipsList;
 
   const filteredTeachers = processedTeachers.filter((t) => {
     const q = (searchTerm || "").trim().toLowerCase();
@@ -772,7 +842,7 @@ export default function AdminPoolPage() {
     return true;
   });
 
-  const filteredSlips = teachersWithSlips.filter((t) => {
+  const filteredSlips = currentSlipsToDisplay.filter((t) => {
     const q = (slipSearchTerm || "").trim().toLowerCase();
     const id = String(t.teacher_id || "").toLowerCase();
     const name = String(t.teacher_name || "").toLowerCase();
@@ -871,9 +941,9 @@ export default function AdminPoolPage() {
             }`}
           >
             <span>💳</span> Bank Slips Review
-            {teachersWithSlips.length > 0 && (
-              <span className="bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                {teachersWithSlips.length} Slips
+            {pendingSlips.length > 0 && (
+              <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                {pendingSlips.length} New
               </span>
             )}
           </button>
@@ -1025,7 +1095,7 @@ export default function AdminPoolPage() {
               </div>
             )}
 
-            {/* ⚡ EARLY ENDED CLASSES BANNER (නියමිත වේලාවට පෙර අවසන් වූ පන්ති) */}
+            {/* ⚡ EARLY ENDED CLASSES BANNER */}
             {earlyEndedMeetings.length > 0 && (
               <div className="bg-gradient-to-r from-amber-950/60 via-[#0b132b] to-[#0b132b] border border-amber-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
@@ -1393,37 +1463,89 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 3: BANK SLIPS REVIEW ==================== */}
+        {/* ==================== TAB 3: BANK SLIPS REVIEW (WITH SUB-TABS: PENDING / APPROVED / REJECTED) ==================== */}
         {!loading && activeTab === "bank_slips" && (
           <div className="space-y-6 animate-fadeIn">
+            {/* STATS OVERVIEW */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Uploaded Bank Slips</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{teachersWithSlips.length} Slips</h3>
+                  <p className="text-xs text-gray-400 font-medium">Pending Approval</p>
+                  <h3 className="text-2xl font-black text-amber-400 mt-1">{pendingSlips.length} Slips</h3>
                 </div>
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">💳</div>
+                <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">⏳</div>
               </div>
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Paid Teachers</p>
-                  <h3 className="text-2xl font-black text-blue-400 mt-1">{paidCount}</h3>
+                  <p className="text-xs text-gray-400 font-medium">Approved Slips</p>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{approvedSlipsList.length} Slips</h3>
                 </div>
-                <div className="w-10 h-10 bg-blue-950 border border-blue-900 rounded-xl flex items-center justify-center text-lg">✅</div>
+                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">✅</div>
               </div>
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Unpaid Subscriptions</p>
-                  <h3 className="text-2xl font-black text-rose-400 mt-1">{unpaidCount}</h3>
+                  <p className="text-xs text-gray-400 font-medium">Rejected Slips</p>
+                  <h3 className="text-2xl font-black text-rose-400 mt-1">{rejectedSlipsList.length} Slips</h3>
                 </div>
-                <div className="w-10 h-10 bg-rose-950 border border-rose-900 rounded-xl flex items-center justify-center text-lg">⚠️</div>
+                <div className="w-10 h-10 bg-rose-950 border border-rose-900 rounded-xl flex items-center justify-center text-lg">❌</div>
               </div>
             </div>
 
-            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="w-full sm:w-96">
+            {/* SEARCH & SUB-TABS NAVIGATION */}
+            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
+                <button
+                  onClick={() => setSlipSubTab("pending")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    slipSubTab === "pending"
+                      ? "bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/20"
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>⏳ Pending Approval</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    slipSubTab === "pending" ? "bg-slate-950 text-amber-300" : "bg-slate-950 text-gray-400"
+                  }`}>
+                    {pendingSlips.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setSlipSubTab("approved")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    slipSubTab === "approved"
+                      ? "bg-emerald-600 text-white font-black shadow-lg shadow-emerald-600/20"
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>✅ Approved</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    slipSubTab === "approved" ? "bg-emerald-950 text-emerald-300" : "bg-slate-950 text-gray-400"
+                  }`}>
+                    {approvedSlipsList.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setSlipSubTab("rejected")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    slipSubTab === "rejected"
+                      ? "bg-rose-600 text-white font-black shadow-lg shadow-rose-600/20"
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>❌ Rejected</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    slipSubTab === "rejected" ? "bg-rose-950 text-rose-300" : "bg-slate-950 text-gray-400"
+                  }`}>
+                    {rejectedSlipsList.length}
+                  </span>
+                </button>
+              </div>
+
+              <div className="w-full md:w-80">
                 <input 
                   type="text"
                   placeholder="🔍 Search Teacher ID, Username or Name..."
@@ -1432,11 +1554,9 @@ export default function AdminPoolPage() {
                   className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
-              <p className="text-xs text-slate-400 font-mono">
-                Showing {filteredSlips.length} of {teachersWithSlips.length} Slips
-              </p>
             </div>
 
+            {/* SLIPS TABLE */}
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -1448,14 +1568,16 @@ export default function AdminPoolPage() {
                       <th className="p-4">STATUS</th>
                       <th className="p-4">CURRENT EXPIRE DATE</th>
                       <th className="p-4">EXTEND EXPIRY DATE</th>
-                      <th className="p-4 text-right">ONE-CLICK APPROVAL</th>
+                      <th className="p-4 text-right">ONE-CLICK ACTION</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
                     {filteredSlips.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-10 text-center text-gray-500 font-mono">
-                          👋 දැනට Upload කරන ලද Bank Slips කිසිවක් හමු නොවීය.
+                          {slipSubTab === "pending" ? "👋 අලුතින් Approve කිරීමට ස්ලිප් කිසිවක් නැත (All Caught Up!)." :
+                           slipSubTab === "approved" ? "තවමත් Approve කරන ලද ස්ලිප් නොමැත." :
+                           "Reject කරන ලද ස්ලිප් නොමැත."}
                         </td>
                       </tr>
                     ) : (
@@ -1501,9 +1623,19 @@ export default function AdminPoolPage() {
                             </td>
 
                             <td className="p-4 whitespace-nowrap">
-                              <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-emerald-950 border border-emerald-700 text-emerald-300">
-                                ● PAID (ACTIVE)
-                              </span>
+                              {slipSubTab === "pending" ? (
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-black bg-amber-950 border border-amber-700 text-amber-300 animate-pulse">
+                                  ⏳ PENDING REVIEW
+                                </span>
+                              ) : slipSubTab === "approved" ? (
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-emerald-950 border border-emerald-700 text-emerald-300">
+                                  ✅ APPROVED
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-rose-950 border border-rose-700 text-rose-300">
+                                  ❌ REJECTED
+                                </span>
+                              )}
                             </td>
 
                             <td className="p-4 font-mono text-xs whitespace-nowrap">
@@ -1546,6 +1678,17 @@ export default function AdminPoolPage() {
                                 >
                                   {isSaving ? "⏳" : "+30D Paid"}
                                 </button>
+
+                                {slipSubTab !== "rejected" && (
+                                  <button
+                                    onClick={() => handleRejectSlip(t)}
+                                    disabled={isSaving}
+                                    title="Reject this slip"
+                                    className="px-2 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-400 font-bold text-[11px] rounded-xl transition cursor-pointer"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1962,7 +2105,7 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== 🖼️ ENHANCED BANK SLIP PREVIEW & APPROVAL MODAL (PDF + IMAGE SUPPORT) ==================== */}
+        {/* ==================== 🖼️ ENHANCED BANK SLIP PREVIEW & APPROVAL MODAL ==================== */}
         {slipModalTeacher && (
           <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
             <div className="bg-[#0b132b] border border-slate-800 w-full max-w-3xl rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
@@ -1998,7 +2141,6 @@ export default function AdminPoolPage() {
                 )}
               </div>
 
-              {/* SLIP PREVIEW CONTAINER (SUPPORTS BOTH IMAGES AND PDFS) */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center min-h-[300px] max-h-[520px] overflow-hidden relative group">
                 {getTeacherSlipUrl(slipModalTeacher) ? (
                   getTeacherSlipUrl(slipModalTeacher).toLowerCase().includes(".pdf") ? (
@@ -2043,7 +2185,7 @@ export default function AdminPoolPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-3 gap-3 pt-1">
                   <button
                     onClick={async () => {
                       if (savingTeacherId) return;
@@ -2056,12 +2198,12 @@ export default function AdminPoolPage() {
                     {savingTeacherId === slipModalTeacher.teacher_id ? (
                       <>
                         <span className="animate-spin">⏳</span>
-                        <span>Updating Sheet...</span>
+                        <span>Updating...</span>
                       </>
                     ) : (
                       <>
                         <span>✅</span>
-                        <span>Approve +15 Days (Rs. 700)</span>
+                        <span>+15 Days</span>
                       </>
                     )}
                   </button>
@@ -2078,14 +2220,25 @@ export default function AdminPoolPage() {
                     {savingTeacherId === slipModalTeacher.teacher_id ? (
                       <>
                         <span className="animate-spin">⏳</span>
-                        <span>Updating Sheet...</span>
+                        <span>Updating...</span>
                       </>
                     ) : (
                       <>
                         <span>🎉</span>
-                        <span>Approve +30 Days (Rs. 1,400)</span>
+                        <span>+30 Days</span>
                       </>
                     )}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (savingTeacherId) return;
+                      await handleRejectSlip(slipModalTeacher);
+                    }}
+                    disabled={Boolean(savingTeacherId)}
+                    className="py-3 bg-rose-600/80 hover:bg-rose-600 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-rose-600/20 cursor-pointer disabled:cursor-not-allowed text-center flex items-center justify-center gap-1.5"
+                  >
+                    <span>❌ Reject</span>
                   </button>
                 </div>
               </div>
