@@ -104,17 +104,7 @@ const translations = {
     alertDeleteSuccess: "✅ Recording එක සාර්ථකව මකා දමන ලදී!",
     alertDeleteError: "❌ Recording එක මකා දැමීමට නොහැකි විය.",
 
-    // Bank Slip Upload Keys
     paySlipBtn: "💳 Pay / Upload Slip",
-    slipModalTitle: "ගෙවීම් තහවුරු කිරීම සහ බැංකු රිසිට්පත (Bank Slip)",
-    slipSub: "බැංකු රිසිට්පත (Slip) Upload කළ සැණින් ගිණුම ස්වයංක්‍රීයව Active (Paid) වේ.",
-    bankInfoTitle: "Digi Mart නිල බැංකු ගිණුම් විස්තර",
-    pricingTitle: "පැකේජය තෝරන්න (Click to Select)",
-    selectSlipLabel: "බැංකු රිසිට්පතේ පැහැදිලි ඡායාරූපයක් තෝරන්න (JPG / PNG)",
-    uploadAndActivateBtn: "🚀 Slip එක Upload කර Activate කරන්න",
-    uploadingSlipBtn: "⚙️ Slip එක උඩුගත වෙමින් පවතී...",
-    slipUploadSuccess: "✅ බැංකු රිසිට්පත සාර්ථකව ලැබුණි! ඔබගේ ගිණුම සක්‍රිය (Paid) කරන ලදී.",
-    slipUploadError: "❌ Slip එක Upload කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
     unpaidAlertText: "⚠️ ඔබගේ ගිණුම UNPAID තත්ත්වයේ පවතී. අඛණ්ඩව පන්ති පැවැත්වීමට කරුණාකර Bank Slip එක Upload කරන්න."
   },
   en: {
@@ -192,17 +182,7 @@ const translations = {
     alertDeleteSuccess: "✅ Recording deleted successfully!",
     alertDeleteError: "❌ Failed to delete recording.",
 
-    // Bank Slip Upload Keys
     paySlipBtn: "💳 Pay / Upload Slip",
-    slipModalTitle: "Payment Verification & Bank Slip Upload",
-    slipSub: "Your account will be automatically activated (Paid) once the slip is uploaded.",
-    bankInfoTitle: "Digi Mart Official Bank Details",
-    pricingTitle: "Select Package (Click to Select)",
-    selectSlipLabel: "Select clear photo of bank slip (JPG / PNG)",
-    uploadAndActivateBtn: "🚀 Upload Slip & Activate Account",
-    uploadingSlipBtn: "⚙️ Uploading Slip...",
-    slipUploadSuccess: "✅ Bank slip uploaded successfully! Your account is now active.",
-    slipUploadError: "❌ Failed to upload slip. Please try again.",
     unpaidAlertText: "⚠️ Your account is currently UNPAID. Please upload a bank slip to continue classes."
   },
   ta: {
@@ -280,28 +260,9 @@ const translations = {
     alertDeleteSuccess: "✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!",
     alertDeleteError: "❌ பதிவை நீக்க முடியவில்லை.",
 
-    // Bank Slip Upload Keys
     paySlipBtn: "💳 Pay / Upload Slip",
-    slipModalTitle: "வங்கி ரசீது பதிவேற்றம் (Bank Slip Upload)",
-    slipSub: "ரசீதை பதிவேற்றியவுடன் உங்கள் கணக்கு உடனடியாக செயல்படுத்தப்படும்.",
-    bankInfoTitle: "Digi Mart வங்கி விவரங்கள்",
-    pricingTitle: "பேக்கேஜை தேர்ந்தெடுக்கவும் (Click to Select)",
-    selectSlipLabel: "வங்கி ரசீது புகைப்படத்தை தேர்ந்தெடுக்கவும் (JPG / PNG)",
-    uploadAndActivateBtn: "🚀 ரசீதை பதிவேற்றி கணக்கை இயக்கவும்",
-    uploadingSlipBtn: "⚙️ பதிவேற்றப்படுகிறது...",
-    slipUploadSuccess: "✅ வங்கி ரசீது பெறப்பட்டது! கணக்கு செயல்படுத்தப்பட்டது.",
-    slipUploadError: "❌ பதிவேற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
     unpaidAlertText: "⚠️ உங்கள் கணக்கு செலுத்தப்படாத நிலையில் உள்ளது. ரசீதை பதிவேற்றவும்."
   }
-};
-
-// Available discount codes dictionary
-const DISCOUNT_PROMOS: { [code: string]: { discount15: number; discount30: number; label: string } } = {
-  DIGI500: { discount15: 200, discount30: 400, label: "Rs. 200 / Rs. 400 Discount Applied" },
-  DIGI1000: { discount15: 200, discount30: 400, label: "Special Promo Applied" },
-  SPECIAL: { discount15: 200, discount30: 400, label: "Special Discount Applied" },
-  VIP: { discount15: 200, discount30: 400, label: "VIP Teacher Discount Applied" },
-  DIGIMART: { discount15: 200, discount30: 400, label: "Digimart Offer Applied" }
 };
 
 export default function DashboardPage() {
@@ -316,18 +277,6 @@ export default function DashboardPage() {
   const [remainingDays, setRemainingDays] = useState<number | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string>("Paid");
   const [loading, setLoading] = useState(true);
-
-  // Bank Slip Modal States
-  const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
-  const [slipFile, setSlipFile] = useState<File | null>(null);
-  const [slipPreview, setSlipPreview] = useState<string | null>(null);
-  const [slipUploading, setSlipUploading] = useState(false);
-
-  // Selectable Extension Plans & Discount Codes
-  const [selectedPlanDays, setSelectedPlanDays] = useState<15 | 30>(30);
-  const [discountCodeInput, setDiscountCodeInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
-  const [promoMessage, setPromoMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -347,11 +296,13 @@ export default function DashboardPage() {
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    // 🎯 1. Auto-open Slip Modal if user opens via WhatsApp direct link (?action=pay or ?upload_slip=true)
+    // 🎯 URL Parameter එකෙන් Pay කරන්න ආවොත් කෙලින්ම /pay පිටුවට redirect කිරීම
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("action") === "pay" || urlParams.get("upload_slip") === "true") {
-        setIsSlipModalOpen(true);
+        const storedId = localStorage.getItem("teacher_id") || "";
+        router.push(`/pay${storedId ? `?id=${storedId}` : ""}`);
+        return;
       }
     }
 
@@ -398,6 +349,11 @@ export default function DashboardPage() {
   };
 
   const t = translations[lang];
+
+  // 🎯 ONE UNIFIED ACTION: කෙලින්ම නිල /pay පිටුවට රැගෙන යාම
+  const handleGoToPay = () => {
+    router.push(`/pay?id=${teacherId}`);
+  };
 
   const getMeetingPasscode = (item: Meeting) => {
     return item.passcode || item.password || item.pass || "123456";
@@ -716,78 +672,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSlipFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSlipPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleApplyDiscountCode = () => {
-    const code = discountCodeInput.trim().toUpperCase();
-    if (!code) {
-      setPromoMessage({ text: "කරුණාකර Discount Code එකක් ඇතුළත් කරන්න.", isError: true });
-      return;
-    }
-
-    if (DISCOUNT_PROMOS[code]) {
-      setAppliedPromo(code);
-      setPromoMessage({ text: `🎉 සාර්ථකයි! ${DISCOUNT_PROMOS[code].label}`, isError: false });
-    } else {
-      setAppliedPromo(null);
-      setPromoMessage({ text: "❌ අවලංගු Discount Code එකකි. කරුණාකර නැවත පරීක්ෂා කරන්න.", isError: true });
-    }
-  };
-
-  const price15 = appliedPromo ? 700 - (DISCOUNT_PROMOS[appliedPromo]?.discount15 || 0) : 700;
-  const price30 = appliedPromo ? 1400 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : 1400;
-  const finalPayableAmount = selectedPlanDays === 15 ? price15 : price30;
-
-  const handleUploadBankSlip = async () => {
-    if (!slipPreview || !slipFile) {
-      alert("⚠️ කරුණාකර බැංකු රිසිට්පතේ (Slip) ඡායාරූපයක් තෝරන්න.");
-      return;
-    }
-
-    setSlipUploading(true);
-    try {
-      const fileExt = slipFile.name.split('.').pop() || 'jpg';
-      const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teacher_id: teacherId,
-          image_base64: slipPreview,
-          file_ext: fileExt,
-          plan_days: selectedPlanDays,
-          amount: finalPayableAmount,
-          discount_code: appliedPromo || ""
-        })
-      });
-
-      if (response.ok) {
-        alert(t.slipUploadSuccess);
-        setIsSlipModalOpen(false);
-        setSlipFile(null);
-        setSlipPreview(null);
-        setPaymentStatus("Paid");
-        fetchTeacherData(teacherId);
-      } else {
-        alert(t.slipUploadError);
-      }
-    } catch (error) {
-      console.error("Slip upload error:", error);
-      alert(t.alertServerError);
-    } finally {
-      setSlipUploading(false);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("teacher_name");
     localStorage.removeItem("teacher_id");
@@ -818,7 +702,7 @@ export default function DashboardPage() {
               <p className="text-xs sm:text-sm font-bold text-rose-300">{t.unpaidAlertText}</p>
             </div>
             <button
-              onClick={() => setIsSlipModalOpen(true)}
+              onClick={handleGoToPay}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-md whitespace-nowrap cursor-pointer"
             >
               {t.paySlipBtn}
@@ -858,9 +742,9 @@ export default function DashboardPage() {
               <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[10px]">{maxConcurrentHosts}</span>
             </span>
 
-            {/* PAY / UPLOAD SLIP HEADER BUTTON */}
+            {/* PAY / UPLOAD SLIP HEADER BUTTON (ROUTES TO /pay) */}
             <button
-              onClick={() => setIsSlipModalOpen(true)}
+              onClick={handleGoToPay}
               className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
             >
               <span>💳</span>
@@ -977,9 +861,9 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">⚡</div>
               </div>
 
-              {/* ACCOUNT STATUS CARD */}
+              {/* ACCOUNT STATUS CARD (ROUTES TO /pay) */}
               <div 
-                onClick={() => setIsSlipModalOpen(true)}
+                onClick={handleGoToPay}
                 className="bg-[#0b132b] hover:bg-[#0f1a3d] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between cursor-pointer transition-colors group"
                 title="Click to Pay or Upload Slip"
               >
@@ -1450,199 +1334,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ==================== 💳 UPDATED BANK SLIP UPLOAD MODAL ==================== */}
-        {isSlipModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
-            <div className="bg-[#0b132b] border border-slate-800 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl relative">
-              
-              {/* Close Button */}
-              <button
-                onClick={() => {
-                  setIsSlipModalOpen(false);
-                  setSlipFile(null);
-                  setSlipPreview(null);
-                  setDiscountCodeInput("");
-                  setAppliedPromo(null);
-                  setPromoMessage(null);
-                }}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs cursor-pointer"
-              >
-                ✕
-              </button>
-
-              <div>
-                <h3 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300 flex items-center gap-2">
-                  <span>💳</span> {t.slipModalTitle}
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">{t.slipSub}</p>
-              </div>
-
-              {/* 🏦 UPDATED OFFICIAL BANK DETAILS SECTION */}
-              <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-2 text-xs shadow-inner">
-                <h4 className="font-bold text-blue-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🏛️</span> {t.bankInfoTitle}
-                </h4>
-                <div className="font-mono text-slate-300 space-y-1.5 text-[11px] pt-1">
-                  <p><span className="text-gray-500">Bank:</span> <strong className="text-white">Sampath Bank</strong></p>
-                  <p><span className="text-gray-500">Account Name:</span> <strong className="text-white">S.D.Nuwan Sameera Deshapriya</strong></p>
-                  <p>
-                    <span className="text-gray-500">Account No:</span>{" "}
-                    <span className="text-emerald-400 font-black text-sm select-all bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/80 tracking-wider">
-                      1188 5747 0946
-                    </span>
-                  </p>
-                  <p><span className="text-gray-500">Branch:</span> <strong className="text-slate-300">Rambukkana Branch</strong></p>
-                </div>
-              </div>
-
-              {/* 🎯 SELECTABLE EXTENSION PLAN CARDS (15 DAYS vs 30 DAYS) */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-300">
-                  {t.pricingTitle}
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  
-                  {/* 15 Days Option */}
-                  <div
-                    onClick={() => setSelectedPlanDays(15)}
-                    className={`p-3.5 rounded-2xl cursor-pointer transition-all border text-center relative ${
-                      selectedPlanDays === 15
-                        ? "bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/40 shadow-lg shadow-blue-900/30"
-                        : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-75 hover:opacity-100"
-                    }`}
-                  >
-                    {selectedPlanDays === 15 && (
-                      <span className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center font-bold">
-                        ✓
-                      </span>
-                    )}
-                    <p className="text-[11px] font-bold text-gray-400">15 Days Extension</p>
-                    <div className="mt-1 flex items-center justify-center gap-1.5">
-                      {appliedPromo && (
-                        <span className="text-xs text-gray-500 line-through font-mono">LKR 700</span>
-                      )}
-                      <p className="font-black text-blue-400 text-base font-mono">
-                        LKR {price15.toLocaleString()}
-                      </p>
-                    </div>
-                    {appliedPromo && (
-                      <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded mt-1 inline-block">
-                        Save Rs. {700 - price15}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* 30 Days Option */}
-                  <div
-                    onClick={() => setSelectedPlanDays(30)}
-                    className={`p-3.5 rounded-2xl cursor-pointer transition-all border text-center relative ${
-                      selectedPlanDays === 30
-                        ? "bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-900/30"
-                        : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-75 hover:opacity-100"
-                    }`}
-                  >
-                    {selectedPlanDays === 30 && (
-                      <span className="absolute -top-2 -right-2 bg-indigo-600 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center font-bold">
-                        ✓
-                      </span>
-                    )}
-                    <p className="text-[11px] font-bold text-gray-400">30 Days Extension</p>
-                    <div className="mt-1 flex items-center justify-center gap-1.5">
-                      {appliedPromo && (
-                        <span className="text-xs text-gray-500 line-through font-mono">LKR 1,400</span>
-                      )}
-                      <p className="font-black text-indigo-300 text-base font-mono">
-                        LKR {price30.toLocaleString()}
-                      </p>
-                    </div>
-                    {appliedPromo && (
-                      <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded mt-1 inline-block">
-                        Save Rs. {1400 - price30}
-                      </span>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-
-              {/* 🎟️ DISCOUNT / PROMO CODE INPUT BOX */}
-              <div className="space-y-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-900">
-                <label className="block text-[11px] font-bold text-gray-400">
-                  🏷️ Discount Code (Optional)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={discountCodeInput}
-                    onChange={(e) => {
-                      setDiscountCodeInput(e.target.value);
-                      if (promoMessage) setPromoMessage(null);
-                    }}
-                    placeholder="Enter Promo Code (e.g. DIGI500 / SPECIAL)"
-                    className="flex-1 p-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white uppercase font-mono tracking-wider focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyDiscountCode}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold text-xs rounded-xl transition cursor-pointer border border-slate-700"
-                  >
-                    Apply
-                  </button>
-                </div>
-
-                {promoMessage && (
-                  <p className={`text-[10px] font-mono mt-1 ${promoMessage.isError ? "text-rose-400" : "text-emerald-400 font-bold"}`}>
-                    {promoMessage.text}
-                  </p>
-                )}
-              </div>
-
-              {/* SLIP FILE INPUT & PREVIEW */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-gray-300">
-                  {t.selectSlipLabel}
-                </label>
-                
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleSlipFileSelect}
-                  className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 p-2 rounded-2xl border border-slate-900"
-                />
-
-                {slipPreview && (
-                  <div className="relative rounded-2xl overflow-hidden border border-slate-800 max-h-40 bg-slate-950 flex items-center justify-center p-2">
-                    <img src={slipPreview} alt="Slip Preview" className="max-h-36 object-contain rounded-xl" />
-                  </div>
-                )}
-              </div>
-
-              {/* TOTAL PAYABLE SUMMARY BOX */}
-              <div className="p-3 bg-blue-950/30 border border-blue-900/50 rounded-2xl flex items-center justify-between text-xs font-mono">
-                <div>
-                  <span className="text-gray-400">Selected Plan: </span>
-                  <strong className="text-white font-bold">{selectedPlanDays} Days</strong>
-                  {appliedPromo && <span className="ml-1 text-emerald-400 font-bold">({appliedPromo})</span>}
-                </div>
-                <div className="text-right">
-                  <span className="text-gray-400 text-[10px] block">Amount to Transfer</span>
-                  <span className="text-emerald-400 font-black text-sm">LKR {finalPayableAmount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              {/* UPLOAD & ACTIVATE BUTTON */}
-              <button
-                onClick={handleUploadBankSlip}
-                disabled={!slipFile || slipUploading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white font-black rounded-xl text-xs transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {slipUploading ? t.uploadingSlipBtn : t.uploadAndActivateBtn}
-              </button>
-
-            </div>
           </div>
         )}
 

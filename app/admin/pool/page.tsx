@@ -377,7 +377,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 DYNAMIC LIVE ORIGIN WHATSAPP REMINDER COPY
+  // 🎯 DYNAMIC LIVE ORIGIN DIRECT PAY LINK (Login නැතිව කෙලින්ම ගුරුවරයාගේ ID එකට Open වන Link එක)
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -388,9 +388,9 @@ export default function AdminPoolPage() {
       daysText = `තව දින ${daysLeft}කින් අවසන් වීමට`;
     }
 
-    // 🎯 Live URL එක dynamic ලෙස ඔබ දැනට බ්‍රවුසර් එකේ open කරගෙන සිටින domain එකෙන් ලබා ගැනීම
+    // 🎯 Live URL එක dynamic ලෙස ඔබ දැනට බ්‍රවුසර් එකේ open කරගෙන සිටින domain එකෙන්ම ලබා ගනී
     const currentOrigin = typeof window !== "undefined" ? window.location.origin : "https://epanthiya.com";
-    const uploadLink = `${currentOrigin}/dashboard?action=pay`;
+    const directPayLink = `${currentOrigin}/pay?id=${teacherId}`;
 
     const reminderMsg = `👋 *Hi ${teacherName}!* (Teacher ID: ${teacherId})
 
@@ -408,9 +408,9 @@ export default function AdminPoolPage() {
 • Account No: *1188 5747 0946*
 • Branch: *Rambukkana Branch*
 
-🚀 *Instant Activation (ස්ලිප් එක දමා ක්ෂණිකව Active කරගැනීමට):*
-මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip) ඔබගේ Dashboard එකට Upload කළ සැණින් Account එක Auto-Active (Paid) වේ.
-👉 *Upload Slip Link:* ${uploadLink}
+🚀 *Instant Activation (ස්ලිප් එක දමා Login වීමකින් තොරව ක්ෂණිකව Active කරගැනීමට):*
+මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip) පහත ලින්ක් එකෙන් කෙලින්ම Upload කළ සැණින් Account එක Auto-Active (Paid) වේ.
+👉 *Upload Slip Here:* ${directPayLink}
 
 (නැතහොත් මෙම WhatsApp අංකයට Slip එක එවන්න)
 
@@ -1453,7 +1453,7 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 4: TEACHER EXPIRATIONS TRACKER (WITH SEND REMIND + VIEW SLIP) ==================== */}
+        {/* ==================== TAB 4: TEACHER EXPIRATIONS TRACKER ==================== */}
         {!loading && activeTab === "expirations" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
@@ -1728,6 +1728,7 @@ export default function AdminPoolPage() {
 
                           <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
+                          {/* PAYMENT STATUS TOGGLE */}
                           <td className="p-4 whitespace-nowrap">
                             <button
                               onClick={() => handleTogglePaymentStatus(t)}
@@ -1742,6 +1743,7 @@ export default function AdminPoolPage() {
                             </button>
                           </td>
 
+                          {/* EXPIRE DATE INPUT */}
                           <td className="p-4 whitespace-nowrap">
                             <input
                               type="date"
@@ -1752,6 +1754,7 @@ export default function AdminPoolPage() {
                             />
                           </td>
 
+                          {/* QUICK RENEW */}
                           <td className="p-4 text-right whitespace-nowrap">
                             <button
                               onClick={() => handleQuickRenew(t)}
