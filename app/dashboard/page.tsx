@@ -323,7 +323,7 @@ export default function DashboardPage() {
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [slipUploading, setSlipUploading] = useState(false);
 
-  // 🎯 New: Selectable Extension Plans & Discount Codes
+  // Selectable Extension Plans & Discount Codes
   const [selectedPlanDays, setSelectedPlanDays] = useState<15 | 30>(30);
   const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
@@ -347,6 +347,14 @@ export default function DashboardPage() {
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
+    // 🎯 1. Auto-open Slip Modal if user opens via WhatsApp direct link (?action=pay or ?upload_slip=true)
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("action") === "pay" || urlParams.get("upload_slip") === "true") {
+        setIsSlipModalOpen(true);
+      }
+    }
+
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -587,7 +595,6 @@ export default function DashboardPage() {
           setMaxConcurrentHosts(data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts);
         }
 
-        // Handle Payment Status
         const rawPayStatus = String(data.paymentStatus || data.payment_status || data.PaymentStatus || "Paid").trim();
         setPaymentStatus(rawPayStatus);
 
@@ -709,7 +716,6 @@ export default function DashboardPage() {
     }
   };
 
-  // ==================== BANK SLIP UPLOAD & DISCOUNT LOGIC ====================
   const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -738,7 +744,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Dynamic Prices with Discount
   const price15 = appliedPromo ? 700 - (DISCOUNT_PROMOS[appliedPromo]?.discount15 || 0) : 700;
   const price30 = appliedPromo ? 1400 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : 1400;
   const finalPayableAmount = selectedPlanDays === 15 ? price15 : price30;
