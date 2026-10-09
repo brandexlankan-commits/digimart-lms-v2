@@ -102,7 +102,20 @@ const translations = {
     alertCopySuccess: "📝 පන්තියේ විස්තර Clipboard එකට Copy කරගන්න ලදී.",
     alertCopyVideoSuccess: "🎬 පටිගත කිරීමේ සබැඳිය (Video Link) සාර්ථකව Copy කරගන්න ලදී.",
     alertDeleteSuccess: "✅ Recording එක සාර්ථකව මකා දමන ලදී!",
-    alertDeleteError: "❌ Recording එක මකා දැමීමට නොහැකි විය."
+    alertDeleteError: "❌ Recording එක මකා දැමීමට නොහැකි විය.",
+
+    // Bank Slip Upload Keys
+    paySlipBtn: "💳 Pay / Upload Slip",
+    slipModalTitle: "ගෙවීම් තහවුරු කිරීම සහ බැංකු රිසිට්පත (Bank Slip)",
+    slipSub: "බැංකු රිසිට්පත (Slip) Upload කළ සැණින් ගිණුම ස්වයංක්‍රීයව Active (Paid) වේ.",
+    bankInfoTitle: "Digi Mart International බැංකු ගිණුම් විස්තර",
+    pricingTitle: "පැකේජ ගාස්තු විස්තර",
+    selectSlipLabel: "බැංකු රිසිට්පතේ පැහැදිලි ඡායාරූපයක් තෝරන්න (JPG / PNG)",
+    uploadAndActivateBtn: "🚀 Slip එක Upload කර Activate කරන්න",
+    uploadingSlipBtn: "⚙️ Slip එක උඩුගත වෙමින් පවතී...",
+    slipUploadSuccess: "✅ බැංකු රිසිට්පත සාර්ථකව ලැබුණි! ඔබගේ ගිණුම සක්‍රිය (Paid) කරන ලදී.",
+    slipUploadError: "❌ Slip එක Upload කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+    unpaidAlertText: "⚠️ ඔබගේ ගිණුම UNPAID තත්ත්වයේ පවතී. අඛණ්ඩව පන්ති පැවැත්වීමට කරුණාකර Bank Slip එක Upload කරන්න."
   },
   en: {
     welcome: "Welcome",
@@ -177,7 +190,20 @@ const translations = {
     alertCopySuccess: "📝 Class details copied to Clipboard.",
     alertCopyVideoSuccess: "🎬 Video Recording link copied to Clipboard.",
     alertDeleteSuccess: "✅ Recording deleted successfully!",
-    alertDeleteError: "❌ Failed to delete recording."
+    alertDeleteError: "❌ Failed to delete recording.",
+
+    // Bank Slip Upload Keys
+    paySlipBtn: "💳 Pay / Upload Slip",
+    slipModalTitle: "Payment Verification & Bank Slip Upload",
+    slipSub: "Your account will be automatically activated (Paid) once the slip is uploaded.",
+    bankInfoTitle: "Digi Mart International Bank Details",
+    pricingTitle: "Package Pricing Guide",
+    selectSlipLabel: "Select clear photo of bank slip (JPG / PNG)",
+    uploadAndActivateBtn: "🚀 Upload Slip & Activate Account",
+    uploadingSlipBtn: "⚙️ Uploading Slip...",
+    slipUploadSuccess: "✅ Bank slip uploaded successfully! Your account is now active.",
+    slipUploadError: "❌ Failed to upload slip. Please try again.",
+    unpaidAlertText: "⚠️ Your account is currently UNPAID. Please upload a bank slip to continue classes."
   },
   ta: {
     welcome: "வணக்கம்",
@@ -252,7 +278,20 @@ const translations = {
     alertCopySuccess: "📝 வகுப்பு விவரங்கள் நகலெடுக்கப்பட்டன.",
     alertCopyVideoSuccess: "🎬 பதிவு செய்யப்பட்ட வீடியோ லிங்க் நகலெடுக்கப்பட்டது.",
     alertDeleteSuccess: "✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!",
-    alertDeleteError: "❌ பதிவை நீக்க முடியவில்லை."
+    alertDeleteError: "❌ பதிவை நீக்க முடியவில்லை.",
+
+    // Bank Slip Upload Keys
+    paySlipBtn: "💳 Pay / Upload Slip",
+    slipModalTitle: "வங்கி ரசீது பதிவேற்றம் (Bank Slip Upload)",
+    slipSub: "ரசீதை பதிவேற்றியவுடன் உங்கள் கணக்கு உடனடியாக செயல்படுத்தப்படும்.",
+    bankInfoTitle: "Digi Mart International வங்கி விவரங்கள்",
+    pricingTitle: "கட்டண விவரங்கள்",
+    selectSlipLabel: "வங்கி ரசீது புகைப்படத்தை தேர்ந்தெடுக்கவும் (JPG / PNG)",
+    uploadAndActivateBtn: "🚀 ரசீதை பதிவேற்றி கணக்கை இயக்கவும்",
+    uploadingSlipBtn: "⚙️ பதிவேற்றப்படுகிறது...",
+    slipUploadSuccess: "✅ வங்கி ரசீது பெறப்பட்டது! கணக்கு செயல்படுத்தப்பட்டது.",
+    slipUploadError: "❌ பதிவேற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
+    unpaidAlertText: "⚠️ உங்கள் கணக்கு செலுத்தப்படாத நிலையில் உள்ளது. ரசீதை பதிவேற்றவும்."
   }
 };
 
@@ -266,7 +305,14 @@ export default function DashboardPage() {
   const [teacherPic, setTeacherPic] = useState("");
   const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1");
   const [remainingDays, setRemainingDays] = useState<number | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<string>("Paid");
   const [loading, setLoading] = useState(true);
+
+  // Bank Slip Modal States
+  const [isSlipModalOpen, setIsSlipModalOpen] = useState(false);
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [slipUploading, setSlipUploading] = useState(false);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -460,6 +506,7 @@ export default function DashboardPage() {
       });
 
       if (response.ok) {
+        setRecordings((prev) => prev.filter((r) => r.link !== rec.link));
         alert(t.alertDeleteSuccess);
         fetchTeacherData(teacherId);
       } else {
@@ -524,6 +571,10 @@ export default function DashboardPage() {
         if (data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts) {
           setMaxConcurrentHosts(data.maxConcurrentHosts || data.max_concurrent_hosts || data.maxHosts);
         }
+
+        // Handle Payment Status (Column G in Google Sheets)
+        const rawPayStatus = String(data.paymentStatus || data.payment_status || data.PaymentStatus || "Paid").trim();
+        setPaymentStatus(rawPayStatus);
 
         if (data.expiryDate || data.expiry_date || data.paymentDate || data.daysRemaining) {
           if (data.daysRemaining !== undefined) {
@@ -643,6 +694,56 @@ export default function DashboardPage() {
     }
   };
 
+  // ==================== BANK SLIP UPLOAD LOGIC ====================
+  const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSlipFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSlipPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadBankSlip = async () => {
+    if (!slipPreview || !slipFile) {
+      alert("⚠️ කරුණාකර බැංකු රිසිට්පතේ (Slip) ඡායාරූපයක් තෝරන්න.");
+      return;
+    }
+
+    setSlipUploading(true);
+    try {
+      const fileExt = slipFile.name.split('.').pop() || 'jpg';
+      const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacher_id: teacherId,
+          image_base64: slipPreview,
+          file_ext: fileExt
+        })
+      });
+
+      if (response.ok) {
+        alert(t.slipUploadSuccess);
+        setIsSlipModalOpen(false);
+        setSlipFile(null);
+        setSlipPreview(null);
+        setPaymentStatus("Paid");
+        fetchTeacherData(teacherId);
+      } else {
+        alert(t.slipUploadError);
+      }
+    } catch (error) {
+      console.error("Slip upload error:", error);
+      alert(t.alertServerError);
+    } finally {
+      setSlipUploading(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("teacher_name");
     localStorage.removeItem("teacher_id");
@@ -659,9 +760,28 @@ export default function DashboardPage() {
     );
   }
 
+  const isUnpaid = paymentStatus.toUpperCase() === "UNPAID";
+
   return (
     <div className="min-h-screen bg-[#070b19] text-white font-sans p-3 sm:p-4 md:p-6 selection:bg-blue-600/30">
       <div className="max-w-[1400px] mx-auto space-y-5 sm:space-y-6">
+
+        {/* UNPAID BANNER NOTICE */}
+        {isUnpaid && (
+          <div className="p-3 sm:p-4 bg-rose-950/70 border border-rose-800/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">⚠️</span>
+              <p className="text-xs sm:text-sm font-bold text-rose-300">{t.unpaidAlertText}</p>
+            </div>
+            <button
+              onClick={() => setIsSlipModalOpen(true)}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-md whitespace-nowrap cursor-pointer"
+            >
+              {t.paySlipBtn}
+            </button>
+          </div>
+        )}
+
         {/* HEADER SECTION */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-slate-900 pb-4 md:pb-5 gap-4">
           <div className="flex items-center gap-3 sm:gap-4 w-full lg:w-auto">
@@ -693,6 +813,15 @@ export default function DashboardPage() {
               <span>⚡ Max Hosts:</span>
               <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[10px]">{maxConcurrentHosts}</span>
             </span>
+
+            {/* PAY / UPLOAD SLIP HEADER BUTTON */}
+            <button
+              onClick={() => setIsSlipModalOpen(true)}
+              className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            >
+              <span>💳</span>
+              <span>{t.paySlipBtn}</span>
+            </button>
 
             <a
               href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මම (Teacher ID: ${teacherId}, Name: ${teacherName}) Digimart LMS Portal එක සම්බන්ධයෙන් සහය ලබා ගැනීමට අවශ්‍යයි.`)}`}
@@ -804,10 +933,22 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">⚡</div>
               </div>
 
-              <div className="bg-[#0b132b] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
+              {/* ACCOUNT STATUS CARD */}
+              <div 
+                onClick={() => setIsSlipModalOpen(true)}
+                className="bg-[#0b132b] hover:bg-[#0f1a3d] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between cursor-pointer transition-colors group"
+                title="Click to Pay or Upload Slip"
+              >
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">{t.accStatus}</p>
-                  {remainingDays === null ? (
+                  <p className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+                    <span>{t.accStatus}</span>
+                    <span className="text-[10px] text-blue-400 font-bold group-hover:underline">({t.paySlipBtn})</span>
+                  </p>
+                  {isUnpaid ? (
+                    <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1 animate-pulse">
+                      ❌ UNPAID (Upload Slip)
+                    </h3>
+                  ) : remainingDays === null ? (
                     <h3 className="text-sm sm:text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
                   ) : remainingDays > 5 ? (
                     <h3 className="text-sm sm:text-base font-bold text-emerald-400 mt-1">
@@ -825,7 +966,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-lg sm:text-xl">
-                  {remainingDays === null || remainingDays > 5 ? "✅" : remainingDays > 0 ? "⏳" : "❌"}
+                  {isUnpaid ? "💳" : remainingDays === null || remainingDays > 5 ? "✅" : remainingDays > 0 ? "⏳" : "❌"}
                 </div>
               </div>
             </div>
@@ -1280,6 +1421,86 @@ export default function DashboardPage() {
 
               </div>
             )}
+          </div>
+        )}
+
+        {/* ==================== BANK SLIP UPLOAD MODAL ==================== */}
+        {isSlipModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+            <div className="bg-[#0b132b] border border-slate-800 w-full max-w-lg rounded-3xl p-5 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl relative">
+              
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setIsSlipModalOpen(false);
+                  setSlipFile(null);
+                  setSlipPreview(null);
+                }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300 flex items-center gap-2">
+                  <span>💳</span> {t.slipModalTitle}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">{t.slipSub}</p>
+              </div>
+
+              {/* BANK DETAILS SECTION */}
+              <div className="bg-slate-950/70 border border-slate-900 p-4 rounded-2xl space-y-2 text-xs">
+                <h4 className="font-bold text-blue-400 text-[11px] uppercase tracking-wider">{t.bankInfoTitle}</h4>
+                <div className="font-mono text-slate-300 space-y-1 text-[11px]">
+                  <p><span className="text-gray-500">Bank:</span> Commercial Bank / Sampath Bank</p>
+                  <p><span className="text-gray-500">Account Name:</span> Digi Mart International (Pvt) Ltd</p>
+                  <p><span className="text-gray-500">Account No:</span> <span className="text-emerald-400 font-bold select-all">8010048123</span></p>
+                  <p><span className="text-gray-500">Branch:</span> Kegalle / Online Deposit</p>
+                </div>
+              </div>
+
+              {/* PRICING PLANS GUIDE */}
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="p-2.5 bg-blue-950/30 border border-blue-900/40 rounded-xl">
+                  <p className="text-[10px] text-gray-400">15 Days Extension</p>
+                  <p className="font-black text-blue-400 text-sm mt-0.5">LKR 700</p>
+                </div>
+                <div className="p-2.5 bg-indigo-950/30 border border-indigo-900/40 rounded-xl">
+                  <p className="text-[10px] text-gray-400">30 Days Extension</p>
+                  <p className="font-black text-indigo-300 text-sm mt-0.5">LKR 1,400</p>
+                </div>
+              </div>
+
+              {/* SLIP FILE INPUT & PREVIEW */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-gray-300">
+                  {t.selectSlipLabel}
+                </label>
+                
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSlipFileSelect}
+                  className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 p-2 rounded-2xl border border-slate-900"
+                />
+
+                {slipPreview && (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-800 max-h-48 bg-slate-950 flex items-center justify-center p-2">
+                    <img src={slipPreview} alt="Slip Preview" className="max-h-44 object-contain rounded-xl" />
+                  </div>
+                )}
+              </div>
+
+              {/* UPLOAD & ACTIVATE BUTTON */}
+              <button
+                onClick={handleUploadBankSlip}
+                disabled={!slipFile || slipUploading}
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white font-black rounded-xl text-xs transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {slipUploading ? t.uploadingSlipBtn : t.uploadAndActivateBtn}
+              </button>
+
+            </div>
           </div>
         )}
 
