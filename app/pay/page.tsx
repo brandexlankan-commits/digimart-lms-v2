@@ -13,10 +13,8 @@ const DISCOUNT_PROMOS: { [code: string]: { discount15: number; discount30: numbe
 
 function PayContent() {
   const searchParams = useSearchParams();
-  const [identifierInput, setIdentifierInput] = useState("");
-  const [resolvedUsername, setResolvedUsername] = useState("");
-  const [resolvedTeacherId, setResolvedTeacherId] = useState("");
-  const [resolvedTeacherName, setResolvedTeacherName] = useState("");
+  const [teacherIdInput, setTeacherIdInput] = useState("");
+  const [detectedTeacherId, setDetectedTeacherId] = useState("");
   const [isResolving, setIsResolving] = useState(false);
 
   const [selectedPlanDays, setSelectedPlanDays] = useState<15 | 30>(30);
@@ -32,29 +30,32 @@ function PayContent() {
   useEffect(() => {
     const rawParam = searchParams.get("id") || searchParams.get("teacher_id") || searchParams.get("username") || "";
     if (rawParam) {
-      setIdentifierInput(rawParam);
-      lookupTeacherDetails(rawParam);
+      setTeacherIdInput(rawParam);
+      resolveActualTeacherId(rawParam);
     }
   }, [searchParams]);
 
-  // 🎯 Teacher ID ආවත් Username එක සොයාගැනීම (Resolution)
-  const lookupTeacherDetails = async (inputStr: string) => {
+  // 🎯 Username එකක් දුන්නොත් කෙලින්ම ඒකට අදාළ Teacher ID එක (e.g. teach_86) හොයාගෙන Input එකට දාන Function එක
+  const resolveActualTeacherId = async (inputStr: string) => {
     const clean = inputStr.trim();
     if (!clean) return;
+
+    if (clean.toLowerCase().startsWith("teach_")) {
+      setDetectedTeacherId(clean);
+      setTeacherIdInput(clean);
+      return;
+    }
 
     setIsResolving(true);
     try {
       const res = await fetch(`/api/teacher/data?teacher_id=${encodeURIComponent(clean)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data?.username) {
-          setResolvedUsername(data.username);
-        }
-        if (data?.teacher_id || data?.teacherId) {
-          setResolvedTeacherId(data.teacher_id || data.teacherId);
-        }
-        if (data?.teacherName || data?.teacher_name) {
-          setResolvedTeacherName(data.teacherName || data.teacher_name);
+        const realId = data?.teacher_id || data?.teacherId;
+        if (realId) {
+          setDetectedTeacherId(realId);
+          // 🚀 මෙන්න මෙතනින් Username එක වෙනුවට සැබෑ Teacher ID එක Auto-Replace කරනවා!
+          setTeacherIdInput(realId);
         }
       }
     } catch (e) {
@@ -97,12 +98,11 @@ function PayContent() {
   };
 
   const handleUploadBankSlip = async () => {
-    // 🎯 n8n එක match කරන්නේ Username එකෙන් නිසා, resolvedUsername හෝ identifierInput එක ලබාදීම
-    const finalUsername = resolvedUsername || identifierInput.trim();
-    const finalTeacherId = resolvedTeacherId || identifierInput.trim();
+    // 🎯 n8n එකට යවන්නේ අනිවාර්යයෙන්ම teach_... කියන Teacher ID එකයි!
+    const finalTeacherId = detectedTeacherId || teacherIdInput.trim();
 
-    if (!finalUsername) {
-      alert("⚠️ කරුණාකර ඔබගේ Teacher ID හෝ Username එක ඇතුළත් කරන්න.");
+    if (!finalTeacherId) {
+      alert("⚠️ කරුණාකර ඔබගේ Teacher ID එක ඇතුළත් කරන්න.");
       return;
     }
     if (!slipPreview || !slipFile) {
@@ -114,12 +114,11 @@ function PayContent() {
     try {
       const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       
-      // 🎯 n8n වෙත username සහ teacher_id දෙකම යවයි (n8n හි username match එක 100% ක් වැඩ කරයි)
+      // 🚀 n8n එකට 100% ක් නියම Teacher ID එකම යවයි!
       const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: finalUsername,
           teacher_id: finalTeacherId,
           image_base64: slipPreview,
           file_ext: fileExt,
@@ -192,36 +191,30 @@ function PayContent() {
           </div>
         ) : (
           <>
-            {/* TEACHER ID / USERNAME IDENTIFIER INPUT */}
+            {/* TEACHER ID INPUT */}
             <div className="bg-slate-950/70 border border-slate-800/80 p-3.5 rounded-2xl space-y-1.5">
               <div className="flex justify-between items-center">
                 <label className="block text-[11px] font-bold text-gray-400">
-                  👤 Teacher ID / Username
+                  👤 Teacher ID
                 </label>
-                {resolvedTeacherName && (
+                {detectedTeacherId && (
                   <span className="text-[10px] text-emerald-400 font-bold font-mono">
-                    ✓ {resolvedTeacherName}
+                    ✓ Verified ID: {detectedTeacherId}
                   </span>
                 )}
               </div>
 
               <input
                 type="text"
-                value={identifierInput}
+                value={teacherIdInput}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setIdentifierInput(val);
-                  lookupTeacherDetails(val);
+                  setTeacherIdInput(val);
+                  resolveActualTeacherId(val);
                 }}
-                placeholder="e.g. teach_69 හෝ dimo74"
+                placeholder="e.g. teach_69"
                 className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-blue-500"
               />
-
-              {resolvedUsername && resolvedUsername !== identifierInput && (
-                <p className="text-[10px] text-emerald-400/90 font-mono mt-0.5">
-                  Connected Username: <strong className="text-white">@{resolvedUsername}</strong>
-                </p>
-              )}
             </div>
 
             {/* BANK DETAILS */}
