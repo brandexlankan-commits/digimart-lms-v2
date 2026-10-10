@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 // 🎯 Live n8n Production Webhook URLs
 const N8N_FORCE_END_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-force-end";
@@ -71,12 +71,12 @@ export default function AdminPoolPage() {
   const [slipModalTeacher, setSlipModalTeacher] = useState<TeacherExpiry | null>(null);
 
   // Ending Schedule Tab States
-  const [endingSearchTerm, setEndingSearchTerm] = useState("");
-  const [selectedTimeSlotFilter, setSelectedTimeSlotFilter] = useState<string>("all");
+  const [timelineSearch, setTimelineSearch] = useState("");
+  const [timelineStatusFilter, setTimelineStatusFilter] = useState<"ALL" | "STARTED" | "SCHEDULED">("ALL");
 
   // Zoom Accounts Tab States
   const [zoomSearchTerm, setZoomSearchTerm] = useState("");
-  const [zoomFilterType, setZoomFilterType] = useState<"all" | "expired" | "soon" | "week" | "active" | "inactive">("all");
+  const [zoomFilterType, setZoomFilterType] = useState<"all" | "expired" | "soon" | "active" | "inactive">("all");
   const [copiedZoomAccId, setCopiedZoomAccId] = useState<string | null>(null);
 
   // Copy Feedback States
@@ -286,7 +286,6 @@ export default function AdminPoolPage() {
     }
   };
 
-  // ⚠️ FREE SLOT WITH BREAK/INTERVAL PROTECTION
   const handleFreeSlot = async (meeting: any) => {
     if (meeting.isStillInWindow) {
       const confirmMsg = `⚠️ අවධානයට:\n\nමෙම පන්තියේ නිල කාලසටහන:\n• ආරම්භක වේලාව: ${meeting.time}\n• නියමිත අවසන් වේලාව: ${meeting.scheduledEndTimeStr}\n(කාලසටහන අනුව තව මිනිත්තු ${meeting.minsRemaining}ක් ඉතිරිව ඇත - ගුරුවරයා Interval / Break එකක් ලබා දී තිබිය හැක).\n\nදැන් 'Free Slot' කළහොත් ගුරුවරයාට පන්තිය නැවත ආරම්භ කිරීමට නොහැකි වනු ඇත!\n\nඔබට මෙය සැබවින්ම Free කිරීමට අවශ්‍යද?`;
@@ -473,9 +472,55 @@ export default function AdminPoolPage() {
       })
   );
 
-  // =========================================================================
-  // 🎯 1. REORGANIZED TIMELINE ENGINE: 30-MIN SLOT GROUPING & ORDERING
-  // =========================================================================
+  // Active Zoom Accounts
+  const activeAccountKeys = Object.keys(poolData || {}).filter((accId) => isAccountActive(poolData[accId]));
+  const totalActivePool = activeAccountKeys.length;
+
+  // 🎯 LIVE AVAILABILITY IN NEXT 6 HOURS (Hourly Slots)
+  const getNextHoursAvailability = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const intervals = [];
+
+    for (let i = 0; i < 6; i++) {
+      const slotHour = (currentHour + i) % 24;
+      const slotStart = slotHour * 60;
+      const slotEnd = slotStart + 60;
+
+      let busyCount = 0;
+      activeAccountKeys.forEach((accId) => {
+        const classes = poolData[accId]?.classes || [];
+        const isBusy = classes.some((cls) => {
+          if (isMeetingEnded(cls)) return false;
+          const cStart = parseTimeToMinutes(cls.time);
+          const cDur = Number(cls.duration) || 60;
+          const cEnd = cStart + cDur;
+          // Overlap check with 1-hour window
+          return cStart < slotEnd && cEnd > slotStart;
+        });
+        if (isBusy) busyCount++;
+      });
+
+      const freeCount = Math.max(0, totalActivePool - busyCount);
+      const startH = slotHour % 12 === 0 ? 12 : slotHour % 12;
+      const endH = (slotHour + 1) % 12 === 0 ? 12 : (slotHour + 1) % 12;
+      const startAmpm = slotHour >= 12 ? "PM" : "AM";
+      const endAmpm = (slotHour + 1) >= 12 && (slotHour + 1) < 24 ? "PM" : "AM";
+
+      intervals.push({
+        timeRange: `${startH}:00 ${startAmpm} - ${endH}:00 ${endAmpm}`,
+        freeCount,
+        busyCount,
+        isCurrent: i === 0,
+      });
+    }
+
+    return intervals;
+  };
+
+  const nextHoursAvailability = getNextHoursAvailability();
+
+  // 🎯 30-MIN TIMELINE GROUPED DATA (Chronological Grouping)
   const allActiveScheduledClasses = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => !isMeetingEnded(m))
@@ -484,9 +529,8 @@ export default function AdminPoolPage() {
         const dur = Number(m.duration) || 60;
         const endM = startM + dur;
         const endStr = formatMinutesToTime(endM);
-        const now = new Date();
-        const currentMins = now.getHours() * 60 + now.getMinutes();
-        const minsRemaining = endM - currentMins;
+        const st = String(m.status || m.Status || "").trim().toUpperCase();
+        const isStarted = st === "STARTED" || st === "LIVE";
 
         return {
           ...m,
@@ -496,60 +540,40 @@ export default function AdminPoolPage() {
           dur,
           endM,
           endStr,
-          minsRemaining,
+          isStarted,
         };
       })
   );
 
-  // Group classes by their unique Scheduled End Time (sorted chronologically)
+  // Unique end times sorted ascending
   const uniqueEndMinutes = Array.from(new Set(allActiveScheduledClasses.map((c) => c.endM))).sort((a, b) => a - b);
 
-  const timelineSlotGroups = uniqueEndMinutes.map((endM) => {
-    const classes = allActiveScheduledClasses.filter((c) => c.endM === endM);
-    const endStr = formatMinutesToTime(endM);
-    const uniqueAccounts = Array.from(new Set(classes.map((c) => c.accId)));
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-    const minsDiff = endM - currentMins;
+  const timelineGroups = uniqueEndMinutes.map((endM) => {
+    let classes = allActiveScheduledClasses.filter((c) => c.endM === endM);
 
-    return {
-      endM,
-      endStr,
-      classes,
-      uniqueAccounts,
-      minsDiff,
-    };
-  });
+    if (timelineStatusFilter === "STARTED") {
+      classes = classes.filter((c) => c.isStarted);
+    } else if (timelineStatusFilter === "SCHEDULED") {
+      classes = classes.filter((c) => !c.isStarted);
+    }
 
-  // Filtered timeline slots based on search or slot filter
-  const filteredTimelineSlots = timelineSlotGroups
-    .map((slot) => {
-      if (selectedTimeSlotFilter !== "all" && slot.endStr !== selectedTimeSlotFilter) {
-        return null;
-      }
-
-      const q = (endingSearchTerm || "").trim().toLowerCase();
-      if (!q) return slot;
-
-      const matchedClasses = slot.classes.filter((c) =>
+    if (timelineSearch.trim()) {
+      const q = timelineSearch.trim().toLowerCase();
+      classes = classes.filter((c) => 
         c.accId.toLowerCase().includes(q) ||
         String(c.teacher_id).toLowerCase().includes(q) ||
         String(c.topic).toLowerCase().includes(q)
       );
+    }
 
-      if (matchedClasses.length === 0) return null;
+    return {
+      endM,
+      endStr: formatMinutesToTime(endM),
+      classes,
+    };
+  }).filter((g) => g.classes.length > 0);
 
-      return {
-        ...slot,
-        classes: matchedClasses,
-        uniqueAccounts: Array.from(new Set(matchedClasses.map((c) => c.accId))),
-      };
-    })
-    .filter(Boolean) as typeof timelineSlotGroups;
-
-  // =========================================================================
-  // 🎯 2. ZOOM ACCOUNTS TRACKER: SYSTEMATIC SORTING & GROUPING
-  // =========================================================================
+  // 🎯 ZOOM ACCOUNTS TRACKER (PRIORITIZED SORTING: EXPIRED FIRST, THEN 1-3 DAYS, THEN REST)
   const allZoomAccountsList = Object.keys(poolData || {})
     .map((accId) => {
       const acc = poolData[accId];
@@ -566,19 +590,17 @@ export default function AdminPoolPage() {
       };
     })
     .sort((a, b) => {
-      // 1. Expired accounts (daysLeft <= 0) ALWAYS on TOP, sorted most overdue first
+      // 1. Expired first (<= 0)
       const aExpired = a.daysLeft !== null && a.daysLeft <= 0;
       const bExpired = b.daysLeft !== null && b.daysLeft <= 0;
       if (aExpired && !bExpired) return -1;
       if (!aExpired && bExpired) return 1;
       if (aExpired && bExpired) return (a.daysLeft || 0) - (b.daysLeft || 0);
 
-      // 2. Both are positive: sort ascending (1 day left -> 2 days left -> 10 days left)
+      // 2. Ascending order of days remaining (1 day, 2 days, 3 days...)
       if (a.daysLeft !== null && b.daysLeft !== null) {
         return a.daysLeft - b.daysLeft;
       }
-
-      // 3. Nulls last
       if (a.daysLeft === null) return 1;
       if (b.daysLeft === null) return -1;
       return 0;
@@ -586,8 +608,7 @@ export default function AdminPoolPage() {
 
   const zoomExpiredCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft <= 0).length;
   const zoomCriticalCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 3).length;
-  const zoomWeekCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft > 3 && a.daysLeft <= 7).length;
-  const zoomActiveCount = allZoomAccountsList.filter((a) => a.status === "ACTIVE" && (a.daysLeft === null || a.daysLeft > 7)).length;
+  const zoomActiveCount = allZoomAccountsList.filter((a) => a.status === "ACTIVE").length;
 
   const filteredZoomAccounts = allZoomAccountsList.filter((acc) => {
     const q = (zoomSearchTerm || "").trim().toLowerCase();
@@ -598,7 +619,6 @@ export default function AdminPoolPage() {
 
     if (zoomFilterType === "expired") return acc.daysLeft !== null && acc.daysLeft <= 0;
     if (zoomFilterType === "soon") return acc.daysLeft !== null && acc.daysLeft > 0 && acc.daysLeft <= 3;
-    if (zoomFilterType === "week") return acc.daysLeft !== null && acc.daysLeft > 3 && acc.daysLeft <= 7;
     if (zoomFilterType === "active") return acc.status === "ACTIVE";
     if (zoomFilterType === "inactive") return acc.status === "INACTIVE";
 
@@ -812,7 +832,9 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
+        {/* ========================================================================= */}
+        {/* ==================== TAB 1: ZOOM POOL VISUALIZER ======================== */}
+        {/* ========================================================================= */}
         {!loading && activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             
@@ -845,7 +867,7 @@ export default function AdminPoolPage() {
                         <th className="p-3 text-right">ACTION</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y border-slate-800/60 text-slate-200">
+                    <tbody className="divide-y divide-slate-800/60 text-slate-200">
                       {earlyEndedClasses.map((item, idx) => {
                         const isEndingThis = endingMeetingId === item.zoom_id;
                         return (
@@ -910,6 +932,70 @@ export default function AdminPoolPage() {
                 </div>
               </div>
             )}
+
+            {/* 🎯 RESTORED: NEXT 6 HOURS LIVE AVAILABILITY PANEL */}
+            <div className="bg-[#0b132b] border border-blue-900/60 rounded-3xl p-5 shadow-2xl space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📊</span>
+                  <div>
+                    <h3 className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 uppercase tracking-wider">
+                      NEXT 6 HOURS LIVE AVAILABILITY FORECAST (ACTIVE POOL: {totalActivePool})
+                    </h3>
+                    <p className="text-[11px] text-gray-400">
+                      ඉදිරි පැය 6 තුළ ඕනෑම වෙලාවක අලුත් පන්තියක් Schedule කිරීම සඳහා පවතින ඉතිරි Free Zoom Accounts ප්‍රමාණය.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hourly Forecast Grid Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {nextHoursAvailability.map((hourSlot, hIdx) => {
+                  const isHighDemand = hourSlot.freeCount <= 5;
+                  const isModerate = hourSlot.freeCount > 5 && hourSlot.freeCount <= 15;
+
+                  return (
+                    <div 
+                      key={hIdx}
+                      className={`p-3.5 rounded-2xl border text-center transition-all ${
+                        hourSlot.isCurrent 
+                          ? "bg-blue-950/70 border-blue-500 ring-2 ring-blue-500/30 shadow-lg"
+                          : "bg-slate-950/70 border-slate-800/90 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-[11px] font-mono font-bold text-gray-300 truncate">
+                          {hourSlot.timeRange}
+                        </span>
+                        {hourSlot.isCurrent && (
+                          <span className="text-[9px] bg-blue-500 text-white font-bold px-1 rounded">NOW</span>
+                        )}
+                      </div>
+
+                      <div className="my-2">
+                        <span className={`text-2xl font-black font-mono ${
+                          isHighDemand ? "text-rose-400" : isModerate ? "text-amber-400" : "text-emerald-400"
+                        }`}>
+                          {hourSlot.freeCount}
+                        </span>
+                        <span className="text-[10px] text-gray-400 block font-medium">Free Accounts</span>
+                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-black uppercase inline-block border ${
+                        isHighDemand 
+                          ? "bg-rose-950 text-rose-300 border-rose-800" 
+                          : isModerate 
+                          ? "bg-amber-950 text-amber-300 border-amber-800" 
+                          : "bg-emerald-950 text-emerald-300 border-emerald-800"
+                      }`}>
+                        {isHighDemand ? "High Demand" : isModerate ? "Moderate" : "Available"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* ZOOM POOL ACCOUNTS GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1009,189 +1095,131 @@ export default function AdminPoolPage() {
         {!loading && activeTab === "ending_schedule" && (
           <div className="space-y-6 animate-fadeIn">
             
-            {/* OVERVIEW PANEL & SEARCH */}
-            <div className="bg-[#0b132b] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200 flex items-center gap-2">
-                    <span>⏱️</span> Class End Timeline — 30 Minute Slots
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-1">
-                    නියමිත වේලාවට පන්ති අවසන් වීමත් සමඟ නිදහස් වන (Free हुने) Zoom Accounts සහ කාලසටහන.
-                  </p>
-                </div>
-
-                <div className="w-full md:w-80">
-                  <input
-                    type="text"
-                    placeholder="🔍 Search Account, Teacher ID, Topic..."
-                    value={endingSearchTerm}
-                    onChange={(e) => setEndingSearchTerm(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono"
-                  />
-                </div>
+            {/* SEARCH AND FILTER BAR (MATCHING SCREENSHOT) */}
+            <div className="bg-[#0b132b] border border-slate-800 p-4 rounded-3xl space-y-3 shadow-xl">
+              <div className="relative w-full">
+                <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400 text-sm">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search Class, Teacher ID, Zoom Account..."
+                  value={timelineSearch}
+                  onChange={(e) => setTimelineSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono"
+                />
               </div>
 
-              {/* QUICK CHIP BAR: TIMELINE AT A GLANCE */}
-              <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                    ⚡ Upcoming Ending Slots (Click to Filter):
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTimelineStatusFilter("ALL")}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    timelineStatusFilter === "ALL" 
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/30" 
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>📋 All</span>
+                  <span className="bg-slate-950 px-1.5 py-0.2 rounded-full text-[10px]">
+                    {allActiveScheduledClasses.length}
                   </span>
-                  {selectedTimeSlotFilter !== "all" && (
-                    <button
-                      onClick={() => setSelectedTimeSlotFilter("all")}
-                      className="text-[11px] text-blue-400 hover:underline font-bold cursor-pointer"
-                    >
-                      Show All Slots ({timelineSlotGroups.length})
-                    </button>
-                  )}
-                </div>
+                </button>
 
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                  <button
-                    onClick={() => setSelectedTimeSlotFilter("all")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold whitespace-nowrap transition cursor-pointer ${
-                      selectedTimeSlotFilter === "all"
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black"
-                        : "bg-slate-950 border border-slate-800 text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    All Slots ({allActiveScheduledClasses.length} Classes)
-                  </button>
+                <button
+                  onClick={() => setTimelineStatusFilter("SCHEDULED")}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    timelineStatusFilter === "SCHEDULED" 
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/30" 
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>🟢 Scheduled Only</span>
+                  <span className="bg-slate-950 text-blue-300 px-1.5 py-0.2 rounded-full text-[10px]">
+                    {allActiveScheduledClasses.filter(c => !c.isStarted).length}
+                  </span>
+                </button>
 
-                  {timelineSlotGroups.map((slot, sIdx) => {
-                    const isSelected = selectedTimeSlotFilter === slot.endStr;
-                    return (
-                      <button
-                        key={sIdx}
-                        onClick={() => setSelectedTimeSlotFilter(isSelected ? "all" : slot.endStr)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold whitespace-nowrap transition flex items-center gap-2 cursor-pointer border ${
-                          isSelected
-                            ? "bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-600/30"
-                            : slot.minsDiff <= 30 && slot.minsDiff > 0
-                            ? "bg-amber-950/60 border-amber-600/80 text-amber-300 hover:bg-amber-900"
-                            : "bg-slate-950 border-slate-800/90 text-slate-300 hover:border-slate-700"
-                        }`}
-                      >
-                        <span>🏁 {slot.endStr}</span>
-                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                          isSelected ? "bg-white text-purple-900" : "bg-blue-950 text-blue-300 border border-blue-800"
-                        }`}>
-                          {slot.classes.length} Free
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <button
+                  onClick={() => setTimelineStatusFilter("STARTED")}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    timelineStatusFilter === "STARTED" 
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30" 
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>🔴 Started (Live)</span>
+                  <span className="bg-slate-950 text-emerald-300 px-1.5 py-0.2 rounded-full text-[10px]">
+                    {allActiveScheduledClasses.filter(c => c.isStarted).length}
+                  </span>
+                </button>
               </div>
             </div>
 
-            {/* TIMELINE SLOT CARDS CONTAINER */}
-            <div className="space-y-4">
-              {filteredTimelineSlots.length === 0 ? (
-                <div className="bg-[#0b132b]/80 border border-slate-900 rounded-3xl p-12 text-center text-gray-500 italic">
-                  අවසන් වීමට නියමිත කිසිදු Class එකක් හමු නොවීය.
+            {/* CHRONOLOGICAL TIMELINE BLOCKS (LIKE SCREENSHOT) */}
+            <div className="space-y-5">
+              {timelineGroups.length === 0 ? (
+                <div className="bg-[#0b132b]/80 border border-slate-800 rounded-3xl p-12 text-center text-gray-500 italic">
+                  කිසිදු Class එකක් හමු නොවීය.
                 </div>
               ) : (
-                filteredTimelineSlots.map((slot, sIdx) => {
-                  return (
-                    <div 
-                      key={sIdx}
-                      className="bg-[#0b132b]/80 border-2 border-slate-800/90 hover:border-blue-900/60 rounded-3xl p-5 space-y-3.5 shadow-xl transition-all"
-                    >
-                      {/* SLOT HEADER */}
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-800/80">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-950/80 border border-purple-700/80 rounded-xl text-purple-300 font-mono font-bold text-sm">
-                            <span>🏁</span>
-                            <span>{slot.endStr}</span>
-                          </div>
+                timelineGroups.map((group, gIdx) => (
+                  <div key={gIdx} className="space-y-2.5">
+                    
+                    {/* Time Slot Header Badge */}
+                    <div className="flex items-center gap-2">
+                      <span className="px-3.5 py-1.5 bg-gradient-to-r from-amber-950/80 to-amber-900/40 border border-amber-600/60 rounded-xl text-amber-300 font-mono font-black text-xs inline-flex items-center gap-1.5 shadow-md">
+                        <span>🏁</span>
+                        <span>{group.endStr} ({group.classes.length} {group.classes.length === 1 ? "Class" : "Classes"} Free)</span>
+                      </span>
+                    </div>
 
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-gray-400 font-medium">Freeing Accounts:</span>
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {slot.uniqueAccounts.map((acc, aIdx) => (
-                                <span 
-                                  key={aIdx}
-                                  className="px-2 py-0.5 bg-blue-950 border border-blue-700 text-blue-300 font-mono font-black rounded-lg text-xs"
-                                >
-                                  ⚡ {acc}
-                                </span>
-                              ))}
+                    {/* Classes in this time slot */}
+                    <div className="space-y-2">
+                      {group.classes.map((cls, cIdx) => (
+                        <div
+                          key={cIdx}
+                          className="bg-[#0b132b]/90 border border-slate-800 hover:border-slate-700 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 bg-blue-950/80 border border-blue-700/80 text-blue-300 font-mono font-black rounded-xl text-xs">
+                              ⚡ {cls.accId}
+                            </span>
+
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-bold text-white">{cls.topic}</h4>
+                              <div className="flex items-center gap-3 text-[11px] text-gray-400 font-mono">
+                                <span className="text-blue-400">👤 {cls.teacher_id}</span>
+                                <span>•</span>
+                                <span>Duration: {formatDuration(cls.duration)}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-gray-400 font-mono">
-                            {slot.classes.length} {slot.classes.length === 1 ? "Class" : "Classes"} Ending
-                          </span>
-                          {slot.minsDiff > 0 ? (
-                            <span className="px-2.5 py-1 bg-slate-900 border border-slate-700 text-amber-400 font-mono font-bold text-[10px] rounded-lg">
-                              ⏳ තව {formatDuration(slot.minsDiff)}කින්
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 bg-rose-950 border border-rose-800 text-rose-300 font-mono font-bold text-[10px] rounded-lg">
-                              ⚠️ වේලාව ඉක්මවා ඇත ({Math.abs(slot.minsDiff)}m ago)
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                          <div className="flex items-center justify-between w-full md:w-auto md:justify-end gap-4 border-t md:border-t-0 pt-2 md:pt-0 border-slate-900">
+                            <div className="text-left md:text-right font-mono">
+                              <span className="text-xs font-bold text-blue-300 block">
+                                🕒 {cls.time} ➔ {cls.endStr}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-0.5 border ${
+                                cls.isStarted 
+                                  ? "bg-emerald-950 text-emerald-400 border-emerald-800" 
+                                  : "bg-slate-900 text-gray-400 border-slate-800"
+                              }`}>
+                                {cls.status || "SCHEDULED"}
+                              </span>
+                            </div>
 
-                      {/* SLOT CLASSES TABLE */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="border-b border-slate-900 text-gray-400 font-mono text-[11px]">
-                              <th className="py-2.5 px-3">ZOOM ACCOUNT</th>
-                              <th className="py-2.5 px-3">TEACHER ID</th>
-                              <th className="py-2.5 px-3">TOPIC</th>
-                              <th className="py-2.5 px-3">START TIME</th>
-                              <th className="py-2.5 px-3">DURATION</th>
-                              <th className="py-2.5 px-3">STATUS</th>
-                              <th className="py-2.5 px-3 text-right">ACTION</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                            {slot.classes.map((cls, cIdx) => (
-                              <tr key={cIdx} className="hover:bg-slate-900/40 transition-colors">
-                                <td className="py-3 px-3 font-mono font-black text-amber-400 whitespace-nowrap">
-                                  ⚡ {cls.accId}
-                                </td>
-                                <td className="py-3 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
-                                  👤 {cls.teacher_id}
-                                </td>
-                                <td className="py-3 px-3 font-medium text-white max-w-sm truncate">
-                                  {cls.topic}
-                                </td>
-                                <td className="py-3 px-3 font-mono font-bold text-blue-300 whitespace-nowrap">
-                                  🕒 {cls.time}
-                                </td>
-                                <td className="py-3 px-3 font-mono whitespace-nowrap">
-                                  {formatDuration(cls.duration)}
-                                </td>
-                                <td className="py-3 px-3 whitespace-nowrap">
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-950 text-slate-300 border border-slate-800">
-                                    {cls.status || "SCHEDULED"}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-3 text-right whitespace-nowrap">
-                                  <button
-                                    onClick={() => handleForceEndMeeting({ ...cls, accId: cls.accId })}
-                                    className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-xl text-xs font-bold cursor-pointer transition"
-                                  >
-                                    End Meeting
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            <button
+                              onClick={() => handleForceEndMeeting({ ...cls, accId: cls.accId })}
+                              className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                            >
+                              End Meeting
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })
+
+                  </div>
+                ))
               )}
             </div>
 
@@ -1651,15 +1679,6 @@ export default function AdminPoolPage() {
                 >
                   <span>⚠️ 1-3 Days</span>
                   <span className="bg-amber-900 text-amber-200 px-1.5 py-0.2 rounded-full text-[10px]">{zoomCriticalCount}</span>
-                </button>
-
-                <button
-                  onClick={() => setZoomFilterType("week")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    zoomFilterType === "week" ? "bg-blue-700 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  4-7 Days ({zoomWeekCount})
                 </button>
 
                 <button
