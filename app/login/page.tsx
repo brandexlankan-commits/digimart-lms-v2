@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// ==================== TRANSLATIONS FOR LOGIN PAGE ====================
 const translations = {
   si: {
     subHeader: "ගුරුවරුන් සඳහා වන ප්‍රධාන පාලන පැනලය",
@@ -110,10 +109,24 @@ export default function LoginPage() {
 
         if (checkUnpaid) {
           setIsUnpaid(true);
-          // 🎯 Backend එකෙන් ලැබෙන සැබෑ teacher_id එක ලබාගැනීම (නැතහොත් username එක තැබීම)
-          const actualId = data.teacher_id || data.teacherId || username.trim();
-          setResolvedTeacherId(actualId);
           setErrorMsg(t.unpaidNotice);
+
+          // 🎯 Username එකට අදාළ නියම Teacher ID එක Background එකෙන් Resolve කරගැනීම
+          let realId = data.teacher_id || data.teacherId || "";
+          if (!realId || !realId.toLowerCase().startsWith("teach_")) {
+            try {
+              const res = await fetch(`/api/teacher/data?teacher_id=${encodeURIComponent(username.trim())}&t=${Date.now()}`);
+              if (res.ok) {
+                const teacherData = await res.json();
+                if (teacherData?.teacher_id || teacherData?.teacherId) {
+                  realId = teacherData.teacher_id || teacherData.teacherId;
+                }
+              }
+            } catch (lookupErr) {
+              console.error(lookupErr);
+            }
+          }
+          setResolvedTeacherId(realId || username.trim());
         } else {
           let errorMessage = data.message || t.invalidFallback;
           if (errorMessage.includes("බං") || errorMessage.includes("මචං") || errorMessage.includes("වැරදියි")) {
@@ -131,15 +144,13 @@ export default function LoginPage() {
   };
 
   const handleGoToPay = () => {
-    // 🎯 සැබෑ Teacher ID එකක් තිබේ නම් එයින්ද, නැතහොත් username එක query එකට එක්කර යැවීම
+    // 🎯 කෙලින්ම සැබෑ Teacher ID (teach_...) එකම URL එකට දමා යවයි!
     const idToPass = resolvedTeacherId || username.trim();
     router.push(`/pay?id=${encodeURIComponent(idToPass)}`);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white font-sans relative selection:bg-blue-600/30">
-      
-      {/* 🌐 LANGUAGE SWITCHER */}
       <div className="absolute top-5 right-5">
         <select 
           value={lang}
@@ -153,13 +164,11 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-6">
-        
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-blue-500 tracking-wide">DIGIMART LMS</h1>
           <p className="text-xs text-gray-400">{t.subHeader}</p>
         </div>
 
-        {/* 🚨 ERROR BANNER WITH ACTION BUTTON */}
         {errorMsg && (
           <div className={`p-4 rounded-xl text-xs text-center font-medium animate-fadeIn flex flex-col items-center gap-3 border ${
             isUnpaid 
@@ -242,7 +251,6 @@ export default function LoginPage() {
         <div className="text-center pt-2 border-t border-slate-800/80">
           <p className="text-[11px] text-gray-500">{t.footer}</p>
         </div>
-
       </div>
     </div>
   );
