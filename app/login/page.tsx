@@ -1,253 +1,403 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
-// ==================== TRANSLATIONS FOR LOGIN PAGE ====================
-const translations = {
-  si: {
-    subHeader: "ගුරුවරුන් සඳහා වන ප්‍රධාන පාලන පැනලය",
-    usernameLabel: "Username",
-    usernamePlaceholder: "username",
-    passwordLabel: "Password",
-    passwordPlaceholder: "••••••••",
-    signIn: "Sign In",
-    authenticating: "⚙️ සත්‍යාපනය වෙමින්...",
-    welcomePrefix: "👋 සාදරයෙන් පිළිගනිමු",
-    welcomeSuffix: "ගුරුතුමනි!",
-    invalidFallback: "ඇතුලත් කළ Username හෝ Password වැරදියි. කරුණාකර නැවත උත්සාහ කරන්න!",
-    serverError: "❌ සර්වර් එක සමඟ සම්බන්ධ වීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න!",
-    payUploadBtn: "💳 Slip එක Upload කර Account එක Active කරන්න",
-    unpaidNotice: "ඔබගේ ගෙවීම් කටයුතු සක්‍රිය නැත. පහත බොත්තමෙන් Bank Slip එක Upload කර ගිණුම ක්ෂණිකව සක්‍රිය කරගන්න!",
-    whatsappBtn: "💬 WhatsApp සහයෝගිතාව",
-    footer: "Powered by Digimart Automation Solutions"
-  },
-  en: {
-    subHeader: "Main Control Panel for Teachers",
-    usernameLabel: "Username",
-    usernamePlaceholder: "username",
-    passwordLabel: "Password",
-    passwordPlaceholder: "••••••••",
-    signIn: "Sign In",
-    authenticating: "⚙️ Authenticating...",
-    welcomePrefix: "👋 Welcome",
-    welcomeSuffix: "Teacher!",
-    invalidFallback: "Invalid Username or Password. Please try again!",
-    serverError: "❌ Unable to connect to the server. Please try again!",
-    payUploadBtn: "💳 Upload Slip & Activate Account",
-    unpaidNotice: "Your account is not active. Upload your Bank Slip below to activate it instantly!",
-    whatsappBtn: "💬 Contact Support via WhatsApp",
-    footer: "Powered by Digimart Automation Solutions"
-  },
-  ta: {
-    subHeader: "ஆசிரியர்களுக்கான முக்கிய மேலாண்மை போர்டல்",
-    usernameLabel: "Username",
-    usernamePlaceholder: "username",
-    passwordLabel: "Password",
-    passwordPlaceholder: "••••••••",
-    signIn: "Sign In",
-    authenticating: "⚙️ சரிபார்க்கப்படுகிறது...",
-    welcomePrefix: "👋 நல்வரவு",
-    welcomeSuffix: "ஆசிரியர்!",
-    invalidFallback: "உள்ளிடப்பட்ட பயனர்பெயர் அல்லது கடவுச்சொல் தவறானது!",
-    serverError: "❌ சேவையகத்துடன் இணைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்!",
-    payUploadBtn: "💳 ரசீதை பதிவேற்றி கணக்கை இயக்கவும்",
-    unpaidNotice: "உங்கள் கணக்கு செயலில் இல்லை. உடனடியாக இயக்க வங்கி ரசீதை பதிவேற்றவும்!",
-    whatsappBtn: "💬 வாட்ஸ்அப் மூலம் தொடர்பு கொள்ளவும்",
-    footer: "Powered by Digimart Automation Solutions"
-  }
+// Discount Promos Dictionary
+const DISCOUNT_PROMOS: { [code: string]: { discount15: number; discount30: number; label: string } } = {
+  DIGI500: { discount15: 200, discount30: 400, label: "Rs. 200 / Rs. 400 Discount Applied" },
+  DIGI1000: { discount15: 200, discount30: 400, label: "Special Promo Applied" },
+  SPECIAL: { discount15: 200, discount30: 400, label: "Special Discount Applied" },
+  VIP: { discount15: 200, discount30: 400, label: "VIP Teacher Discount Applied" },
+  DIGIMART: { discount15: 200, discount30: 400, label: "Digimart Offer Applied" }
 };
 
-export default function LoginPage() {
-  const router = useRouter();
-  
-  // Language State: 'si' | 'en' | 'ta'
-  const [lang, setLang] = useState<"si" | "en" | "ta">("si");
+function PayContent() {
+  const searchParams = useSearchParams();
+  const [identifierInput, setIdentifierInput] = useState("");
+  const [resolvedTeacherId, setResolvedTeacherId] = useState("");
+  const [resolvedTeacherName, setResolvedTeacherName] = useState("");
+  const [isResolving, setIsResolving] = useState(false);
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [isUnpaid, setIsUnpaid] = useState(false);
-  const [targetIdForPay, setTargetIdForPay] = useState("");
+  const [selectedPlanDays, setSelectedPlanDays] = useState<15 | 30>(30);
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoMessage, setPromoMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   useEffect(() => {
-    const savedLang = (localStorage.getItem("app_lang") as "si" | "en" | "ta") || "si";
-    setLang(savedLang);
-  }, []);
+    const rawParam = searchParams.get("id") || searchParams.get("teacher_id") || searchParams.get("username") || "";
+    if (rawParam) {
+      setIdentifierInput(rawParam);
+      lookupTeacherDetails(rawParam);
+    }
+  }, [searchParams]);
 
-  const handleLangChange = (newLang: "si" | "en" | "ta") => {
-    setLang(newLang);
-    localStorage.setItem("app_lang", newLang);
-  };
+  // 🎯 Auto resolve Username to Actual Teacher ID
+  const lookupTeacherDetails = async (inputStr: string) => {
+    const clean = inputStr.trim();
+    if (!clean) return;
 
-  const t = translations[lang];
+    // If it's already a full teacher_id like teach_69
+    if (clean.toLowerCase().startsWith("teach_")) {
+      setResolvedTeacherId(clean);
+    }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
-    setIsUnpaid(false);
-
+    setIsResolving(true);
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
-      });
-
-      const data = await response.json();
-
-      if (data.status === "success" || data.success) {
-        localStorage.setItem("teacher_id", data.teacher_id);
-        localStorage.setItem("teacher_name", data.teacher_name);
-        if (data.username) localStorage.setItem("teacher_username", data.username);
-        router.push("/dashboard");
-      } else {
-        const rawMsg = String(data.message || "");
-        
-        // 🎯 UNPAID හඳුනාගැනීම (Backend එකෙන් status UNPAID ආවත් හෝ Message එකේ "ගෙවීම්/unpaid" තිබුණත්)
-        const checkUnpaid = data.status === "UNPAID" || data.isUnpaid || 
-                            rawMsg.toLowerCase().includes("unpaid") || 
-                            rawMsg.includes("ගෙවීම්") || 
-                            rawMsg.includes("සක්‍රිය නැත");
-
-        if (checkUnpaid) {
-          setIsUnpaid(true);
-          const resolvedId = data.teacher_id || username.trim();
-          setTargetIdForPay(resolvedId);
-          setErrorMsg(t.unpaidNotice);
-        } else {
-          let errorMessage = data.message || t.invalidFallback;
-          if (errorMessage.includes("බං") || errorMessage.includes("මචං") || errorMessage.includes("වැරදියි")) {
-            errorMessage = t.invalidFallback;
-          }
-          setErrorMsg(errorMessage);
+      const res = await fetch(`/api/teacher/data?teacher_id=${encodeURIComponent(clean)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.teacher_id || data?.teacherId) {
+          setResolvedTeacherId(data.teacher_id || data.teacherId);
+        }
+        if (data?.teacherName || data?.teacher_name) {
+          setResolvedTeacherName(data.teacherName || data.teacher_name);
         }
       }
-    } catch (error) {
-      console.error("Login Error:", error);
-      setErrorMsg(t.serverError);
+    } catch (e) {
+      console.error("Lookup error:", e);
     } finally {
-      setLoading(false);
+      setIsResolving(false);
     }
   };
 
-  // 🎯 කෙලින්ම ගුරුවරයාගේ Username / ID එක සහිතව /pay පිටුවට යැවීම
-  const handleGoToPay = () => {
-    const idToPass = targetIdForPay || username.trim();
-    router.push(`/pay?id=${encodeURIComponent(idToPass)}`);
+  const handleApplyDiscountCode = () => {
+    const code = discountCodeInput.trim().toUpperCase();
+    if (!code) {
+      setPromoMessage({ text: "කරුණාකර Discount Code එකක් ඇතුළත් කරන්න.", isError: true });
+      return;
+    }
+
+    if (DISCOUNT_PROMOS[code]) {
+      setAppliedPromo(code);
+      setPromoMessage({ text: `🎉 සාර්ථකයි! ${DISCOUNT_PROMOS[code].label}`, isError: false });
+    } else {
+      setAppliedPromo(null);
+      setPromoMessage({ text: "❌ අවලංගු Discount Code එකකි.", isError: true });
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white font-sans relative selection:bg-blue-600/30">
-      
-      {/* 🌐 TOP RIGHT LANGUAGE SWITCHER */}
-      <div className="absolute top-5 right-5">
-        <select 
-          value={lang}
-          onChange={(e) => handleLangChange(e.target.value as "si" | "en" | "ta")}
-          className="bg-slate-900 border border-slate-800 text-xs text-blue-400 font-bold px-3 py-2 rounded-xl focus:outline-none cursor-pointer shadow-lg"
-        >
-          <option value="si">🇱🇰 සිංහල</option>
-          <option value="en">🇬🇧 English</option>
-          <option value="ta">🇱🇰 தமிழ்</option>
-        </select>
-      </div>
+  const price15 = appliedPromo ? 700 - (DISCOUNT_PROMOS[appliedPromo]?.discount15 || 0) : 700;
+  const price30 = appliedPromo ? 1400 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : 1400;
+  const finalPayableAmount = selectedPlanDays === 15 ? price15 : price30;
 
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-6">
+  const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSlipFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSlipPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadBankSlip = async () => {
+    const targetId = resolvedTeacherId || identifierInput.trim();
+    if (!targetId) {
+      alert("⚠️ කරුණාකර ඔබගේ Teacher ID හෝ Username එක ඇතුළත් කරන්න.");
+      return;
+    }
+    if (!slipPreview || !slipFile) {
+      alert("⚠️ කරුණාකර බැංකු රිසිට්පතේ (Slip - JPG / PNG / PDF) ගොනුවක් තෝරන්න.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+      
+      // 🎯 Send both teacher_id AND username so n8n can match EITHER column accurately
+      const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacher_id: targetId,
+          username: identifierInput.trim(),
+          image_base64: slipPreview,
+          file_ext: fileExt,
+          plan_days: selectedPlanDays,
+          amount: finalPayableAmount,
+          discount_code: appliedPromo || ""
+        })
+      });
+
+      if (response.ok) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("digimart_slip_uploaded", "true");
+        }
+        setUploadSuccess(true);
+      } else {
+        alert("❌ Slip එක Upload කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
+      }
+    } catch (error) {
+      console.error("Slip upload error:", error);
+      alert("⚠️ සේවාදායකයේ දෝෂයකි. කරුණාකර නැවත උත්සාහ කරන්න.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const isPdf = slipFile?.type === "application/pdf" || slipFile?.name.toLowerCase().endsWith(".pdf");
+
+  return (
+    <div className="min-h-screen bg-[#070b19] text-white flex items-center justify-center p-4 selection:bg-blue-600/30">
+      <div className="w-full max-w-lg bg-[#0b132b] border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-5 shadow-2xl relative">
         
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-black text-blue-500 tracking-wide">DIGIMART LMS</h1>
-          <p className="text-xs text-gray-400">{t.subHeader}</p>
+        {/* LOGO & TITLE */}
+        <div className="text-center space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-950/80 border border-blue-800/60 rounded-full text-blue-300 text-xs font-bold mb-1">
+            ⚡ Digimart LMS Official Portal
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200">
+            💳 Package Renewal &amp; Slip Upload
+          </h1>
+          <p className="text-xs text-slate-400">
+            බැංකු රිසිට්පත Upload කළ සැණින් ගිණුම ස්වයංක්‍රීයව Active (Paid) වේ.
+          </p>
         </div>
 
-        {/* 🚨 ERROR MESSAGE BANNER (DIRECT PAYMENT BUTTON FOR UNPAID TEACHERS) */}
-        {errorMsg && (
-          <div className={`p-4 rounded-xl text-xs text-center font-medium animate-fadeIn flex flex-col items-center gap-3 border ${
-            isUnpaid 
-              ? "bg-rose-950/40 border-rose-500/40 text-rose-300" 
-              : "bg-red-500/10 border-red-500/30 text-red-400"
-          }`}>
-            <span>{errorMsg}</span>
+        {uploadSuccess ? (
+          <div className="bg-slate-950 border border-emerald-500/60 p-6 rounded-2xl text-center space-y-4 animate-fadeIn">
+            <span className="text-4xl">🎉</span>
+            <h2 className="text-lg font-black text-emerald-400">බැංකු රිසිට්පත සාර්ථකව ලැබුණි!</h2>
             
-            {isUnpaid ? (
-              <div className="w-full space-y-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleGoToPay}
-                  className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black px-4 rounded-xl transition-all text-xs shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>{t.payUploadBtn}</span>
-                  <span className="text-sm font-bold">➔</span>
-                </button>
+            <div className="bg-emerald-950/40 border border-emerald-900/60 p-4 rounded-xl text-left space-y-2 text-xs text-slate-200">
+              <p className="flex items-center gap-2 text-emerald-300 font-bold">
+                <span>✅</span> ඔබගේ Account එක දැන් ක්ෂණිකව Active (Paid) වී ඇත.
+              </p>
+              <p className="flex items-center gap-2 text-slate-300">
+                <span>🚀</span> ඔබට දැන් කිසිදු බාධාවකින් තොරව Login වී Classes පැවැත්විය හැක.
+              </p>
+              <p className="flex items-center gap-2 text-amber-300 font-medium">
+                <span>⏳</span> නව Expiry Date එක පැය 24ක් ඇතුළත පද්ධතියේ Verify වී Dashboard හි Update වනු ඇත.
+              </p>
+            </div>
 
-                <div className="text-center pt-1">
-                  <a 
-                    href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මගේ Username එක ${username.trim()} වන අතර ගිණුම Activate කරගැනීමට සහය අවශ්‍යයි.`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-emerald-400 hover:underline inline-flex items-center gap-1 font-bold"
-                  >
-                    <span>{t.whatsappBtn}</span>
-                  </a>
+            <div className="pt-2">
+              <a
+                href="/login"
+                className="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition"
+              >
+                Go to LMS Login ➔
+              </a>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* TEACHER ID / USERNAME IDENTIFIER INPUT */}
+            <div className="bg-slate-950/70 border border-slate-800/80 p-3.5 rounded-2xl space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="block text-[11px] font-bold text-gray-400">
+                  👤 Teacher ID / Username
+                </label>
+                {resolvedTeacherName && (
+                  <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                    ✓ {resolvedTeacherName}
+                  </span>
+                )}
+              </div>
+
+              <input
+                type="text"
+                value={identifierInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setIdentifierInput(val);
+                  lookupTeacherDetails(val);
+                }}
+                placeholder="e.g. teach_69 හෝ dimo74"
+                className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-blue-500"
+              />
+
+              {resolvedTeacherId && resolvedTeacherId !== identifierInput && (
+                <p className="text-[10px] text-blue-300/80 font-mono mt-0.5">
+                  Connected Account ID: <strong className="text-white">{resolvedTeacherId}</strong>
+                </p>
+              )}
+            </div>
+
+            {/* BANK DETAILS */}
+            <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-2 text-xs shadow-inner">
+              <h4 className="font-bold text-blue-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <span>🏛️</span> Digimart නිල බැංකු ගිණුම් විස්තර
+              </h4>
+              <div className="font-mono text-slate-300 space-y-1.5 text-[11px] pt-1">
+                <p><span className="text-gray-500">Bank:</span> <strong className="text-white">Sampath Bank</strong></p>
+                <p><span className="text-gray-500">Account Name:</span> <strong className="text-white">S.D.Nuwan Sameera Deshapriya</strong></p>
+                <p>
+                  <span className="text-gray-500">Account No:</span>{" "}
+                  <span className="text-emerald-400 font-black text-sm select-all bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/80 tracking-wider">
+                    1188 5747 0946
+                  </span>
+                </p>
+                <p><span className="text-gray-500">Branch:</span> <strong className="text-slate-300">Rambukkana Branch</strong></p>
+              </div>
+            </div>
+
+            {/* SELECTABLE PLAN CARDS */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-gray-300">
+                පැකේජය තෝරන්න (Click to Select)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div
+                  onClick={() => setSelectedPlanDays(15)}
+                  className={`p-3.5 rounded-2xl cursor-pointer transition-all border text-center relative ${
+                    selectedPlanDays === 15
+                      ? "bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/40 shadow-lg shadow-blue-900/30"
+                      : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  {selectedPlanDays === 15 && (
+                    <span className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center font-bold">
+                      ✓
+                    </span>
+                  )}
+                  <p className="text-[11px] font-bold text-gray-400">15 Days Extension</p>
+                  <div className="mt-1 flex items-center justify-center gap-1.5">
+                    {appliedPromo && (
+                      <span className="text-xs text-gray-500 line-through font-mono">LKR 700</span>
+                    )}
+                    <p className="font-black text-blue-400 text-base font-mono">
+                      LKR {price15.toLocaleString()}
+                    </p>
+                  </div>
+                  {appliedPromo && (
+                    <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded mt-1 inline-block">
+                      Save Rs. {700 - price15}
+                    </span>
+                  )}
+                </div>
+
+                <div
+                  onClick={() => setSelectedPlanDays(30)}
+                  className={`p-3.5 rounded-2xl cursor-pointer transition-all border text-center relative ${
+                    selectedPlanDays === 30
+                      ? "bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-900/30"
+                      : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  {selectedPlanDays === 30 && (
+                    <span className="absolute -top-2 -right-2 bg-indigo-600 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center font-bold">
+                      ✓
+                    </span>
+                  )}
+                  <p className="text-[11px] font-bold text-gray-400">30 Days Extension</p>
+                  <div className="mt-1 flex items-center justify-center gap-1.5">
+                    {appliedPromo && (
+                      <span className="text-xs text-gray-500 line-through font-mono">LKR 1,400</span>
+                    )}
+                    <p className="font-black text-indigo-300 text-base font-mono">
+                      LKR {price30.toLocaleString()}
+                    </p>
+                  </div>
+                  {appliedPromo && (
+                    <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded mt-1 inline-block">
+                      Save Rs. {1400 - price30}
+                    </span>
+                  )}
                 </div>
               </div>
-            ) : (
-              <a 
-                href="https://wa.me/94750204252?text=Hello%20Digimart!%20I%20need%20help%20with%20my%20LMS%20account."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-all text-xs shadow-md shadow-emerald-600/20 active:scale-95"
-              >
-                {t.whatsappBtn}
-              </a>
-            )}
-          </div>
+            </div>
+
+            {/* DISCOUNT PROMO INPUT */}
+            <div className="space-y-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-900">
+              <label className="block text-[11px] font-bold text-gray-400">
+                🏷️ Discount Code (Optional)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={discountCodeInput}
+                  onChange={(e) => {
+                    setDiscountCodeInput(e.target.value);
+                    if (promoMessage) setPromoMessage(null);
+                  }}
+                  placeholder="Promo Code (e.g. DIGI500 / SPECIAL)"
+                  className="flex-1 p-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white uppercase font-mono tracking-wider focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyDiscountCode}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold text-xs rounded-xl transition cursor-pointer border border-slate-700"
+                >
+                  Apply
+                </button>
+              </div>
+              {promoMessage && (
+                <p className={`text-[10px] font-mono mt-1 ${promoMessage.isError ? "text-rose-400" : "text-emerald-400 font-bold"}`}>
+                  {promoMessage.text}
+                </p>
+              )}
+            </div>
+
+            {/* SLIP UPLOAD INPUT */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-gray-300">
+                බැංකු රිසිට්පත තෝරන්න (JPG / PNG / PDF)
+              </label>
+              <input
+                type="file"
+                accept="image/png, image/jpeg, image/jpg, application/pdf"
+                onChange={handleSlipFileSelect}
+                className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-950 p-2 rounded-2xl border border-slate-900"
+              />
+
+              {slipFile && (
+                <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 p-3 flex items-center justify-center">
+                  {isPdf ? (
+                    <div className="flex items-center gap-3 py-2">
+                      <span className="text-3xl">📄</span>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-200 truncate max-w-[240px]">{slipFile.name}</p>
+                        <p className="text-[10px] text-emerald-400 font-mono">{(slipFile.size / 1024).toFixed(1)} KB (PDF Ready)</p>
+                      </div>
+                    </div>
+                  ) : slipPreview ? (
+                    <img src={slipPreview} alt="Slip Preview" className="max-h-44 object-contain rounded-xl" />
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {/* SUMMARY & SUBMIT */}
+            <div className="p-3 bg-blue-950/30 border border-blue-900/50 rounded-2xl flex items-center justify-between text-xs font-mono">
+              <div>
+                <span className="text-gray-400">Selected Plan: </span>
+                <strong className="text-white font-bold">{selectedPlanDays} Days</strong>
+                {appliedPromo && <span className="ml-1 text-emerald-400 font-bold">({appliedPromo})</span>}
+              </div>
+              <div className="text-right">
+                <span className="text-gray-400 text-[10px] block">Amount to Transfer</span>
+                <span className="text-emerald-400 font-black text-sm">LKR {finalPayableAmount.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleUploadBankSlip}
+              disabled={!slipFile || uploading || isResolving}
+              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white font-black rounded-xl text-xs transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {uploading ? "⚙️ Slip එක උඩුගත වෙමින් පවතී..." : "🚀 Slip එක Upload කර Account එක Activate කරන්න"}
+            </button>
+          </>
         )}
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">{t.usernameLabel}</label>
-            <input 
-              type="text" 
-              required 
-              disabled={loading}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full p-3 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 font-mono" 
-              placeholder={t.usernamePlaceholder}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">{t.passwordLabel}</label>
-            <input 
-              type="password" 
-              required 
-              disabled={loading}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 bg-slate-800 border border-slate-700/60 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 font-mono" 
-              placeholder={t.passwordPlaceholder}
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full py-3 mt-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-bold tracking-wide transition-all shadow-lg shadow-blue-600/20 disabled:bg-slate-700 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {loading ? t.authenticating : t.signIn}
-          </button>
-        </form>
-
-        <div className="text-center pt-2 border-t border-slate-800/80">
-          <p className="text-[11px] text-gray-500">{t.footer}</p>
-        </div>
 
       </div>
     </div>
+  );
+}
+
+export default function PayPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#070b19] flex items-center justify-center text-blue-400 text-xs font-mono">Loading Payment Portal...</div>}>
+      <PayContent />
+    </Suspense>
   );
 }
