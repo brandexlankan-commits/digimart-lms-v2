@@ -14,6 +14,7 @@ const DISCOUNT_PROMOS: { [code: string]: { discount15: number; discount30: numbe
 function PayContent() {
   const searchParams = useSearchParams();
   const [identifierInput, setIdentifierInput] = useState("");
+  const [resolvedUsername, setResolvedUsername] = useState("");
   const [resolvedTeacherId, setResolvedTeacherId] = useState("");
   const [resolvedTeacherName, setResolvedTeacherName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
@@ -36,21 +37,19 @@ function PayContent() {
     }
   }, [searchParams]);
 
-  // 🎯 Auto resolve Username to Actual Teacher ID
+  // 🎯 Teacher ID ආවත් Username එක සොයාගැනීම (Resolution)
   const lookupTeacherDetails = async (inputStr: string) => {
     const clean = inputStr.trim();
     if (!clean) return;
-
-    // If it's already a full teacher_id like teach_69
-    if (clean.toLowerCase().startsWith("teach_")) {
-      setResolvedTeacherId(clean);
-    }
 
     setIsResolving(true);
     try {
       const res = await fetch(`/api/teacher/data?teacher_id=${encodeURIComponent(clean)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
+        if (data?.username) {
+          setResolvedUsername(data.username);
+        }
         if (data?.teacher_id || data?.teacherId) {
           setResolvedTeacherId(data.teacher_id || data.teacherId);
         }
@@ -98,8 +97,11 @@ function PayContent() {
   };
 
   const handleUploadBankSlip = async () => {
-    const targetId = resolvedTeacherId || identifierInput.trim();
-    if (!targetId) {
+    // 🎯 n8n එක match කරන්නේ Username එකෙන් නිසා, resolvedUsername හෝ identifierInput එක ලබාදීම
+    const finalUsername = resolvedUsername || identifierInput.trim();
+    const finalTeacherId = resolvedTeacherId || identifierInput.trim();
+
+    if (!finalUsername) {
       alert("⚠️ කරුණාකර ඔබගේ Teacher ID හෝ Username එක ඇතුළත් කරන්න.");
       return;
     }
@@ -112,13 +114,13 @@ function PayContent() {
     try {
       const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       
-      // 🎯 Send both teacher_id AND username so n8n can match EITHER column accurately
+      // 🎯 n8n වෙත username සහ teacher_id දෙකම යවයි (n8n හි username match එක 100% ක් වැඩ කරයි)
       const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teacher_id: targetId,
-          username: identifierInput.trim(),
+          username: finalUsername,
+          teacher_id: finalTeacherId,
           image_base64: slipPreview,
           file_ext: fileExt,
           plan_days: selectedPlanDays,
@@ -215,9 +217,9 @@ function PayContent() {
                 className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-blue-500"
               />
 
-              {resolvedTeacherId && resolvedTeacherId !== identifierInput && (
-                <p className="text-[10px] text-blue-300/80 font-mono mt-0.5">
-                  Connected Account ID: <strong className="text-white">{resolvedTeacherId}</strong>
+              {resolvedUsername && resolvedUsername !== identifierInput && (
+                <p className="text-[10px] text-emerald-400/90 font-mono mt-0.5">
+                  Connected Username: <strong className="text-white">@{resolvedUsername}</strong>
                 </p>
               )}
             </div>
