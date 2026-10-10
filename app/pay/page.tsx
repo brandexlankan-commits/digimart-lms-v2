@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
+// Discount Promos Dictionary
 const DISCOUNT_PROMOS: { [code: string]: { discount15: number; discount30: number; label: string } } = {
   DIGI500: { discount15: 200, discount30: 400, label: "Rs. 200 / Rs. 400 Discount Applied" },
   DIGI1000: { discount15: 200, discount30: 400, label: "Special Promo Applied" },
@@ -12,7 +13,11 @@ const DISCOUNT_PROMOS: { [code: string]: { discount15: number; discount30: numbe
 
 function PayContent() {
   const searchParams = useSearchParams();
-  const [teacherId, setTeacherId] = useState("");
+  const [identifierInput, setIdentifierInput] = useState("");
+  const [resolvedTeacherId, setResolvedTeacherId] = useState("");
+  const [resolvedTeacherName, setResolvedTeacherName] = useState("");
+  const [isResolving, setIsResolving] = useState(false);
+
   const [selectedPlanDays, setSelectedPlanDays] = useState<15 | 30>(30);
   const [discountCodeInput, setDiscountCodeInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
@@ -24,11 +29,41 @@ function PayContent() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   useEffect(() => {
-    const idFromUrl = searchParams.get("id") || searchParams.get("teacher_id") || searchParams.get("username") || "";
-    if (idFromUrl) {
-      setTeacherId(idFromUrl);
+    const rawParam = searchParams.get("id") || searchParams.get("teacher_id") || searchParams.get("username") || "";
+    if (rawParam) {
+      setIdentifierInput(rawParam);
+      lookupTeacherDetails(rawParam);
     }
   }, [searchParams]);
+
+  // 🎯 Auto resolve Username to Actual Teacher ID
+  const lookupTeacherDetails = async (inputStr: string) => {
+    const clean = inputStr.trim();
+    if (!clean) return;
+
+    // If it's already a full teacher_id like teach_69
+    if (clean.toLowerCase().startsWith("teach_")) {
+      setResolvedTeacherId(clean);
+    }
+
+    setIsResolving(true);
+    try {
+      const res = await fetch(`/api/teacher/data?teacher_id=${encodeURIComponent(clean)}&t=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.teacher_id || data?.teacherId) {
+          setResolvedTeacherId(data.teacher_id || data.teacherId);
+        }
+        if (data?.teacherName || data?.teacher_name) {
+          setResolvedTeacherName(data.teacherName || data.teacher_name);
+        }
+      }
+    } catch (e) {
+      console.error("Lookup error:", e);
+    } finally {
+      setIsResolving(false);
+    }
+  };
 
   const handleApplyDiscountCode = () => {
     const code = discountCodeInput.trim().toUpperCase();
@@ -63,7 +98,8 @@ function PayContent() {
   };
 
   const handleUploadBankSlip = async () => {
-    if (!teacherId.trim()) {
+    const targetId = resolvedTeacherId || identifierInput.trim();
+    if (!targetId) {
       alert("⚠️ කරුණාකර ඔබගේ Teacher ID හෝ Username එක ඇතුළත් කරන්න.");
       return;
     }
@@ -75,12 +111,14 @@ function PayContent() {
     setUploading(true);
     try {
       const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+      
+      // 🎯 Send both teacher_id AND username so n8n can match EITHER column accurately
       const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          teacher_id: teacherId.trim(),
-          username: teacherId.trim(),
+          teacher_id: targetId,
+          username: identifierInput.trim(),
           image_base64: slipPreview,
           file_ext: fileExt,
           plan_days: selectedPlanDays,
@@ -152,18 +190,36 @@ function PayContent() {
           </div>
         ) : (
           <>
-            {/* TEACHER ID OR USERNAME INPUT */}
-            <div className="bg-slate-950/70 border border-slate-800/80 p-3 rounded-2xl space-y-1.5">
-              <label className="block text-[11px] font-bold text-gray-400">
-                👤 Teacher ID / Username
-              </label>
+            {/* TEACHER ID / USERNAME IDENTIFIER INPUT */}
+            <div className="bg-slate-950/70 border border-slate-800/80 p-3.5 rounded-2xl space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="block text-[11px] font-bold text-gray-400">
+                  👤 Teacher ID / Username
+                </label>
+                {resolvedTeacherName && (
+                  <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                    ✓ {resolvedTeacherName}
+                  </span>
+                )}
+              </div>
+
               <input
                 type="text"
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-                placeholder="e.g. dimo74 හෝ teach_69"
-                className="w-full p-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-blue-500"
+                value={identifierInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setIdentifierInput(val);
+                  lookupTeacherDetails(val);
+                }}
+                placeholder="e.g. teach_69 හෝ dimo74"
+                className="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono font-bold text-blue-400 focus:outline-none focus:border-blue-500"
               />
+
+              {resolvedTeacherId && resolvedTeacherId !== identifierInput && (
+                <p className="text-[10px] text-blue-300/80 font-mono mt-0.5">
+                  Connected Account ID: <strong className="text-white">{resolvedTeacherId}</strong>
+                </p>
+              )}
             </div>
 
             {/* BANK DETAILS */}
@@ -325,7 +381,7 @@ function PayContent() {
 
             <button
               onClick={handleUploadBankSlip}
-              disabled={!slipFile || uploading}
+              disabled={!slipFile || uploading || isResolving}
               className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white font-black rounded-xl text-xs transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
             >
               {uploading ? "⚙️ Slip එක උඩුගත වෙමින් පවතී..." : "🚀 Slip එක Upload කර Account එක Activate කරන්න"}
