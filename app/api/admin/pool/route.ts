@@ -218,7 +218,6 @@ export async function GET(request: Request) {
         if (cells[12]) {
           slipUrl = String(cells[12]?.v || cells[12]?.f || "").trim();
         }
-        // Fallback: ස්කෑන් කර බැලීම (slip URL එකක් ඇත්නම් සොයාගැනීම)
         if (!slipUrl) {
           cells.forEach((c: any) => {
             const v = String(c?.v || c?.f || "").trim();
@@ -226,6 +225,16 @@ export async function GET(request: Request) {
               slipUrl = v;
             }
           });
+        }
+
+        // 🎯 🏷️ Slip Status Extraction (Column N - Index 13)
+        let slipStatus = "";
+        if (cells[13]) {
+          slipStatus = String(cells[13]?.v || cells[13]?.f || "").trim();
+        }
+        // Slip එකක් තිබිලා status එකක් නැතිනම් පමණක් Pending
+        if (!slipStatus && slipUrl) {
+          slipStatus = "Pending";
         }
 
         if (teacherId && String(teacherId).startsWith("teach_")) {
@@ -248,7 +257,8 @@ export async function GET(request: Request) {
             username: username ? String(username).trim() : "N/A",
             expiry_date: expiryDate,
             payment_status: paymentStatus,
-            slip_url: slipUrl // 👈 මෙන්න Dashboard එකට අවශ්‍ය ප්‍රධාන Slip URL එක!
+            slip_url: slipUrl,
+            slip_status: slipStatus || "Pending" // 👈 Column N හි ඇති Status එක
           });
         }
       });
