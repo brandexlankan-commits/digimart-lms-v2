@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+// ==================== TRANSLATIONS FOR LOGIN PAGE ====================
 const translations = {
   si: {
     subHeader: "ගුරුවරුන් සඳහා වන ප්‍රධාන පාලන පැනලය",
@@ -83,6 +84,7 @@ export default function LoginPage() {
     setLoading(true);
     setErrorMsg("");
     setIsUnpaid(false);
+    setResolvedTeacherId("");
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -111,22 +113,32 @@ export default function LoginPage() {
           setIsUnpaid(true);
           setErrorMsg(t.unpaidNotice);
 
-          // 🎯 Username එකට අදාළ නියම Teacher ID එක Background එකෙන් Resolve කරගැනීම
+          // 🎯 1. මුලින්ම Login API එකෙන් ලැබෙන Teacher ID එක බලනවා
           let realId = data.teacher_id || data.teacherId || "";
+
+          // 🎯 2. API එකෙන් ID එකක් නොලැබුණහොත් Pool එකෙන් dimo74 ට අදාළ teach_... ID එක (teach_86) සොයාගැනීම
           if (!realId || !realId.toLowerCase().startsWith("teach_")) {
             try {
-              const res = await fetch(`/api/teacher/data?teacher_id=${encodeURIComponent(username.trim())}&t=${Date.now()}`);
-              if (res.ok) {
-                const teacherData = await res.json();
-                if (teacherData?.teacher_id || teacherData?.teacherId) {
-                  realId = teacherData.teacher_id || teacherData.teacherId;
+              const poolRes = await fetch(`/api/admin/pool?date=${new Date().toISOString().split("T")[0]}&t=${Date.now()}`);
+              if (poolRes.ok) {
+                const poolData = await poolRes.json();
+                const list = poolData?.teachers || [];
+                const found = list.find((item: any) => 
+                  String(item.username || "").toLowerCase() === username.trim().toLowerCase()
+                );
+                if (found && found.teacher_id) {
+                  realId = found.teacher_id;
                 }
               }
-            } catch (lookupErr) {
-              console.error(lookupErr);
+            } catch (err) {
+              console.error("Pool lookup failed:", err);
             }
           }
-          setResolvedTeacherId(realId || username.trim());
+
+          // teach_86 ලෙස state එකට සහ localStorage එකට set කිරීම
+          const finalTeacherId = realId || username.trim();
+          setResolvedTeacherId(finalTeacherId);
+          localStorage.setItem("pending_pay_teacher_id", finalTeacherId);
         } else {
           let errorMessage = data.message || t.invalidFallback;
           if (errorMessage.includes("බං") || errorMessage.includes("මචං") || errorMessage.includes("වැරදියි")) {
@@ -143,14 +155,19 @@ export default function LoginPage() {
     }
   };
 
+  // 🚀 හරියටම WhatsApp මැසේජ් එකේ තියෙන ලින්ක් එකටම රීඩිරෙක්ට් කිරීම: /pay?id=teach_86
   const handleGoToPay = () => {
-    // 🎯 කෙලින්ම සැබෑ Teacher ID (teach_...) එකම URL එකට දමා යවයි!
-    const idToPass = resolvedTeacherId || username.trim();
-    router.push(`/pay?id=${encodeURIComponent(idToPass)}`);
+    let idToRedirect = resolvedTeacherId;
+    if (!idToRedirect || !idToRedirect.toLowerCase().startsWith("teach_")) {
+      idToRedirect = localStorage.getItem("pending_pay_teacher_id") || resolvedTeacherId || username.trim();
+    }
+    router.push(`/pay?id=${encodeURIComponent(idToRedirect)}`);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white font-sans relative selection:bg-blue-600/30">
+      
+      {/* 🌐 LANGUAGE SWITCHER */}
       <div className="absolute top-5 right-5">
         <select 
           value={lang}
@@ -164,11 +181,13 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-6">
+        
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-blue-500 tracking-wide">DIGIMART LMS</h1>
           <p className="text-xs text-gray-400">{t.subHeader}</p>
         </div>
 
+        {/* 🚨 ERROR BANNER WITH REDIRECT BUTTON */}
         {errorMsg && (
           <div className={`p-4 rounded-xl text-xs text-center font-medium animate-fadeIn flex flex-col items-center gap-3 border ${
             isUnpaid 
@@ -179,6 +198,7 @@ export default function LoginPage() {
             
             {isUnpaid ? (
               <div className="w-full space-y-2 pt-1">
+                {/* 🎯 මේ බටන් එක ක්ලික් කළ සැණින් කෙලින්ම යන්නේ /pay?id=teach_86 ලින්ක් එකටයි */}
                 <button
                   type="button"
                   onClick={handleGoToPay}
@@ -190,7 +210,7 @@ export default function LoginPage() {
 
                 <div className="text-center pt-1">
                   <a 
-                    href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මගේ Username/ID එක ${resolvedTeacherId || username.trim()} වන අතර ගිණුම Activate කරගැනීමට සහය අවශ්‍යයි.`)}`}
+                    href={`https://wa.me/94750204252?text=${encodeURIComponent(`Hi Digimart! මගේ Teacher ID එක ${resolvedTeacherId || username.trim()} වන අතර ගිණුම Activate කරගැනීමට සහය අවශ්‍යයි.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[11px] text-emerald-400 hover:underline inline-flex items-center gap-1 font-bold"
@@ -251,6 +271,7 @@ export default function LoginPage() {
         <div className="text-center pt-2 border-t border-slate-800/80">
           <p className="text-[11px] text-gray-500">{t.footer}</p>
         </div>
+
       </div>
     </div>
   );
