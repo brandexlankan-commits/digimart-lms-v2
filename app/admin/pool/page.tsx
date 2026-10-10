@@ -62,7 +62,7 @@ export default function AdminPoolPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active" | "unpaid" | "paid" | "need_reminder" | "reminded" | "has_slip">("all");
   
-  // 🎯 Bank Slips Sub-Tabs & States (Pending / Approved / Rejected)
+  // Bank Slips Tab States
   const [slipSubTab, setSlipSubTab] = useState<"pending" | "approved" | "rejected">("pending");
   const [slipSearchTerm, setSlipSearchTerm] = useState("");
   const [slipModalTeacher, setSlipModalTeacher] = useState<TeacherExpiry | null>(null);
@@ -157,6 +157,18 @@ export default function AdminPoolPage() {
     if (!t) return "";
     const url = t.slip_url || (t as any)["Slip URL"] || (t as any).Slip_URL || t.last_slip_url || "";
     return typeof url === "string" ? url.trim() : "";
+  };
+
+  // 🚀 DIRECT ONE-CLICK LOGIN TO TEACHER DASHBOARD WITHOUT PASSWORD
+  const handleLoginAsTeacher = (t: TeacherExpiry) => {
+    try {
+      localStorage.setItem("teacher_id", t.teacher_id);
+      localStorage.setItem("teacher_name", t.teacher_name);
+      if (t.username) localStorage.setItem("teacher_username", t.username);
+      window.open("/dashboard", "_blank");
+    } catch (e) {
+      console.error("Failed to impersonate teacher:", e);
+    }
   };
 
   const handleUpdateTeacher = async (teacherId: string, updates: { expiry_date?: string; payment_status?: string }) => {
@@ -421,7 +433,6 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 DYNAMIC LIVE ORIGIN DIRECT PAY LINK (WITH 24H EXPIRY EXPLANATION)
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -745,7 +756,7 @@ export default function AdminPoolPage() {
   const remindedCount = processedTeachers.filter(t => t.isReminded).length;
   const needReminderCount = processedTeachers.filter(t => !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7)).length;
   
-  // 🎯 Teachers With Slips Categorization (Pending, Approved, Rejected)
+  // Teachers With Slips Categorization
   const teachersWithSlips = processedTeachers.filter(t => Boolean(t.slipUrl));
 
   const pendingSlips = teachersWithSlips.filter(t => {
@@ -770,15 +781,29 @@ export default function AdminPoolPage() {
     slipSubTab === "approved" ? approvedSlipsList :
     rejectedSlipsList;
 
+  // 🎯 ULTRA-SMART SEARCH FILTER (Matches '69', '169', 'teach_69', names, etc.)
   const filteredTeachers = processedTeachers.filter((t) => {
-    const q = (searchTerm || "").trim().toLowerCase();
-    const id = String(t.teacher_id || "").toLowerCase();
-    const name = String(t.teacher_name || "").toLowerCase();
-    const user = String(t.username || "").toLowerCase();
+    const rawQ = (searchTerm || "").trim().toLowerCase();
+    
+    if (rawQ) {
+      const id = String(t.teacher_id || "").toLowerCase();
+      const idDigits = id.replace(/\D/g, "");
+      const name = String(t.teacher_name || "").toLowerCase();
+      const user = String(t.username || "").toLowerCase();
 
-    const matchesSearch = id.includes(q) || name.includes(q) || user.includes(q);
+      // Check if user typed numeric ID like "69" or "169"
+      const isNumericQuery = /^\d+$/.test(rawQ);
+      let matchesSearch = false;
 
-    if (!matchesSearch) return false;
+      if (isNumericQuery) {
+        matchesSearch = idDigits === rawQ || id.endsWith(`_${rawQ}`) || id.includes(rawQ);
+      } else {
+        matchesSearch = id.includes(rawQ) || name.includes(rawQ) || user.includes(rawQ);
+      }
+
+      if (!matchesSearch) return false;
+    }
+
     if (filterType === "expired") return t.daysLeft !== null && t.daysLeft <= 0;
     if (filterType === "soon") return t.daysLeft !== null && t.daysLeft > 0 && t.daysLeft <= 7;
     if (filterType === "active") return t.daysLeft !== null && t.daysLeft > 7;
@@ -791,7 +816,6 @@ export default function AdminPoolPage() {
     return true;
   });
 
-  // Zoom Accounts Processing
   const processedZoomAccounts = Object.entries(poolData || {}).map(([accId, accInfo]) => {
     const rawStatus = String(
       accInfo?.status || 
@@ -824,8 +848,6 @@ export default function AdminPoolPage() {
 
   const zoomExpiredCount = processedZoomAccounts.filter(a => a.daysLeft !== null && a.daysLeft <= 0).length;
   const zoomExpiringSoonCount = processedZoomAccounts.filter(a => a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 7).length;
-  const zoomActiveCount = processedZoomAccounts.filter(a => a.isActive).length;
-  const zoomInactiveCount = processedZoomAccounts.filter(a => !a.isActive).length;
 
   const filteredZoomAccounts = processedZoomAccounts.filter((a) => {
     const q = (zoomSearchTerm || "").trim().toLowerCase();
@@ -845,8 +867,13 @@ export default function AdminPoolPage() {
   const filteredSlips = currentSlipsToDisplay.filter((t) => {
     const q = (slipSearchTerm || "").trim().toLowerCase();
     const id = String(t.teacher_id || "").toLowerCase();
+    const idDigits = id.replace(/\D/g, "");
     const name = String(t.teacher_name || "").toLowerCase();
     const user = String(t.username || "").toLowerCase();
+
+    if (/^\d+$/.test(q)) {
+      return idDigits === q || id.endsWith(`_${q}`) || id.includes(q);
+    }
     return id.includes(q) || name.includes(q) || user.includes(q);
   });
 
@@ -999,8 +1026,6 @@ export default function AdminPoolPage() {
         {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
         {!loading && activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
-            
-            {/* 🔴 OVERDUE UNSTARTED CLASSES BANNER */}
             {unstartedOverdueMeetings.length > 0 && (
               <div className="bg-gradient-to-r from-rose-950/60 via-[#0b132b] to-[#0b132b] border border-rose-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
@@ -1015,9 +1040,6 @@ export default function AdminPoolPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono font-black bg-rose-950 text-rose-300 px-3 py-1 rounded-full border border-rose-800/80 animate-pulse">
-                    Action Required
-                  </span>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1034,85 +1056,52 @@ export default function AdminPoolPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900 text-slate-200">
-                      {unstartedOverdueMeetings.map((item, idx) => {
-                        const isCopied = copiedMeetingId === item.zoom_id;
-                        const isUpdating = endingMeetingId === item.zoom_id;
-
-                        return (
-                          <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-rose-950/15">
-                            <td className="p-3">
-                              <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
-                                ⚡ {item.accId}
-                              </span>
-                            </td>
-                            <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
-                              {item.zoom_id}
-                            </td>
-                            <td className="p-3 font-mono text-slate-300">
-                              👤 {item.teacher_id}
-                            </td>
-                            <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
-                              {item.topic}
-                            </td>
-                            <td className="p-3 font-mono text-slate-300">
-                              ⏰ {item.time} ({formatDuration(item.duration)})
-                            </td>
-                            <td className="p-3 font-mono font-bold text-rose-400">
-                              🏁 {item.scheduledEndTimeStr} (Ended)
-                            </td>
-                            <td className="p-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => handleCopyMeetingId(item.zoom_id)}
-                                  className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
-                                    isCopied
-                                      ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
-                                      : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
-                                  }`}
-                                >
-                                  {isCopied ? "✅ Copied" : "📋 Copy ID"}
-                                </button>
-
-                                <button
-                                  onClick={() => handleForceEndMeeting(item)}
-                                  disabled={isUpdating}
-                                  className={`px-3 py-1.5 border text-[11px] font-mono font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-md active:scale-95 ${
-                                    isUpdating
-                                      ? "bg-rose-950 border-rose-800 text-rose-300 opacity-60 cursor-wait"
-                                      : "bg-rose-600 hover:bg-rose-500 border-rose-400 text-white shadow-rose-600/30"
-                                  }`}
-                                >
-                                  {isUpdating ? "⏳ Freeing Account..." : "⏹️ End & Free Account"}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {unstartedOverdueMeetings.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-rose-950/15">
+                          <td className="p-3">
+                            <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg">
+                              ⚡ {item.accId}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
+                            {item.zoom_id}
+                          </td>
+                          <td className="p-3 font-mono text-slate-300">
+                            👤 {item.teacher_id}
+                          </td>
+                          <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
+                            {item.topic}
+                          </td>
+                          <td className="p-3 font-mono text-slate-300">
+                            ⏰ {item.time} ({formatDuration(item.duration)})
+                          </td>
+                          <td className="p-3 font-mono font-bold text-rose-400">
+                            🏁 {item.scheduledEndTimeStr} (Ended)
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleForceEndMeeting(item)}
+                              disabled={endingMeetingId === item.zoom_id}
+                              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white rounded-lg font-bold text-[11px] cursor-pointer"
+                            >
+                              {endingMeetingId === item.zoom_id ? "⏳ Freeing..." : "⏹️ End & Free Account"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            {/* ⚡ EARLY ENDED CLASSES BANNER */}
             {earlyEndedMeetings.length > 0 && (
               <div className="bg-gradient-to-r from-amber-950/60 via-[#0b132b] to-[#0b132b] border border-amber-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl">⚡</span>
-                    <div>
-                      <h2 className="text-sm font-black text-amber-400 font-mono tracking-wide">
-                        EARLY ENDED CLASSES ({earlyEndedMeetings.length}) - AVAILABLE TO FREE SLOT
-                      </h2>
-                      <p className="text-[11px] text-gray-400">
-                        නියමිත කාලසීමාවට පෙර සාර්ථකව අවසන් කරන ලද පන්ති. වෙනත් පන්තියකට ඉඩ ලබාදීම සඳහා Zoom Slot එක නිදහස් කරන්න.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-mono font-black bg-amber-950 text-amber-300 px-3 py-1 rounded-full border border-amber-800/80">
-                    Slot Ready to Free
-                  </span>
+                <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+                  <span className="text-xl">⚡</span>
+                  <h2 className="text-sm font-black text-amber-400 font-mono tracking-wide">
+                    EARLY ENDED CLASSES ({earlyEndedMeetings.length}) - AVAILABLE TO FREE SLOT
+                  </h2>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1123,171 +1112,29 @@ export default function AdminPoolPage() {
                         <th className="p-3">ZOOM MEETING ID</th>
                         <th className="p-3">TEACHER ID</th>
                         <th className="p-3">TOPIC</th>
-                        <th className="p-3">SCHEDULED TIME</th>
-                        <th className="p-3">SCHEDULED END TIME</th>
-                        <th className="p-3 text-right">ACTIONS</th>
+                        <th className="p-3 text-right">ACTION</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900 text-slate-200">
-                      {earlyEndedMeetings.map((item, idx) => {
-                        const isCopied = copiedMeetingId === item.zoom_id;
-                        const isUpdating = endingMeetingId === item.zoom_id;
-
-                        return (
-                          <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-amber-950/15">
-                            <td className="p-3">
-                              <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg shadow-sm">
-                                ⚡ {item.accId}
-                              </span>
-                            </td>
-                            <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
-                              {item.zoom_id}
-                            </td>
-                            <td className="p-3 font-mono text-slate-300">
-                              👤 {item.teacher_id}
-                            </td>
-                            <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
-                              {item.topic}
-                            </td>
-                            <td className="p-3 font-mono text-slate-300">
-                              ⏰ {item.time} ({formatDuration(item.duration)})
-                            </td>
-                            <td className="p-3 font-mono font-bold text-amber-400">
-                              🏁 {item.scheduledEndTimeStr}
-                            </td>
-                            <td className="p-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => handleCopyMeetingId(item.zoom_id)}
-                                  className={`px-3 py-1.5 border text-[11px] font-mono font-bold rounded-lg transition-all cursor-pointer shadow-sm active:scale-95 ${
-                                    isCopied
-                                      ? "bg-amber-600 border-amber-500 text-slate-950 shadow-amber-600/30"
-                                      : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-amber-400 hover:text-amber-300"
-                                  }`}
-                                >
-                                  {isCopied ? "✅ Copied" : "📋 Copy ID"}
-                                </button>
-
-                                <button
-                                  onClick={() => handleForceEndMeeting(item)}
-                                  disabled={isUpdating}
-                                  className={`px-3 py-1.5 border text-[11px] font-mono font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-md active:scale-95 ${
-                                    isUpdating
-                                      ? "bg-amber-950 border-amber-800 text-amber-300 opacity-60 cursor-wait"
-                                      : "bg-emerald-600 hover:bg-emerald-500 border-emerald-400 text-white shadow-emerald-600/30"
-                                  }`}
-                                >
-                                  {isUpdating ? "⏳ Freeing Slot..." : "⚡ Free Slot Now"}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {earlyEndedMeetings.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-amber-950/15">
+                          <td className="p-3 font-mono text-blue-300">⚡ {item.accId}</td>
+                          <td className="p-3 font-mono text-amber-300 font-bold">{item.zoom_id}</td>
+                          <td className="p-3 font-mono text-slate-300">👤 {item.teacher_id}</td>
+                          <td className="p-3 truncate max-w-xs">{item.topic}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleForceEndMeeting(item)}
+                              disabled={endingMeetingId === item.zoom_id}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] cursor-pointer"
+                            >
+                              {endingMeetingId === item.zoom_id ? "⏳ Freeing..." : "⚡ Free Slot Now"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Busy / Total Active Accounts (Now)</p>
-                  <h3 className="text-2xl font-black text-blue-400 mt-1">
-                    {busyAccountsNowCount} <span className="text-sm font-normal text-slate-400">/ {activeAccountKeys.length} Busy</span>
-                  </h3>
-                </div>
-                <div className="w-10 h-10 bg-blue-950 border border-blue-900 rounded-xl flex items-center justify-center text-lg">⚡</div>
-              </div>
-
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Active Scheduled Classes</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{activeClassesToday} Classes</h3>
-                </div>
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">📅</div>
-              </div>
-
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Pool Demand Status</p>
-                  <h3 className="text-2xl font-black text-purple-400 mt-1">
-                    {activeClassesToday > 10 ? "🔥 High Demand" : "✅ Normal"}
-                  </h3>
-                </div>
-                <div className="w-10 h-10 bg-purple-950 border border-purple-900 rounded-xl flex items-center justify-center text-lg">📊</div>
-              </div>
-            </div>
-
-            {activeAccountKeys.length > 0 && (
-              <div className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                    </span>
-                    <h2 className="text-sm font-black text-white font-mono tracking-wide">
-                      🕒 NEXT 4 HOURS LIVE AVAILABILITY (ACTIVE POOL)
-                    </h2>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
-                    Active Slots Capacity
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {upcoming4HoursSlots.map((slot, idx) => {
-                    const availabilityPercent = slot.totalAccounts > 0 
-                      ? Math.round((slot.availableCount / slot.totalAccounts) * 100) 
-                      : 0;
-                    let badgeColor = "bg-emerald-950/80 text-emerald-400 border-emerald-800/60";
-                    let progressColor = "bg-emerald-500";
-
-                    if (availabilityPercent < 30) {
-                      badgeColor = "bg-rose-950/80 text-rose-400 border-rose-800/60";
-                      progressColor = "bg-rose-500";
-                    } else if (availabilityPercent < 70) {
-                      badgeColor = "bg-amber-950/80 text-amber-400 border-amber-800/60";
-                      progressColor = "bg-amber-500";
-                    }
-
-                    return (
-                      <div key={idx} className="bg-slate-950/90 border border-slate-800/80 p-4 rounded-xl space-y-3 relative overflow-hidden group hover:border-blue-700/50 transition-all">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-mono font-black text-amber-400 bg-slate-900 px-2 py-1 rounded-md border border-slate-800">
-                            ⏰ {slot.timeLabel}
-                          </span>
-                          <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border ${badgeColor}`}>
-                            {slot.availableCount} / {slot.totalAccounts} Free
-                          </span>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                            <span>Capacity</span>
-                            <span className="font-bold text-slate-200">{availabilityPercent}% Free</span>
-                          </div>
-                          <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
-                            <div className={`h-full ${progressColor} transition-all duration-500`} style={{ width: `${availabilityPercent}%` }}></div>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-900/80 flex flex-wrap gap-1">
-                          {slot.availableAccounts.length === 0 ? (
-                            <span className="text-[10px] text-rose-400/80 italic font-mono">❌ All Active Accounts Busy</span>
-                          ) : (
-                            slot.availableAccounts.map((acc, aIdx) => (
-                              <span key={aIdx} className="text-[9px] font-mono bg-blue-950/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-900/30">
-                                {acc}
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             )}
@@ -1303,14 +1150,9 @@ export default function AdminPoolPage() {
                   <div key={idx} className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-900/50">
-                            {accInfo?.pool_type || "Zoom"}
-                          </span>
-                          <span className="text-[9px] font-mono bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900">
-                            ACTIVE
-                          </span>
-                        </div>
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-900/50">
+                          {accInfo?.pool_type || "Zoom"}
+                        </span>
                         <h3 className="text-sm font-black text-white mt-1 font-mono">{accId}</h3>
                       </div>
                       <span className="bg-slate-900 text-emerald-400 font-bold text-xs px-2.5 py-1 rounded-xl border border-slate-800">
@@ -1322,56 +1164,16 @@ export default function AdminPoolPage() {
                       {meetings.length === 0 ? (
                         <p className="text-xs text-slate-500 italic py-4 text-center">No classes scheduled for today.</p>
                       ) : (
-                        meetings.map((m, mIdx) => {
-                          const ended = isMeetingEnded(m);
-                          const live = isMeetingLiveNow(m);
-                          const overdue = isMeetingUnstartedOverdue(m);
-
-                          return (
-                            <div 
-                              key={mIdx} 
-                              className={`p-3.5 rounded-xl space-y-2 transition-all border ${
-                                ended
-                                  ? "bg-slate-950/30 border-slate-900/50 opacity-60"
-                                  : overdue
-                                  ? "bg-rose-950/30 border-rose-600/70 shadow-md"
-                                  : live
-                                  ? "bg-rose-950/20 border-rose-800/60 shadow-lg shadow-rose-950/20"
-                                  : "bg-slate-950/80 border-slate-900/80 hover:border-blue-800/50"
-                              }`}
-                            >
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="font-mono text-amber-400 font-bold flex items-center gap-1">
-                                  ⏰ {m.time}
-                                </span>
-                                {ended ? (
-                                  <span className="text-[9px] font-mono font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">
-                                    ⚪ ENDED
-                                  </span>
-                                ) : overdue ? (
-                                  <span className="text-[9px] font-mono font-black bg-rose-950 text-rose-300 px-2 py-0.5 rounded border border-rose-700 animate-pulse">
-                                    ⚠️ OVERDUE
-                                  </span>
-                                ) : live ? (
-                                  <span className="text-[9px] font-mono font-bold bg-rose-950 text-rose-400 px-2 py-0.5 rounded border border-rose-800/60 animate-pulse flex items-center gap-1">
-                                    🔴 LIVE NOW
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-900/50">
-                                    🟢 {m.status || "SCHEDULED"}
-                                  </span>
-                                )}
-                              </div>
-
-                              <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{m.topic}</h4>
-
-                              <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono pt-1 border-t border-slate-900/80">
-                                <span>👤 {m.teacher_id}</span>
-                                <span>⏳ {formatDuration(m.duration)}</span>
-                              </div>
+                        meetings.map((m, mIdx) => (
+                          <div key={mIdx} className="p-3 rounded-xl bg-slate-950/80 border border-slate-900 text-xs space-y-1">
+                            <div className="flex justify-between items-center font-mono">
+                              <span className="text-amber-400 font-bold">⏰ {m.time}</span>
+                              <span className="text-[10px] text-emerald-400 font-bold">🟢 {m.status || "SCHEDULED"}</span>
                             </div>
-                          );
-                        })
+                            <h4 className="font-bold text-slate-200 truncate">{m.topic}</h4>
+                            <p className="text-[10px] text-gray-400 font-mono">👤 {m.teacher_id}</p>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
@@ -1381,119 +1183,9 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 2: CLASS END TIMELINE ==================== */}
-        {!loading && activeTab === "ending_schedule" && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="w-full md:w-80">
-                <input 
-                  type="text"
-                  placeholder="🔍 Search Zoom ID (e.g. zoom1), Teacher ID, Topic..."
-                  value={endingSearchTerm}
-                  onChange={(e) => setEndingSearchTerm(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
-                <button
-                  onClick={() => setEndingFilter("all")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    endingFilter === "all" ? "bg-blue-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  All Slots
-                </button>
-                <button
-                  onClick={() => setEndingFilter("active")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    endingFilter === "active" ? "bg-emerald-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  🟢 Scheduled &amp; Live Only
-                </button>
-                <button
-                  onClick={() => setEndingFilter("ended")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    endingFilter === "ended" ? "bg-slate-700 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  ⚪ Ended Classes
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {endingTimelineSlots.map((slotGroup, sIdx) => (
-                <div 
-                  key={sIdx}
-                  className={`bg-[#0b132b] border rounded-2xl p-5 space-y-4 transition-all ${
-                    slotGroup.isEndingSoon
-                      ? "border-amber-600/70 shadow-lg shadow-amber-950/20 bg-gradient-to-b from-[#0e1736] to-[#0b132b]"
-                      : slotGroup.isPast
-                      ? "border-slate-900 opacity-75"
-                      : "border-slate-800"
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
-                    <span className="px-3 py-1 bg-amber-950/90 text-amber-300 border border-amber-800/80 text-sm font-black font-mono rounded-xl">
-                      🏁 ENDING AT {slotGroup.timeLabel} ({slotGroup.classes.length} Classes)
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {slotGroup.classes.map((item, cIdx) => (
-                      <div key={cIdx} className="p-4 rounded-xl space-y-3 border bg-slate-950/80 border-slate-800/80">
-                        <div className="flex justify-between items-center">
-                          <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-bold font-mono text-xs rounded-lg">
-                            ⚡ {item.accId}
-                          </span>
-                          <span className="text-[10px] font-bold text-amber-400 font-mono">
-                            {item.meeting.time} ➔ {item.exactEndTimeStr}
-                          </span>
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-100 line-clamp-1">{item.meeting.topic}</h4>
-                        <div className="text-[10px] text-gray-400 font-mono">👤 {item.meeting.teacher_id}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ==================== TAB 3: BANK SLIPS REVIEW (WITH SUB-TABS: PENDING / APPROVED / REJECTED) ==================== */}
+        {/* ==================== TAB 3: BANK SLIPS REVIEW ==================== */}
         {!loading && activeTab === "bank_slips" && (
           <div className="space-y-6 animate-fadeIn">
-            {/* STATS OVERVIEW */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Pending Approval</p>
-                  <h3 className="text-2xl font-black text-amber-400 mt-1">{pendingSlips.length} Slips</h3>
-                </div>
-                <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">⏳</div>
-              </div>
-
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Approved Slips</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{approvedSlipsList.length} Slips</h3>
-                </div>
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">✅</div>
-              </div>
-
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Rejected Slips</p>
-                  <h3 className="text-2xl font-black text-rose-400 mt-1">{rejectedSlipsList.length} Slips</h3>
-                </div>
-                <div className="w-10 h-10 bg-rose-950 border border-rose-900 rounded-xl flex items-center justify-center text-lg">❌</div>
-              </div>
-            </div>
-
-            {/* SEARCH & SUB-TABS NAVIGATION */}
             <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
                 <button
@@ -1505,9 +1197,7 @@ export default function AdminPoolPage() {
                   }`}
                 >
                   <span>⏳ Pending Approval</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    slipSubTab === "pending" ? "bg-slate-950 text-amber-300" : "bg-slate-950 text-gray-400"
-                  }`}>
+                  <span className="bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
                     {pendingSlips.length}
                   </span>
                 </button>
@@ -1521,9 +1211,7 @@ export default function AdminPoolPage() {
                   }`}
                 >
                   <span>✅ Approved</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    slipSubTab === "approved" ? "bg-emerald-950 text-emerald-300" : "bg-slate-950 text-gray-400"
-                  }`}>
+                  <span className="bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
                     {approvedSlipsList.length}
                   </span>
                 </button>
@@ -1537,9 +1225,7 @@ export default function AdminPoolPage() {
                   }`}
                 >
                   <span>❌ Rejected</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    slipSubTab === "rejected" ? "bg-rose-950 text-rose-300" : "bg-slate-950 text-gray-400"
-                  }`}>
+                  <span className="bg-rose-950 text-rose-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
                     {rejectedSlipsList.length}
                   </span>
                 </button>
@@ -1548,15 +1234,14 @@ export default function AdminPoolPage() {
               <div className="w-full md:w-80">
                 <input 
                   type="text"
-                  placeholder="🔍 Search Teacher ID, Username or Name..."
+                  placeholder="🔍 Search ID (e.g. 69 or teach_69)..."
                   value={slipSearchTerm}
                   onChange={(e) => setSlipSearchTerm(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
                 />
               </div>
             </div>
 
-            {/* SLIPS TABLE */}
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -1566,135 +1251,68 @@ export default function AdminPoolPage() {
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">TEACHER NAME</th>
                       <th className="p-4">STATUS</th>
-                      <th className="p-4">CURRENT EXPIRE DATE</th>
-                      <th className="p-4">EXTEND EXPIRY DATE</th>
-                      <th className="p-4 text-right">ONE-CLICK ACTION</th>
+                      <th className="p-4">EXPIRE DATE</th>
+                      <th className="p-4 text-right">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    {filteredSlips.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="p-10 text-center text-gray-500 font-mono">
-                          {slipSubTab === "pending" ? "👋 අලුතින් Approve කිරීමට ස්ලිප් කිසිවක් නැත (All Caught Up!)." :
-                           slipSubTab === "approved" ? "තවමත් Approve කරන ලද ස්ලිප් නොමැත." :
-                           "Reject කරන ලද ස්ලිප් නොමැත."}
+                    {filteredSlips.map((t, idx) => (
+                      <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
+                        <td className="p-4">
+                          <button
+                            onClick={() => setSlipModalTeacher(t)}
+                            className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-blue-400 font-bold rounded-xl text-xs cursor-pointer flex items-center gap-1.5"
+                          >
+                            <span>👁️</span> View Slip
+                          </button>
+                        </td>
+                        <td className="p-4 font-mono font-bold text-blue-400">
+                          <button
+                            onClick={() => handleLoginAsTeacher(t)}
+                            title="Click to directly login to this teacher's dashboard"
+                            className="hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>{t.teacher_id}</span>
+                            <span className="text-[10px] text-amber-400 font-bold">↗</span>
+                          </button>
+                        </td>
+                        <td className="p-4 font-bold text-white">{t.teacher_name}</td>
+                        <td className="p-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-black ${
+                            slipSubTab === "pending" ? "bg-amber-950 border border-amber-700 text-amber-300 animate-pulse" :
+                            slipSubTab === "approved" ? "bg-emerald-950 border border-emerald-700 text-emerald-300" :
+                            "bg-rose-950 border border-rose-700 text-rose-300"
+                          }`}>
+                            {slipSubTab.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="p-4 font-mono text-amber-400">{t.expiry_date || "Not Set"}</td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleExtendDays(t, 15)}
+                              className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900 border border-blue-700 text-blue-300 font-bold rounded-xl text-[11px] cursor-pointer"
+                            >
+                              +15D
+                            </button>
+                            <button
+                              onClick={() => handleExtendDays(t, 30)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-[11px] cursor-pointer shadow-md"
+                            >
+                              +30D Paid
+                            </button>
+                            {slipSubTab !== "rejected" && (
+                              <button
+                                onClick={() => handleRejectSlip(t)}
+                                className="px-2.5 py-1.5 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold rounded-xl text-[11px] cursor-pointer"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
-                    ) : (
-                      filteredSlips.map((t, idx) => {
-                        const isSaving = savingTeacherId === t.teacher_id;
-                        const slipUrl = t.slipUrl;
-                        const isPdf = slipUrl.toLowerCase().includes(".pdf");
-
-                        return (
-                          <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                            <td className="p-4">
-                              <div 
-                                onClick={() => setSlipModalTeacher(t)}
-                                className="w-14 h-14 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden cursor-pointer hover:border-blue-500 transition-all flex items-center justify-center group relative shadow-md"
-                              >
-                                {slipUrl ? (
-                                  isPdf ? (
-                                    <div className="flex flex-col items-center justify-center text-[10px] text-rose-400 font-bold font-mono">
-                                      <span className="text-xl">📄</span>
-                                      <span>PDF</span>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <img src={slipUrl} alt="Slip" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition-opacity">
-                                        🔍
-                                      </div>
-                                    </>
-                                  )
-                                ) : (
-                                  <span className="text-gray-600 text-xs">No Slip</span>
-                                )}
-                              </div>
-                            </td>
-
-                            <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
-                              <span>👤 {t.teacher_id}</span>
-                            </td>
-
-                            <td className="p-4">
-                              <div className="font-bold text-white text-xs">{t.teacher_name}</div>
-                              {t.username && <div className="text-[11px] text-purple-400 font-mono mt-0.5">@{t.username}</div>}
-                            </td>
-
-                            <td className="p-4 whitespace-nowrap">
-                              {slipSubTab === "pending" ? (
-                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-black bg-amber-950 border border-amber-700 text-amber-300 animate-pulse">
-                                  ⏳ PENDING REVIEW
-                                </span>
-                              ) : slipSubTab === "approved" ? (
-                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-emerald-950 border border-emerald-700 text-emerald-300">
-                                  ✅ APPROVED
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-rose-950 border border-rose-700 text-rose-300">
-                                  ❌ REJECTED
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="p-4 font-mono text-xs whitespace-nowrap">
-                              <span className="text-amber-400 font-bold bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                                📅 {t.expiry_date || "Not Set"}
-                              </span>
-                            </td>
-
-                            <td className="p-4 whitespace-nowrap">
-                              <input 
-                                type="date"
-                                value={t.expiry_date || ""}
-                                onChange={(e) => handleUpdateTeacher(t.teacher_id, { expiry_date: e.target.value })}
-                                disabled={isSaving}
-                                className="bg-slate-950 border border-slate-700 hover:border-blue-500 text-blue-300 font-mono font-bold px-2.5 py-1 rounded-lg text-xs focus:outline-none cursor-pointer"
-                              />
-                            </td>
-
-                            <td className="p-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => setSlipModalTeacher(t)}
-                                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-blue-400 font-bold text-[11px] rounded-xl transition cursor-pointer"
-                                >
-                                  👁️ View
-                                </button>
-
-                                <button
-                                  onClick={() => handleExtendDays(t, 15)}
-                                  disabled={isSaving}
-                                  className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900 border border-blue-700 text-blue-300 font-bold text-[11px] rounded-xl transition cursor-pointer"
-                                >
-                                  {isSaving ? "⏳" : "+15D"}
-                                </button>
-
-                                <button
-                                  onClick={() => handleExtendDays(t, 30)}
-                                  disabled={isSaving}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl transition cursor-pointer shadow-md"
-                                >
-                                  {isSaving ? "⏳" : "+30D Paid"}
-                                </button>
-
-                                {slipSubTab !== "rejected" && (
-                                  <button
-                                    onClick={() => handleRejectSlip(t)}
-                                    disabled={isSaving}
-                                    title="Reject this slip"
-                                    className="px-2 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-400 font-bold text-[11px] rounded-xl transition cursor-pointer"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1702,9 +1320,10 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 4: TEACHER EXPIRATIONS TRACKER ==================== */}
+        {/* ==================== TAB 4: TEACHER EXPIRATIONS TRACKER (WITH SEARCH & ONE-CLICK LOGIN) ==================== */}
         {!loading && activeTab === "expirations" && (
           <div className="space-y-6 animate-fadeIn">
+            {/* STAT CARDS */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
@@ -1732,10 +1351,10 @@ export default function AdminPoolPage() {
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Bank Slips Uploaded</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{teachersWithSlips.length}</h3>
+                  <p className="text-xs text-gray-400 font-medium">Pending Slips</p>
+                  <h3 className="text-2xl font-black text-amber-400 mt-1">{pendingSlips.length}</h3>
                 </div>
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">💳</div>
+                <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">💳</div>
               </div>
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between col-span-2 sm:col-span-1">
@@ -1747,22 +1366,34 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
-            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="w-full md:w-80">
+            {/* 🎯 ULTRA-PRO SEARCH & ACTION BAR (CLEAN, PROMINENT & HIGH VISIBILITY) */}
+            <div className="bg-[#0b132b] border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+              <div className="relative w-full md:w-96">
+                <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-sm">
+                  🔍
+                </span>
                 <input 
                   type="text"
-                  placeholder="🔍 Search Teacher ID, Username, or Name..."
+                  placeholder="Type ID Number (e.g. 69, 169) or Teacher Name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full pl-9 pr-9 py-2.5 bg-slate-950 border-2 border-slate-800 focus:border-blue-500 rounded-xl text-xs font-mono font-bold text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-white text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto flex-wrap">
                 <button
                   onClick={() => setFilterType("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    filterType === "all" ? "bg-blue-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                    filterType === "all" ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
                   All ({processedTeachers.length})
@@ -1771,62 +1402,26 @@ export default function AdminPoolPage() {
                 <button
                   onClick={() => setFilterType("need_reminder")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    filterType === "need_reminder" 
-                      ? "bg-amber-500 text-slate-950 shadow-md font-black" 
-                      : "bg-amber-950/40 border border-amber-800/60 text-amber-300 hover:bg-amber-900/40"
+                    filterType === "need_reminder" ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/30" : "bg-amber-950/40 text-amber-300 border border-amber-800/60"
                   }`}
                 >
                   <span>📩 Need Remind</span>
-                  <span className="bg-amber-400/30 px-1.5 py-0.2 rounded-full text-[10px]">
-                    {needReminderCount}
-                  </span>
+                  <span className="bg-amber-400/30 px-1.5 py-0.2 rounded-full text-[10px]">{needReminderCount}</span>
                 </button>
 
                 <button
                   onClick={() => setFilterType("reminded")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    filterType === "reminded" 
-                      ? "bg-emerald-600 text-white shadow-md font-black" 
-                      : "bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/40"
+                    filterType === "reminded" ? "bg-emerald-600 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
-                  <span>🔔 Reminded</span>
-                  <span className="bg-emerald-400/30 px-1.5 py-0.2 rounded-full text-[10px]">
-                    {remindedCount}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setFilterType("has_slip")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    filterType === "has_slip" ? "bg-emerald-600 text-white font-black" : "bg-slate-900 text-emerald-400 hover:text-white"
-                  }`}
-                >
-                  💳 Has Slip ({teachersWithSlips.length})
-                </button>
-
-                <button
-                  onClick={() => setFilterType("unpaid")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    filterType === "unpaid" ? "bg-rose-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  Unpaid ({unpaidCount})
-                </button>
-
-                <button
-                  onClick={() => setFilterType("soon")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    filterType === "soon" ? "bg-amber-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  ⚠️ Soon ({expiringSoonCount})
+                  <span>🔔 Reminded ({remindedCount})</span>
                 </button>
 
                 <button
                   onClick={() => setFilterType("expired")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    filterType === "expired" ? "bg-red-900 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                    filterType === "expired" ? "bg-rose-900 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
                   🔴 Expired ({expiredCount})
@@ -1835,7 +1430,7 @@ export default function AdminPoolPage() {
                 <button
                   onClick={() => setFilterType("paid")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    filterType === "paid" ? "bg-emerald-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
+                    filterType === "paid" ? "bg-emerald-600 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
                   🟢 Paid ({paidCount})
@@ -1843,6 +1438,7 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
+            {/* TEACHER LIST TABLE */}
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -1851,12 +1447,11 @@ export default function AdminPoolPage() {
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">USERNAME</th>
                       <th className="p-4">STATUS / REMAINING DAYS</th>
-                      <th className="p-4">REMINDER STATUS</th>
-                      <th className="p-4">BANK SLIP</th>
+                      <th className="p-4">REMINDER NOTICE</th>
                       <th className="p-4">TEACHER NAME</th>
                       <th className="p-4">PAYMENT STATUS</th>
                       <th className="p-4">EXPIRE DATE (SET)</th>
-                      <th className="p-4 text-right">QUICK RENEW</th>
+                      <th className="p-4 text-right">ONE-CLICK DASHBOARD</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
@@ -1867,9 +1462,6 @@ export default function AdminPoolPage() {
                       const isReminded = t.isReminded;
                       const isCopied = copiedTeacherId === t.teacher_id;
                       const isIdCopied = copiedIdOnly === t.teacher_id;
-                      const isUserCopied = Boolean(t.username && lastCopiedUsername === t.username);
-                      const slipUrl = t.slipUrl;
-                      const isPdf = slipUrl.toLowerCase().includes(".pdf");
 
                       let statusBadge = null;
                       if (days === null) {
@@ -1877,7 +1469,7 @@ export default function AdminPoolPage() {
                       } else if (days <= 0) {
                         statusBadge = (
                           <span className="px-2.5 py-1 bg-rose-950/80 border border-rose-800 text-rose-400 font-bold font-mono rounded-lg inline-flex items-center gap-1">
-                            🔴 Expired {Math.abs(days)} Days Ago
+                            🔴 Expired {Math.abs(days)}D ago
                           </span>
                         );
                       } else if (days <= 7) {
@@ -1895,65 +1487,47 @@ export default function AdminPoolPage() {
                       }
 
                       return (
-                        <tr key={idx} className={`hover:bg-slate-900/40 transition-colors ${isUserCopied ? "bg-emerald-950/20 border-l-4 border-l-emerald-500" : ""}`}>
-                          
+                        <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
+                          {/* TEACHER ID WITH COPY BUTTON */}
                           <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
                             <button
                               onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
-                              className="hover:text-blue-300 inline-flex items-center gap-1 cursor-pointer"
+                              className="hover:text-blue-300 inline-flex items-center gap-1 cursor-pointer bg-slate-950 px-2 py-1 rounded-lg border border-slate-800"
                             >
                               <span>{t.teacher_id}</span>
                               {isIdCopied && <span className="text-[10px] text-emerald-400">✓</span>}
                             </button>
                           </td>
 
+                          {/* USERNAME */}
                           <td className="p-4 font-mono font-semibold whitespace-nowrap text-purple-300">
-                            {t.username && t.username !== "N/A" ? (
-                              <button
-                                onClick={() => handleCopyUsernameOnly(t.username || "")}
-                                className={`px-2 py-1 rounded-lg border text-xs cursor-pointer ${
-                                  isUserCopied ? "bg-emerald-600 text-white border-emerald-400" : "bg-purple-950/40 border-purple-800/40 hover:text-white"
-                                }`}
-                              >
-                                @{t.username}
-                              </button>
-                            ) : (
-                              <span className="text-gray-500">N/A</span>
-                            )}
+                            {t.username ? `@${t.username}` : "N/A"}
                           </td>
 
+                          {/* STATUS */}
                           <td className="p-4 whitespace-nowrap">{statusBadge}</td>
 
-                          {/* 🎯 REMINDER STATUS BUTTON */}
+                          {/* WHATSAPP REMINDER */}
                           <td className="p-4 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <button 
                                 onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
-                                title="Click to copy full renewal message with bank details & direct upload link"
-                                className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+                                className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm ${
                                   isCopied
-                                    ? "bg-emerald-600 border-emerald-400 text-white shadow-emerald-600/30 font-black ring-2 ring-emerald-400/40"
+                                    ? "bg-emerald-600 border-emerald-400 text-white font-black"
                                     : isReminded
-                                    ? "bg-emerald-950/50 hover:bg-emerald-900/60 border-emerald-800/70 text-emerald-300 font-semibold"
+                                    ? "bg-emerald-950/50 border-emerald-800/70 text-emerald-300"
                                     : (days !== null && days <= 7)
-                                    ? "bg-amber-600 hover:bg-amber-500 border-amber-500 text-slate-950 font-black animate-pulse"
-                                    : "bg-slate-900 hover:bg-slate-800 border-slate-700 text-emerald-400"
+                                    ? "bg-amber-600 hover:bg-amber-500 text-slate-950 font-black animate-pulse"
+                                    : "bg-slate-900 hover:bg-slate-800 text-emerald-400 border-slate-700"
                                 }`}
                               >
-                                {isCopied ? (
-                                  <span>✅ Copied!</span>
-                                ) : isReminded ? (
-                                  <span>🔔 Reminded</span>
-                                ) : (
-                                  <span>📩 Send Remind</span>
-                                )}
+                                {isCopied ? "✅ Copied!" : isReminded ? "🔔 Reminded" : "📩 Send Remind"}
                               </button>
-
                               {isReminded && (
                                 <button
                                   onClick={(e) => handleToggleRemindedStatus(e, t.teacher_id)}
-                                  title="Reset reminder status"
-                                  className="text-[11px] text-gray-500 hover:text-rose-400 p-1 rounded-lg hover:bg-slate-900 transition-colors"
+                                  className="text-[11px] text-gray-500 hover:text-rose-400 p-1"
                                 >
                                   ✕
                                 </button>
@@ -1961,37 +1535,22 @@ export default function AdminPoolPage() {
                             </div>
                           </td>
 
-                          {/* BANK SLIP COLUMN */}
-                          <td className="p-4 whitespace-nowrap">
-                            {slipUrl ? (
-                              <button
-                                onClick={() => setSlipModalTeacher(t)}
-                                className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 text-emerald-300 font-bold rounded-lg text-[10px] flex items-center gap-1 cursor-pointer shadow-sm"
-                              >
-                                <span>{isPdf ? "📄" : "💳"}</span>
-                                <span>{isPdf ? "View PDF" : "View Slip"}</span>
-                              </button>
-                            ) : (
-                              <span className="text-gray-600 text-[11px] font-mono">No Slip</span>
-                            )}
-                          </td>
-
                           <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
+                          {/* PAYMENT STATUS */}
                           <td className="p-4 whitespace-nowrap">
                             <button
                               onClick={() => handleTogglePaymentStatus(t)}
                               disabled={isSaving}
-                              className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold border transition-all cursor-pointer ${
-                                isPaid
-                                  ? "bg-emerald-950/80 border-emerald-600 text-emerald-300"
-                                  : "bg-rose-950/80 border-rose-600 text-rose-300 animate-pulse"
+                              className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold border cursor-pointer ${
+                                isPaid ? "bg-emerald-950 border-emerald-600 text-emerald-300" : "bg-rose-950 border-rose-600 text-rose-300 animate-pulse"
                               }`}
                             >
                               {isPaid ? "✅ PAID" : "💳 UNPAID"}
                             </button>
                           </td>
 
+                          {/* EXPIRE DATE */}
                           <td className="p-4 whitespace-nowrap">
                             <input
                               type="date"
@@ -2002,13 +1561,15 @@ export default function AdminPoolPage() {
                             />
                           </td>
 
+                          {/* 🎯 ONE-CLICK DIRECT DASHBOARD LOGIN (LOGIN-FREE ACCESS) */}
                           <td className="p-4 text-right whitespace-nowrap">
                             <button
-                              onClick={() => handleQuickRenew(t)}
-                              disabled={isSaving}
-                              className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 font-bold text-[11px] rounded-xl cursor-pointer"
+                              onClick={() => handleLoginAsTeacher(t)}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-[11px] rounded-xl shadow-md transition-all flex items-center gap-1.5 ml-auto cursor-pointer"
+                              title="Directly enter this teacher's dashboard without credentials"
                             >
-                              {isSaving ? "⏳" : "⚡ +30D Paid"}
+                              <span>🔑</span>
+                              <span>Login as Teacher</span>
                             </button>
                           </td>
                         </tr>
@@ -2024,45 +1585,6 @@ export default function AdminPoolPage() {
         {/* ==================== TAB 5: ZOOM ACCOUNTS TRACKER ==================== */}
         {!loading && activeTab === "zoom_accounts" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="w-full md:w-80">
-                <input 
-                  type="text"
-                  placeholder="🔍 Search Account ID (e.g. zoom1) or Email..."
-                  value={zoomSearchTerm}
-                  onChange={(e) => setZoomSearchTerm(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto flex-wrap">
-                <button
-                  onClick={() => setZoomFilterType("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    zoomFilterType === "all" ? "bg-blue-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  All ({processedZoomAccounts.length})
-                </button>
-                <button
-                  onClick={() => setZoomFilterType("expired")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    zoomFilterType === "expired" ? "bg-rose-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  🔴 Expired ({zoomExpiredCount})
-                </button>
-                <button
-                  onClick={() => setZoomFilterType("soon")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    zoomFilterType === "soon" ? "bg-amber-600 text-white" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  ⚠️ Soon ({zoomExpiringSoonCount})
-                </button>
-              </div>
-            </div>
-
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -2109,14 +1631,9 @@ export default function AdminPoolPage() {
         {slipModalTeacher && (
           <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
             <div className="bg-[#0b132b] border border-slate-800 w-full max-w-3xl rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
-              
               <button
-                onClick={() => {
-                  if (savingTeacherId) return;
-                  setSlipModalTeacher(null);
-                }}
-                disabled={Boolean(savingTeacherId)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs cursor-pointer disabled:opacity-50"
+                onClick={() => setSlipModalTeacher(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs cursor-pointer"
               >
                 ✕
               </button>
@@ -2141,15 +1658,12 @@ export default function AdminPoolPage() {
                 )}
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center min-h-[300px] max-h-[520px] overflow-hidden relative group">
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center min-h-[300px] max-h-[520px] overflow-hidden relative">
                 {getTeacherSlipUrl(slipModalTeacher) ? (
                   getTeacherSlipUrl(slipModalTeacher).toLowerCase().includes(".pdf") ? (
                     <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
                       <span className="text-5xl animate-bounce">📄</span>
-                      <div>
-                        <h4 className="text-sm font-bold text-white">PDF Bank Receipt Document</h4>
-                        <p className="text-xs text-gray-400 mt-0.5">මෙම ලියවිල්ල PDF ආකෘතියෙන් පවතී.</p>
-                      </div>
+                      <h4 className="text-sm font-bold text-white">PDF Bank Receipt Document</h4>
                       <a
                         href={getTeacherSlipUrl(slipModalTeacher)}
                         target="_blank"
@@ -2164,8 +1678,7 @@ export default function AdminPoolPage() {
                       src={getTeacherSlipUrl(slipModalTeacher)}
                       alt="Bank Slip Full"
                       onClick={() => window.open(getTeacherSlipUrl(slipModalTeacher), "_blank")}
-                      className="max-h-[500px] w-auto object-contain rounded-xl cursor-zoom-in group-hover:scale-[1.02] transition-transform"
-                      title="Click to open full high-resolution image"
+                      className="max-h-[500px] w-auto object-contain rounded-xl cursor-zoom-in"
                     />
                   )
                 ) : (
@@ -2173,76 +1686,26 @@ export default function AdminPoolPage() {
                 )}
               </div>
 
-              <div className="bg-slate-950/80 border border-slate-900 p-4 rounded-2xl space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                  <div>
-                    <span className="text-gray-400">Current Expiry: </span>
-                    <strong className="text-amber-400">{slipModalTeacher.expiry_date || "Not Set"}</strong>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Status: </span>
-                    <strong className="text-emerald-400">{slipModalTeacher.payment_status || "PAID"}</strong>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 pt-1">
-                  <button
-                    onClick={async () => {
-                      if (savingTeacherId) return;
-                      await handleExtendDays(slipModalTeacher, 15);
-                      setSlipModalTeacher(null);
-                    }}
-                    disabled={Boolean(savingTeacherId)}
-                    className="py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/20 cursor-pointer disabled:cursor-not-allowed text-center flex items-center justify-center gap-1.5"
-                  >
-                    {savingTeacherId === slipModalTeacher.teacher_id ? (
-                      <>
-                        <span className="animate-spin">⏳</span>
-                        <span>Updating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>✅</span>
-                        <span>+15 Days</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      if (savingTeacherId) return;
-                      await handleExtendDays(slipModalTeacher, 30);
-                      setSlipModalTeacher(null);
-                    }}
-                    disabled={Boolean(savingTeacherId)}
-                    className="py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black text-xs rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer disabled:cursor-not-allowed text-center flex items-center justify-center gap-1.5"
-                  >
-                    {savingTeacherId === slipModalTeacher.teacher_id ? (
-                      <>
-                        <span className="animate-spin">⏳</span>
-                        <span>Updating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>🎉</span>
-                        <span>+30 Days</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      if (savingTeacherId) return;
-                      await handleRejectSlip(slipModalTeacher);
-                    }}
-                    disabled={Boolean(savingTeacherId)}
-                    className="py-3 bg-rose-600/80 hover:bg-rose-600 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-rose-600/20 cursor-pointer disabled:cursor-not-allowed text-center flex items-center justify-center gap-1.5"
-                  >
-                    <span>❌ Reject</span>
-                  </button>
-                </div>
+              <div className="grid grid-cols-3 gap-3 pt-1">
+                <button
+                  onClick={() => handleExtendDays(slipModalTeacher, 15)}
+                  className="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
+                >
+                  +15 Days
+                </button>
+                <button
+                  onClick={() => handleExtendDays(slipModalTeacher, 30)}
+                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer"
+                >
+                  +30 Days Paid
+                </button>
+                <button
+                  onClick={() => handleRejectSlip(slipModalTeacher)}
+                  className="py-3 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  ❌ Reject
+                </button>
               </div>
-
             </div>
           </div>
         )}
