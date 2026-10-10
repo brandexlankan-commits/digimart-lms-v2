@@ -72,10 +72,11 @@ export default function AdminPoolPage() {
 
   // Ending Schedule Tab States
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
+  const [selectedTimeSlotFilter, setSelectedTimeSlotFilter] = useState<string>("all");
 
   // Zoom Accounts Tab States
   const [zoomSearchTerm, setZoomSearchTerm] = useState("");
-  const [zoomFilterType, setZoomFilterType] = useState<"all" | "expired" | "soon" | "active" | "inactive">("all");
+  const [zoomFilterType, setZoomFilterType] = useState<"all" | "expired" | "soon" | "week" | "active" | "inactive">("all");
   const [copiedZoomAccId, setCopiedZoomAccId] = useState<string | null>(null);
 
   // Copy Feedback States
@@ -472,23 +473,137 @@ export default function AdminPoolPage() {
       })
   );
 
-  // Zoom Accounts Array
-  const allZoomAccountsList = Object.keys(poolData || {}).map((accId) => {
-    const acc = poolData[accId];
-    const daysLeft = getDaysRemaining(acc.expire_date);
-    const isActive = isAccountActive(acc);
+  // =========================================================================
+  // 🎯 1. REORGANIZED TIMELINE ENGINE: 30-MIN SLOT GROUPING & ORDERING
+  // =========================================================================
+  const allActiveScheduledClasses = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
+    (accInfo?.classes || [])
+      .filter((m) => !isMeetingEnded(m))
+      .map((m) => {
+        const startM = parseTimeToMinutes(m.time);
+        const dur = Number(m.duration) || 60;
+        const endM = startM + dur;
+        const endStr = formatMinutesToTime(endM);
+        const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const minsRemaining = endM - currentMins;
+
+        return {
+          ...m,
+          accId,
+          poolType: accInfo?.pool_type || "100p",
+          startM,
+          dur,
+          endM,
+          endStr,
+          minsRemaining,
+        };
+      })
+  );
+
+  // Group classes by their unique Scheduled End Time (sorted chronologically)
+  const uniqueEndMinutes = Array.from(new Set(allActiveScheduledClasses.map((c) => c.endM))).sort((a, b) => a - b);
+
+  const timelineSlotGroups = uniqueEndMinutes.map((endM) => {
+    const classes = allActiveScheduledClasses.filter((c) => c.endM === endM);
+    const endStr = formatMinutesToTime(endM);
+    const uniqueAccounts = Array.from(new Set(classes.map((c) => c.accId)));
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const minsDiff = endM - currentMins;
+
     return {
-      accId,
-      poolType: acc.pool_type || "100p",
-      status: isActive ? "ACTIVE" : "INACTIVE",
-      expireDate: acc.expire_date || "",
-      email: acc.email || "",
-      daysLeft,
-      classesCount: (acc.classes || []).length,
+      endM,
+      endStr,
+      classes,
+      uniqueAccounts,
+      minsDiff,
     };
   });
 
-  const expiredZoomAccountsCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft <= 0).length;
+  // Filtered timeline slots based on search or slot filter
+  const filteredTimelineSlots = timelineSlotGroups
+    .map((slot) => {
+      if (selectedTimeSlotFilter !== "all" && slot.endStr !== selectedTimeSlotFilter) {
+        return null;
+      }
+
+      const q = (endingSearchTerm || "").trim().toLowerCase();
+      if (!q) return slot;
+
+      const matchedClasses = slot.classes.filter((c) =>
+        c.accId.toLowerCase().includes(q) ||
+        String(c.teacher_id).toLowerCase().includes(q) ||
+        String(c.topic).toLowerCase().includes(q)
+      );
+
+      if (matchedClasses.length === 0) return null;
+
+      return {
+        ...slot,
+        classes: matchedClasses,
+        uniqueAccounts: Array.from(new Set(matchedClasses.map((c) => c.accId))),
+      };
+    })
+    .filter(Boolean) as typeof timelineSlotGroups;
+
+  // =========================================================================
+  // 🎯 2. ZOOM ACCOUNTS TRACKER: SYSTEMATIC SORTING & GROUPING
+  // =========================================================================
+  const allZoomAccountsList = Object.keys(poolData || {})
+    .map((accId) => {
+      const acc = poolData[accId];
+      const daysLeft = getDaysRemaining(acc.expire_date);
+      const isActive = isAccountActive(acc);
+      return {
+        accId,
+        poolType: acc.pool_type || "100p",
+        status: isActive ? "ACTIVE" : "INACTIVE",
+        expireDate: acc.expire_date || "",
+        email: acc.email || "",
+        daysLeft,
+        classesCount: (acc.classes || []).length,
+      };
+    })
+    .sort((a, b) => {
+      // 1. Expired accounts (daysLeft <= 0) ALWAYS on TOP, sorted most overdue first
+      const aExpired = a.daysLeft !== null && a.daysLeft <= 0;
+      const bExpired = b.daysLeft !== null && b.daysLeft <= 0;
+      if (aExpired && !bExpired) return -1;
+      if (!aExpired && bExpired) return 1;
+      if (aExpired && bExpired) return (a.daysLeft || 0) - (b.daysLeft || 0);
+
+      // 2. Both are positive: sort ascending (1 day left -> 2 days left -> 10 days left)
+      if (a.daysLeft !== null && b.daysLeft !== null) {
+        return a.daysLeft - b.daysLeft;
+      }
+
+      // 3. Nulls last
+      if (a.daysLeft === null) return 1;
+      if (b.daysLeft === null) return -1;
+      return 0;
+    });
+
+  const zoomExpiredCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft <= 0).length;
+  const zoomCriticalCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 3).length;
+  const zoomWeekCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft > 3 && a.daysLeft <= 7).length;
+  const zoomActiveCount = allZoomAccountsList.filter((a) => a.status === "ACTIVE" && (a.daysLeft === null || a.daysLeft > 7)).length;
+
+  const filteredZoomAccounts = allZoomAccountsList.filter((acc) => {
+    const q = (zoomSearchTerm || "").trim().toLowerCase();
+    if (q) {
+      const matches = acc.accId.toLowerCase().includes(q) || acc.email.toLowerCase().includes(q);
+      if (!matches) return false;
+    }
+
+    if (zoomFilterType === "expired") return acc.daysLeft !== null && acc.daysLeft <= 0;
+    if (zoomFilterType === "soon") return acc.daysLeft !== null && acc.daysLeft > 0 && acc.daysLeft <= 3;
+    if (zoomFilterType === "week") return acc.daysLeft !== null && acc.daysLeft > 3 && acc.daysLeft <= 7;
+    if (zoomFilterType === "active") return acc.status === "ACTIVE";
+    if (zoomFilterType === "inactive") return acc.status === "INACTIVE";
+
+    return true;
+  });
 
   // Teachers Processing
   const processedTeachers = (teachersList || []).map((t) => {
@@ -634,6 +749,11 @@ export default function AdminPoolPage() {
             }`}
           >
             <span>⏱️</span> Class End Timeline (30 Min)
+            {allActiveScheduledClasses.length > 0 && (
+              <span className="bg-blue-950 text-blue-300 border border-blue-700/80 px-2 py-0.5 rounded-full text-[10px] font-black">
+                {allActiveScheduledClasses.length} Active
+              </span>
+            )}
           </button>
 
           <button
@@ -677,9 +797,9 @@ export default function AdminPoolPage() {
             }`}
           >
             <span>🛡️</span> Zoom Accounts Tracker
-            {expiredZoomAccountsCount > 0 && (
-              <span className="bg-rose-500 text-white px-2 py-0.5 rounded-full text-[10px] font-black">
-                {expiredZoomAccountsCount} Expired
+            {zoomExpiredCount > 0 && (
+              <span className="bg-rose-500 text-white px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                {zoomExpiredCount} Expired
               </span>
             )}
           </button>
@@ -696,7 +816,7 @@ export default function AdminPoolPage() {
         {!loading && activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
             
-            {/* ⚡ EARLY ENDED CLASSES TABLE WITH START & SCHEDULED END TIMES */}
+            {/* ⚡ EARLY ENDED CLASSES TABLE */}
             {earlyEndedClasses.length > 0 && (
               <div className="bg-[#0b132b]/95 border-2 border-amber-500/50 rounded-3xl p-5 shadow-2xl space-y-3 relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-amber-900/40 pb-3">
@@ -725,7 +845,7 @@ export default function AdminPoolPage() {
                         <th className="p-3 text-right">ACTION</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                    <tbody className="divide-y border-slate-800/60 text-slate-200">
                       {earlyEndedClasses.map((item, idx) => {
                         const isEndingThis = endingMeetingId === item.zoom_id;
                         return (
@@ -829,7 +949,6 @@ export default function AdminPoolPage() {
                       </div>
                     </div>
 
-                    {/* Classes list in account */}
                     <div className="space-y-2">
                       {classes.length === 0 ? (
                         <p className="text-xs text-gray-500 italic py-4 text-center">
@@ -884,74 +1003,198 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 2: CLASS END TIMELINE ==================== */}
+        {/* ========================================================================= */}
+        {/* ==================== TAB 2: CLASS END TIMELINE (30 MIN) ================== */}
+        {/* ========================================================================= */}
         {!loading && activeTab === "ending_schedule" && (
-          <div className="space-y-4 animate-fadeIn">
-            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between gap-4">
-              <h3 className="text-sm font-black text-blue-400">⏱️ Scheduled Classes Timeline</h3>
-              <input
-                type="text"
-                placeholder="Search Class..."
-                value={endingSearchTerm}
-                onChange={(e) => setEndingSearchTerm(e.target.value)}
-                className="px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
-              />
-            </div>
+          <div className="space-y-6 animate-fadeIn">
+            
+            {/* OVERVIEW PANEL & SEARCH */}
+            <div className="bg-[#0b132b] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200 flex items-center gap-2">
+                    <span>⏱️</span> Class End Timeline — 30 Minute Slots
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    නියමිත වේලාවට පන්ති අවසන් වීමත් සමඟ නිදහස් වන (Free हुने) Zoom Accounts සහ කාලසටහන.
+                  </p>
+                </div>
 
-            <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
-                      <th className="p-4">ZOOM ACCOUNT</th>
-                      <th className="p-4">TEACHER ID</th>
-                      <th className="p-4">TOPIC</th>
-                      <th className="p-4">START TIME</th>
-                      <th className="p-4">SCHEDULED END</th>
-                      <th className="p-4">DURATION</th>
-                      <th className="p-4">STATUS</th>
-                      <th className="p-4 text-right">ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    {Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
-                      (accInfo?.classes || []).map((m, idx) => {
-                        const startM = parseTimeToMinutes(m.time);
-                        const dur = Number(m.duration) || 60;
-                        const endM = startM + dur;
-                        const endStr = formatMinutesToTime(endM);
+                <div className="w-full md:w-80">
+                  <input
+                    type="text"
+                    placeholder="🔍 Search Account, Teacher ID, Topic..."
+                    value={endingSearchTerm}
+                    onChange={(e) => setEndingSearchTerm(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+              </div>
 
-                        return (
-                          <tr key={`${accId}-${idx}`} className="hover:bg-slate-900/40">
-                            <td className="p-4 font-mono font-bold text-blue-400">⚡ {accId}</td>
-                            <td className="p-4 font-mono text-purple-300">👤 {m.teacher_id}</td>
-                            <td className="p-4 font-bold text-white max-w-xs truncate">{m.topic}</td>
-                            <td className="p-4 font-mono text-blue-300">🕒 {m.time}</td>
-                            <td className="p-4 font-mono text-purple-300 font-bold">🏁 {endStr}</td>
-                            <td className="p-4 font-mono">{formatDuration(m.duration)}</td>
-                            <td className="p-4">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-900 text-slate-300 border border-slate-800">
-                                {m.status || "SCHEDULED"}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right">
-                              {!isMeetingEnded(m) && (
-                                <button
-                                  onClick={() => handleForceEndMeeting({ ...m, accId })}
-                                  className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-lg text-xs font-bold cursor-pointer"
-                                >
-                                  End Meeting
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+              {/* QUICK CHIP BAR: TIMELINE AT A GLANCE */}
+              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    ⚡ Upcoming Ending Slots (Click to Filter):
+                  </span>
+                  {selectedTimeSlotFilter !== "all" && (
+                    <button
+                      onClick={() => setSelectedTimeSlotFilter("all")}
+                      className="text-[11px] text-blue-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Show All Slots ({timelineSlotGroups.length})
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  <button
+                    onClick={() => setSelectedTimeSlotFilter("all")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold whitespace-nowrap transition cursor-pointer ${
+                      selectedTimeSlotFilter === "all"
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black"
+                        : "bg-slate-950 border border-slate-800 text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    All Slots ({allActiveScheduledClasses.length} Classes)
+                  </button>
+
+                  {timelineSlotGroups.map((slot, sIdx) => {
+                    const isSelected = selectedTimeSlotFilter === slot.endStr;
+                    return (
+                      <button
+                        key={sIdx}
+                        onClick={() => setSelectedTimeSlotFilter(isSelected ? "all" : slot.endStr)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold whitespace-nowrap transition flex items-center gap-2 cursor-pointer border ${
+                          isSelected
+                            ? "bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-600/30"
+                            : slot.minsDiff <= 30 && slot.minsDiff > 0
+                            ? "bg-amber-950/60 border-amber-600/80 text-amber-300 hover:bg-amber-900"
+                            : "bg-slate-950 border-slate-800/90 text-slate-300 hover:border-slate-700"
+                        }`}
+                      >
+                        <span>🏁 {slot.endStr}</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                          isSelected ? "bg-white text-purple-900" : "bg-blue-950 text-blue-300 border border-blue-800"
+                        }`}>
+                          {slot.classes.length} Free
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
+
+            {/* TIMELINE SLOT CARDS CONTAINER */}
+            <div className="space-y-4">
+              {filteredTimelineSlots.length === 0 ? (
+                <div className="bg-[#0b132b]/80 border border-slate-900 rounded-3xl p-12 text-center text-gray-500 italic">
+                  අවසන් වීමට නියමිත කිසිදු Class එකක් හමු නොවීය.
+                </div>
+              ) : (
+                filteredTimelineSlots.map((slot, sIdx) => {
+                  return (
+                    <div 
+                      key={sIdx}
+                      className="bg-[#0b132b]/80 border-2 border-slate-800/90 hover:border-blue-900/60 rounded-3xl p-5 space-y-3.5 shadow-xl transition-all"
+                    >
+                      {/* SLOT HEADER */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-800/80">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-950/80 border border-purple-700/80 rounded-xl text-purple-300 font-mono font-bold text-sm">
+                            <span>🏁</span>
+                            <span>{slot.endStr}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-400 font-medium">Freeing Accounts:</span>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {slot.uniqueAccounts.map((acc, aIdx) => (
+                                <span 
+                                  key={aIdx}
+                                  className="px-2 py-0.5 bg-blue-950 border border-blue-700 text-blue-300 font-mono font-black rounded-lg text-xs"
+                                >
+                                  ⚡ {acc}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-gray-400 font-mono">
+                            {slot.classes.length} {slot.classes.length === 1 ? "Class" : "Classes"} Ending
+                          </span>
+                          {slot.minsDiff > 0 ? (
+                            <span className="px-2.5 py-1 bg-slate-900 border border-slate-700 text-amber-400 font-mono font-bold text-[10px] rounded-lg">
+                              ⏳ තව {formatDuration(slot.minsDiff)}කින්
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 bg-rose-950 border border-rose-800 text-rose-300 font-mono font-bold text-[10px] rounded-lg">
+                              ⚠️ වේලාව ඉක්මවා ඇත ({Math.abs(slot.minsDiff)}m ago)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* SLOT CLASSES TABLE */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-900 text-gray-400 font-mono text-[11px]">
+                              <th className="py-2.5 px-3">ZOOM ACCOUNT</th>
+                              <th className="py-2.5 px-3">TEACHER ID</th>
+                              <th className="py-2.5 px-3">TOPIC</th>
+                              <th className="py-2.5 px-3">START TIME</th>
+                              <th className="py-2.5 px-3">DURATION</th>
+                              <th className="py-2.5 px-3">STATUS</th>
+                              <th className="py-2.5 px-3 text-right">ACTION</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-900/60 text-slate-300">
+                            {slot.classes.map((cls, cIdx) => (
+                              <tr key={cIdx} className="hover:bg-slate-900/40 transition-colors">
+                                <td className="py-3 px-3 font-mono font-black text-amber-400 whitespace-nowrap">
+                                  ⚡ {cls.accId}
+                                </td>
+                                <td className="py-3 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
+                                  👤 {cls.teacher_id}
+                                </td>
+                                <td className="py-3 px-3 font-medium text-white max-w-sm truncate">
+                                  {cls.topic}
+                                </td>
+                                <td className="py-3 px-3 font-mono font-bold text-blue-300 whitespace-nowrap">
+                                  🕒 {cls.time}
+                                </td>
+                                <td className="py-3 px-3 font-mono whitespace-nowrap">
+                                  {formatDuration(cls.duration)}
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-950 text-slate-300 border border-slate-800">
+                                    {cls.status || "SCHEDULED"}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-right whitespace-nowrap">
+                                  <button
+                                    onClick={() => handleForceEndMeeting({ ...cls, accId: cls.accId })}
+                                    className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-xl text-xs font-bold cursor-pointer transition"
+                                  >
+                                    End Meeting
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
           </div>
         )}
 
@@ -1323,68 +1566,227 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 5: ZOOM ACCOUNTS TRACKER ==================== */}
+        {/* ========================================================================= */}
+        {/* ==================== TAB 5: ZOOM ACCOUNTS TRACKER ======================= */}
+        {/* ========================================================================= */}
         {!loading && activeTab === "zoom_accounts" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-              <h3 className="text-sm font-black text-blue-400">🛡️ Zoom Pool Accounts Expirations &amp; Status</h3>
-              <input
-                type="text"
-                placeholder="Search Account ID..."
-                value={zoomSearchTerm}
-                onChange={(e) => setZoomSearchTerm(e.target.value)}
-                className="px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
-              />
+            
+            {/* KPI STAT CARDS */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-[#0b132b] border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Total Accounts</p>
+                  <h3 className="text-2xl font-black text-blue-400 mt-1">{allZoomAccountsList.length}</h3>
+                </div>
+                <div className="w-10 h-10 bg-blue-950 border border-blue-900 rounded-xl flex items-center justify-center text-lg">🛡️</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-rose-900/50 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-rose-300 font-medium">Expired (Renew Now)</p>
+                  <h3 className="text-2xl font-black text-rose-400 mt-1">{zoomExpiredCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-rose-950 border border-rose-800 rounded-xl flex items-center justify-center text-lg">🔴</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-amber-900/50 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-amber-300 font-medium">Expiring in 1-3 Days</p>
+                  <h3 className="text-2xl font-black text-amber-400 mt-1">{zoomCriticalCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-amber-950 border border-amber-800 rounded-xl flex items-center justify-center text-lg">⚠️</div>
+              </div>
+
+              <div className="bg-[#0b132b] border border-emerald-900/50 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-emerald-300 font-medium">Active &amp; Healthy</p>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{zoomActiveCount}</h3>
+                </div>
+                <div className="w-10 h-10 bg-emerald-950 border border-emerald-800 rounded-xl flex items-center justify-center text-lg">🟢</div>
+              </div>
             </div>
 
-            <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
+            {/* SEARCH & FILTERS BAR */}
+            <div className="bg-[#0b132b] border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+              <div className="relative w-full md:w-96">
+                <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-sm">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search Zoom Account (e.g. zoom16, email)..."
+                  value={zoomSearchTerm}
+                  onChange={(e) => setZoomSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-9 py-2.5 bg-slate-950 border-2 border-slate-800 focus:border-blue-500 rounded-xl text-xs font-mono font-bold text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
+                />
+                {zoomSearchTerm && (
+                  <button onClick={() => setZoomSearchTerm("")} className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-white text-xs cursor-pointer">✕</button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto flex-wrap">
+                <button
+                  onClick={() => setZoomFilterType("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "all" ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  All ({allZoomAccountsList.length})
+                </button>
+
+                <button
+                  onClick={() => setZoomFilterType("expired")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    zoomFilterType === "expired" ? "bg-rose-600 text-white font-black shadow-md shadow-rose-600/30" : "bg-rose-950/50 text-rose-300 border border-rose-800/60"
+                  }`}
+                >
+                  <span>🔴 Expired</span>
+                  <span className="bg-rose-900 px-1.5 py-0.2 rounded-full text-[10px]">{zoomExpiredCount}</span>
+                </button>
+
+                <button
+                  onClick={() => setZoomFilterType("soon")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    zoomFilterType === "soon" ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/30" : "bg-amber-950/50 text-amber-300 border border-amber-800/60"
+                  }`}
+                >
+                  <span>⚠️ 1-3 Days</span>
+                  <span className="bg-amber-900 text-amber-200 px-1.5 py-0.2 rounded-full text-[10px]">{zoomCriticalCount}</span>
+                </button>
+
+                <button
+                  onClick={() => setZoomFilterType("week")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "week" ? "bg-blue-700 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  4-7 Days ({zoomWeekCount})
+                </button>
+
+                <button
+                  onClick={() => setZoomFilterType("active")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    zoomFilterType === "active" ? "bg-emerald-600 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  🟢 Active ({zoomActiveCount})
+                </button>
+              </div>
+            </div>
+
+            {/* SORTED ACCOUNTS TABLE */}
+            <div className="bg-[#0b132b]/60 border border-slate-900 rounded-3xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
+                    <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono text-[11px]">
                       <th className="p-4">ACCOUNT ID</th>
                       <th className="p-4">CAPACITY</th>
-                      <th className="p-4">STATUS</th>
+                      <th className="p-4">EXPIRY STATUS (ORDERED BY URGENCY)</th>
                       <th className="p-4">EXPIRE DATE</th>
-                      <th className="p-4">DAYS REMAINING</th>
-                      <th className="p-4">EMAIL</th>
+                      <th className="p-4">ACCOUNT STATUS</th>
+                      <th className="p-4">ZOOM EMAIL</th>
                       <th className="p-4 text-right">CLASSES TODAY</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    {allZoomAccountsList
-                      .filter(a => !zoomSearchTerm || a.accId.toLowerCase().includes(zoomSearchTerm.toLowerCase()))
-                      .map((acc, idx) => (
-                        <tr key={idx} className="hover:bg-slate-900/40">
-                          <td className="p-4 font-mono font-bold text-blue-400">⚡ {acc.accId}</td>
-                          <td className="p-4 font-mono">{acc.poolType}</td>
-                          <td className="p-4">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              acc.status === "ACTIVE" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-rose-950 text-rose-400 border border-rose-800"
-                            }`}>
-                              {acc.status}
-                            </span>
-                          </td>
-                          <td className="p-4 font-mono text-amber-400">{acc.expireDate || "Not Set"}</td>
-                          <td className="p-4 font-mono">
-                            {acc.daysLeft !== null ? (
-                              acc.daysLeft <= 0 ? (
-                                <span className="text-rose-400 font-bold">Expired</span>
-                              ) : acc.daysLeft <= 7 ? (
-                                <span className="text-amber-400 font-bold">{acc.daysLeft} Days</span>
+                    {filteredZoomAccounts.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center p-8 text-gray-500 italic">
+                          කිසිදු Zoom Account එකක් මෙම කාණ්ඩයේ හමු නොවීය.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredZoomAccounts.map((acc, idx) => {
+                        const isExpired = acc.daysLeft !== null && acc.daysLeft <= 0;
+                        const isCritical = acc.daysLeft !== null && acc.daysLeft > 0 && acc.daysLeft <= 3;
+                        const isCopied = copiedZoomAccId === acc.accId;
+
+                        return (
+                          <tr 
+                            key={idx} 
+                            className={`transition-colors ${
+                              isExpired 
+                                ? "bg-rose-950/20 hover:bg-rose-950/40" 
+                                : isCritical 
+                                ? "bg-amber-950/15 hover:bg-amber-950/30" 
+                                : "hover:bg-slate-900/40"
+                            }`}
+                          >
+                            <td className="p-4 font-mono font-bold whitespace-nowrap">
+                              <button
+                                onClick={() => handleCopyZoomAccountId(acc.accId)}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs cursor-pointer transition ${
+                                  isExpired 
+                                    ? "bg-rose-950 border-rose-800 text-rose-300 hover:text-white" 
+                                    : "bg-slate-950 border-slate-800 text-blue-400 hover:text-blue-300"
+                                }`}
+                              >
+                                <span>⚡ {acc.accId}</span>
+                                {isCopied ? <span className="text-[10px] text-emerald-400">✓</span> : <span className="text-[10px] opacity-60">📋</span>}
+                              </button>
+                            </td>
+
+                            <td className="p-4 font-mono font-bold text-gray-300 whitespace-nowrap">
+                              {acc.poolType}
+                            </td>
+
+                            {/* URGENCY BADGE */}
+                            <td className="p-4 whitespace-nowrap">
+                              {acc.daysLeft !== null ? (
+                                isExpired ? (
+                                  <span className="px-2.5 py-1 bg-rose-950 border border-rose-600 text-rose-300 font-mono font-black rounded-lg text-[10px] inline-flex items-center gap-1.5 animate-pulse">
+                                    <span>🔴 EXPIRED</span>
+                                    <span>({Math.abs(acc.daysLeft)} days ago)</span>
+                                  </span>
+                                ) : isCritical ? (
+                                  <span className="px-2.5 py-1 bg-amber-950 border border-amber-600 text-amber-300 font-mono font-black rounded-lg text-[10px] inline-flex items-center gap-1.5 animate-pulse">
+                                    <span>⚠️ CRITICAL</span>
+                                    <span>({acc.daysLeft} {acc.daysLeft === 1 ? "Day" : "Days"} left)</span>
+                                  </span>
+                                ) : acc.daysLeft <= 7 ? (
+                                  <span className="px-2.5 py-1 bg-yellow-950/80 border border-yellow-700 text-yellow-300 font-mono font-bold rounded-lg text-[10px]">
+                                    ⏱️ {acc.daysLeft} Days left
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 bg-emerald-950 border border-emerald-700 text-emerald-400 font-mono font-bold rounded-lg text-[10px]">
+                                    🟢 Active ({acc.daysLeft} Days)
+                                  </span>
+                                )
                               ) : (
-                                <span className="text-emerald-400">{acc.daysLeft} Days</span>
-                              )
-                            ) : "N/A"}
-                          </td>
-                          <td className="p-4 font-mono text-gray-400">{acc.email || "N/A"}</td>
-                          <td className="p-4 text-right font-mono font-bold text-blue-300">{acc.classesCount}</td>
-                        </tr>
-                      ))}
+                                <span className="text-gray-500 font-mono text-[11px]">N/A</span>
+                              )}
+                            </td>
+
+                            <td className="p-4 font-mono font-bold text-amber-400 whitespace-nowrap">
+                              {acc.expireDate || "Not Set"}
+                            </td>
+
+                            <td className="p-4 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                                acc.status === "ACTIVE" 
+                                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800" 
+                                  : "bg-rose-950 text-rose-400 border border-rose-800"
+                              }`}>
+                                {acc.status}
+                              </span>
+                            </td>
+
+                            <td className="p-4 font-mono text-gray-400 max-w-xs truncate">
+                              {acc.email || "N/A"}
+                            </td>
+
+                            <td className="p-4 text-right font-mono font-bold text-blue-300 whitespace-nowrap">
+                              {acc.classesCount}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+
           </div>
         )}
 
