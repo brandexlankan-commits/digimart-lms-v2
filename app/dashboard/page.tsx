@@ -27,7 +27,6 @@ interface Recording {
   link: string;
 }
 
-// 🎯 STRICT TYPESCRIPT INTERFACE (PREVENTS ALL 14 TYPE ERRORS)
 interface TranslationStrings {
   welcome: string;
   subHeader: string;
@@ -106,7 +105,6 @@ interface TranslationStrings {
   unpaidAlertText: string;
 }
 
-// ==================== TRANSLATIONS DICTIONARY ====================
 const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
   si: {
     welcome: "ආයුබෝවන්",
@@ -358,6 +356,7 @@ export default function DashboardPage() {
   const [maxConcurrentHosts, setMaxConcurrentHosts] = useState<string | number>("1");
   const [remainingDays, setRemainingDays] = useState<number | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string>("Paid");
+  const [isSlipUploadedJustNow, setIsSlipUploadedJustNow] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [plannedClasses, setPlannedClasses] = useState<Meeting[]>([]);
@@ -378,13 +377,18 @@ export default function DashboardPage() {
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    // 🎯 URL Parameter එකෙන් Pay කරන්න ආවොත් කෙලින්ම /pay පිටුවට redirect කිරීම
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("action") === "pay" || urlParams.get("upload_slip") === "true") {
         const storedId = localStorage.getItem("teacher_id") || "";
         router.push(`/pay${storedId ? `?id=${storedId}` : ""}`);
         return;
+      }
+
+      // Check if user has uploaded a slip and is awaiting admin expiry date update
+      const storedSlipFlag = localStorage.getItem("digimart_slip_uploaded");
+      if (storedSlipFlag === "true") {
+        setIsSlipUploadedJustNow(true);
       }
     }
 
@@ -432,7 +436,6 @@ export default function DashboardPage() {
 
   const t = translations[lang];
 
-  // 🎯 ONE UNIFIED ACTION: කෙලින්ම නිල /pay පිටුවට රැගෙන යාම
   const handleGoToPay = () => {
     router.push(`/pay?id=${teacherId}`);
   };
@@ -638,7 +641,13 @@ export default function DashboardPage() {
 
         if (data.expiryDate || data.expiry_date || data.paymentDate || data.daysRemaining) {
           if (data.daysRemaining !== undefined) {
-            setRemainingDays(Number(data.daysRemaining));
+            const daysNum = Number(data.daysRemaining);
+            setRemainingDays(daysNum);
+            // If admin extended days successfully, reset the temporary slip upload flag
+            if (daysNum > 0) {
+              localStorage.removeItem("digimart_slip_uploaded");
+              setIsSlipUploadedJustNow(false);
+            }
           } else {
             const expStr = data.expiryDate || data.expiry_date;
             if (expStr) {
@@ -647,6 +656,10 @@ export default function DashboardPage() {
               const diffTime = expDate.getTime() - today.getTime();
               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               setRemainingDays(diffDays);
+              if (diffDays > 0) {
+                localStorage.removeItem("digimart_slip_uploaded");
+                setIsSlipUploadedJustNow(false);
+              }
             }
           }
         }
@@ -759,6 +772,7 @@ export default function DashboardPage() {
     localStorage.removeItem("teacher_id");
     localStorage.removeItem("teacher_pic");
     localStorage.removeItem("profile_pic");
+    localStorage.removeItem("digimart_slip_uploaded");
     router.push("/login");
   };
 
@@ -824,7 +838,6 @@ export default function DashboardPage() {
               <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[10px]">{maxConcurrentHosts}</span>
             </span>
 
-            {/* PAY / UPLOAD SLIP HEADER BUTTON (ROUTES TO /pay) */}
             <button
               onClick={handleGoToPay}
               className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
@@ -943,7 +956,7 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">⚡</div>
               </div>
 
-              {/* 🎯 SMART ACCOUNT STATUS CARD */}
+              {/* 🎯 ACCURATE ACCOUNT STATUS CARD */}
               <div 
                 onClick={handleGoToPay}
                 className="bg-[#0b132b] hover:bg-[#0f1a3d] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between cursor-pointer transition-colors group"
@@ -958,6 +971,12 @@ export default function DashboardPage() {
                     <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1 animate-pulse">
                       ❌ UNPAID (Upload Slip)
                     </h3>
+                  ) : isSlipUploadedJustNow ? (
+                    // Slip එක Upload කළ පසු Admin විසින් Expiry Date Update කරන තුරු පමණක්
+                    <h3 className="text-xs sm:text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1">
+                      <span className="animate-spin text-xs">⏳</span>
+                      <span>{t.updatingExpiryText}</span>
+                    </h3>
                   ) : remainingDays === null ? (
                     <h3 className="text-sm sm:text-base font-bold text-emerald-400 mt-1">{t.activeAcc}</h3>
                   ) : remainingDays > 5 ? (
@@ -969,15 +988,15 @@ export default function DashboardPage() {
                       ⚠️ {t.daysLeftText.replace("{days}", remainingDays.toString())}
                     </h3>
                   ) : (
-                    <h3 className="text-xs sm:text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1">
-                      <span className="animate-spin text-xs">⏳</span>
-                      <span>{t.updatingExpiryText}</span>
+                    // සාමාන්‍යයෙන් Expiry Date එක ඉකුත් වී ඇත්නම් නිවැරදිව "කාලය ඉකුත් වී ඇත" ලෙස පෙන්වයි
+                    <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1">
+                      {t.expiredText}
                     </h3>
                   )}
                 </div>
 
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-lg sm:text-xl">
-                  {isUnpaid ? "💳" : "✅"}
+                  {isUnpaid ? "💳" : (isSlipUploadedJustNow || (remainingDays !== null && remainingDays > 0)) ? "✅" : "❌"}
                 </div>
               </div>
             </div>

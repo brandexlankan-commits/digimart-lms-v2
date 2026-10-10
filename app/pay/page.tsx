@@ -90,6 +90,10 @@ function PayContent() {
       });
 
       if (response.ok) {
+        // 🎯 Set persistent flag so Dashboard recognizes the payment was made and shows updating state
+        if (typeof window !== "undefined") {
+          localStorage.setItem("digimart_slip_uploaded", "true");
+        }
         setUploadSuccess(true);
       } else {
         alert("❌ Slip එක Upload කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
