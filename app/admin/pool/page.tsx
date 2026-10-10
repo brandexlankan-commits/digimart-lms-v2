@@ -43,6 +43,9 @@ interface TeacherExpiry {
   username?: string;
   expiry_date: string;
   payment_status?: string;
+  slip_status?: string;
+  Slip_Status?: string;
+  "Slip Status"?: string;
   slip_url?: string;
   Slip_URL?: string;
   "Slip URL"?: string;
@@ -51,7 +54,7 @@ interface TeacherExpiry {
 }
 
 export default function AdminPoolPage() {
-  const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "expirations" | "zoom_accounts" | "bank_slips">("pool");
+  const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "bank_slips" | "expirations" | "zoom_accounts">("pool");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [poolData, setPoolData] = useState<PoolData>({});
   const [teachersList, setTeachersList] = useState<TeacherExpiry[]>([]);
@@ -66,12 +69,9 @@ export default function AdminPoolPage() {
   const [slipSubTab, setSlipSubTab] = useState<"pending" | "approved" | "rejected">("pending");
   const [slipSearchTerm, setSlipSearchTerm] = useState("");
   const [slipModalTeacher, setSlipModalTeacher] = useState<TeacherExpiry | null>(null);
-  const [approvedSlips, setApprovedSlips] = useState<{ [teacherId: string]: string }>({});
-  const [rejectedSlips, setRejectedSlips] = useState<{ [teacherId: string]: string }>({});
 
   // Ending Schedule Tab States
   const [endingSearchTerm, setEndingSearchTerm] = useState("");
-  const [endingFilter, setEndingFilter] = useState<"all" | "active" | "ended">("all");
 
   // Zoom Accounts Tab States
   const [zoomSearchTerm, setZoomSearchTerm] = useState("");
@@ -80,9 +80,7 @@ export default function AdminPoolPage() {
 
   // Copy Feedback States
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
-  const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
   const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null);
-  const [lastCopiedUsername, setLastCopiedUsername] = useState<string | null>(null);
 
   // Reminded Teachers Set
   const [remindedTeacherIds, setRemindedTeacherIds] = useState<string[]>([]);
@@ -99,14 +97,8 @@ export default function AdminPoolPage() {
     try {
       const storedReminded = localStorage.getItem(`digimart_reminded_${today}`);
       if (storedReminded) setRemindedTeacherIds(JSON.parse(storedReminded));
-
-      const storedApproved = localStorage.getItem("digimart_approved_slips");
-      if (storedApproved) setApprovedSlips(JSON.parse(storedApproved));
-
-      const storedRejected = localStorage.getItem("digimart_rejected_slips");
-      if (storedRejected) setRejectedSlips(JSON.parse(storedRejected));
     } catch (e) {
-      console.error("Failed to load local storage state:", e);
+      console.error("Failed to load reminded state:", e);
     }
   }, []);
 
@@ -159,7 +151,14 @@ export default function AdminPoolPage() {
     return typeof url === "string" ? url.trim() : "";
   };
 
-  // 🚀 DIRECT ONE-CLICK LOGIN TO TEACHER DASHBOARD WITHOUT PASSWORD
+  const getTeacherSlipStatus = (t?: TeacherExpiry | null) => {
+    if (!t) return "PENDING";
+    const status = t.slip_status || (t as any)["Slip Status"] || (t as any).Slip_Status || "";
+    const clean = String(status).trim().toUpperCase();
+    return clean || "PENDING";
+  };
+
+  // Direct Teacher Login
   const handleLoginAsTeacher = (t: TeacherExpiry) => {
     try {
       localStorage.setItem("teacher_id", t.teacher_id);
@@ -171,7 +170,11 @@ export default function AdminPoolPage() {
     }
   };
 
-  const handleUpdateTeacher = async (teacherId: string, updates: { expiry_date?: string; payment_status?: string }) => {
+  // Google Sheet Update
+  const handleUpdateTeacher = async (
+    teacherId: string, 
+    updates: { expiry_date?: string; payment_status?: string; slip_status?: string }
+  ) => {
     setSavingTeacherId(teacherId);
 
     setTeachersList((prev) =>
@@ -185,7 +188,8 @@ export default function AdminPoolPage() {
         teacher_name: targetTeacher?.teacher_name || "",
         username: targetTeacher?.username || "",
         expiry_date: updates.expiry_date !== undefined ? updates.expiry_date : (targetTeacher?.expiry_date || ""),
-        payment_status: updates.payment_status !== undefined ? updates.payment_status : (targetTeacher?.payment_status || "UNPAID"),
+        payment_status: updates.payment_status !== undefined ? updates.payment_status : (targetTeacher?.payment_status || "PAID"),
+        slip_status: updates.slip_status !== undefined ? updates.slip_status : (getTeacherSlipStatus(targetTeacher) || "Approved"),
       };
 
       await fetch(N8N_UPDATE_TEACHER_WEBHOOK_URL, {
@@ -194,7 +198,7 @@ export default function AdminPoolPage() {
         body: JSON.stringify(payload),
       });
     } catch (err) {
-      console.error("Failed to update teacher:", err);
+      console.error("Failed to update teacher in sheet:", err);
     } finally {
       setSavingTeacherId(null);
     }
@@ -211,51 +215,22 @@ export default function AdminPoolPage() {
     baseDate.setDate(baseDate.getDate() + daysToAdd);
     const newExpDate = baseDate.toISOString().split("T")[0];
 
-    const currentSlipUrl = getTeacherSlipUrl(teacher);
-    setApprovedSlips((prev) => {
-      const updated = { ...prev, [teacher.teacher_id]: currentSlipUrl };
-      localStorage.setItem("digimart_approved_slips", JSON.stringify(updated));
-      return updated;
-    });
-
-    setRejectedSlips((prev) => {
-      const updated = { ...prev };
-      delete updated[teacher.teacher_id];
-      localStorage.setItem("digimart_rejected_slips", JSON.stringify(updated));
-      return updated;
-    });
-
     await handleUpdateTeacher(teacher.teacher_id, {
       expiry_date: newExpDate,
       payment_status: "PAID",
+      slip_status: "Approved",
     });
+    setSlipModalTeacher(null);
   };
 
   const handleRejectSlip = async (teacher: TeacherExpiry) => {
     if (!confirm(`⚠️ Teacher: ${teacher.teacher_name} (ID: ${teacher.teacher_id}) ගේ Bank Slip එක Reject කිරීමට අවශ්‍ය බව තහවුරු කරන්න.`)) return;
 
-    const currentSlipUrl = getTeacherSlipUrl(teacher);
-    setRejectedSlips((prev) => {
-      const updated = { ...prev, [teacher.teacher_id]: currentSlipUrl };
-      localStorage.setItem("digimart_rejected_slips", JSON.stringify(updated));
-      return updated;
-    });
-
-    setApprovedSlips((prev) => {
-      const updated = { ...prev };
-      delete updated[teacher.teacher_id];
-      localStorage.setItem("digimart_approved_slips", JSON.stringify(updated));
-      return updated;
-    });
-
     await handleUpdateTeacher(teacher.teacher_id, {
       payment_status: "UNPAID",
+      slip_status: "Rejected",
     });
     setSlipModalTeacher(null);
-  };
-
-  const handleQuickRenew = async (teacher: TeacherExpiry) => {
-    await handleExtendDays(teacher, 30);
   };
 
   const handleTogglePaymentStatus = (teacher: TeacherExpiry) => {
@@ -264,7 +239,7 @@ export default function AdminPoolPage() {
     handleUpdateTeacher(teacher.teacher_id, { payment_status: nextStatus });
   };
 
-  const handleForceEndMeeting = async (meeting: SlotMeeting & { accId?: string }) => {
+  const handleForceEndMeeting = async (meeting: any) => {
     const targetZoomId = String(meeting.zoom_id || "").trim();
     if (!targetZoomId) return;
 
@@ -310,6 +285,15 @@ export default function AdminPoolPage() {
     }
   };
 
+  // ⚠️ FREE SLOT WITH BREAK/INTERVAL PROTECTION
+  const handleFreeSlot = async (meeting: any) => {
+    if (meeting.isStillInWindow) {
+      const confirmMsg = `⚠️ අවධානයට:\n\nමෙම පන්තියේ නිල කාලසටහන:\n• ආරම්භක වේලාව: ${meeting.time}\n• නියමිත අවසන් වේලාව: ${meeting.scheduledEndTimeStr}\n(කාලසටහන අනුව තව මිනිත්තු ${meeting.minsRemaining}ක් ඉතිරිව ඇත - ගුරුවරයා Interval / Break එකක් ලබා දී තිබිය හැක).\n\nදැන් 'Free Slot' කළහොත් ගුරුවරයාට පන්තිය නැවත ආරම්භ කිරීමට නොහැකි වනු ඇත!\n\nඔබට මෙය සැබවින්ම Free කිරීමට අවශ්‍යද?`;
+      if (!confirm(confirmMsg)) return;
+    }
+    await handleForceEndMeeting(meeting);
+  };
+
   const isMeetingEnded = (m: SlotMeeting) => {
     const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
     return rawStatus === "ENDED";
@@ -317,13 +301,11 @@ export default function AdminPoolPage() {
 
   const formatDuration = (totalMinutes: string | number) => {
     const mins = Number(totalMinutes) || 0;
-    if (mins <= 0) return "0 Mins";
-
+    if (mins <= 0) return "0m";
     const hours = Math.floor(mins / 60);
     const remainingMins = mins % 60;
-
-    if (hours === 0) return `${remainingMins} Mins`;
-    if (remainingMins === 0) return `${hours} ${hours === 1 ? "Hour" : "Hours"}`;
+    if (hours === 0) return `${remainingMins}m`;
+    if (remainingMins === 0) return `${hours}h`;
     return `${hours}h ${remainingMins}m`;
   };
 
@@ -349,60 +331,6 @@ export default function AdminPoolPage() {
     const ampm = h >= 12 ? "PM" : "AM";
     const displayH = h % 12 === 0 ? 12 : h % 12;
     return `${displayH.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")} ${ampm}`;
-  };
-
-  const isMeetingLiveNow = (m: SlotMeeting) => {
-    if (isMeetingEnded(m)) return false;
-
-    const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
-    if (rawStatus === "STARTED" || rawStatus === "LIVE") return true;
-
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-
-    const mStart = parseTimeToMinutes(m.time);
-    const mDuration = Number(m.duration) || 60;
-    const mEnd = mStart + mDuration;
-
-    return currentMins >= mStart && currentMins <= mEnd;
-  };
-
-  const isMeetingUnstartedOverdue = (m: SlotMeeting) => {
-    const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
-    if (rawStatus === "ENDED" || rawStatus === "STARTED" || rawStatus === "LIVE" || rawStatus === "EARLY_ENDED") {
-      return false;
-    }
-
-    if (!selectedDate) return false;
-    const todayStr = new Date().toISOString().split("T")[0];
-    if (selectedDate < todayStr) return true;
-    if (selectedDate > todayStr) return false;
-
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-    const mStart = parseTimeToMinutes(m.time);
-    const mDuration = Number(m.duration) || 60;
-    const mEnd = mStart + mDuration;
-
-    return currentMins >= mEnd;
-  };
-
-  const isAccountBusyRightNow = (meetings: SlotMeeting[]) => {
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-    
-    return (meetings || []).some((m) => {
-      if (isMeetingEnded(m)) return false;
-
-      const mStart = parseTimeToMinutes(m.time);
-      const mDuration = Number(m.duration) || 60;
-      const mEnd = mStart + mDuration;
-
-      const bufferedStart = mStart - 60;
-      const bufferedEnd = mEnd + 120;
-
-      return currentMins >= bufferedStart && currentMins <= bufferedEnd;
-    });
   };
 
   const getDaysRemaining = (expDateStr?: string) => {
@@ -496,45 +424,12 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  const handleToggleRemindedStatus = (e: React.MouseEvent, teacherId: string) => {
-    e.stopPropagation();
-    setRemindedTeacherIds((prev) => {
-      const today = new Date().toISOString().split("T")[0];
-      let updated: string[];
-      if (prev.includes(teacherId)) {
-        updated = prev.filter((id) => id !== teacherId);
-      } else {
-        updated = [...prev, teacherId];
-      }
-      try {
-        localStorage.setItem(`digimart_reminded_${today}`, JSON.stringify(updated));
-      } catch (err) {
-        console.error(err);
-      }
-      return updated;
-    });
-  };
-
-  const handleCopyMeetingId = (zoomId: string) => {
-    navigator.clipboard.writeText(String(zoomId));
-    setCopiedMeetingId(zoomId);
-    setTimeout(() => {
-      setCopiedMeetingId(null);
-    }, 2000);
-  };
-
   const handleCopyTeacherIdOnly = (teacherId: string) => {
     navigator.clipboard.writeText(String(teacherId));
     setCopiedIdOnly(teacherId);
     setTimeout(() => {
       setCopiedIdOnly(null);
     }, 2000);
-  };
-
-  const handleCopyUsernameOnly = (username: string) => {
-    if (!username || username === "N/A") return;
-    navigator.clipboard.writeText(String(username));
-    setLastCopiedUsername(username);
   };
 
   const handleCopyZoomAccountId = (accId: string) => {
@@ -545,204 +440,63 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  const activeAccountKeys = Object.keys(poolData || {}).filter((accId) =>
-    isAccountActive(poolData[accId])
-  );
-
-  const calculateNext4HoursAvailability = () => {
-    const totalAccounts = activeAccountKeys.length;
-    if (totalAccounts === 0) return [];
-
-    const now = new Date();
-    const currentHour = now.getHours();
-    const hourlySlots = [];
-
-    for (let i = 0; i < 4; i++) {
-      const targetHour = (currentHour + i) % 24;
-      const slotStartMins = targetHour * 60;
-      const slotEndMins = slotStartMins + 60;
-
-      const ampm = targetHour >= 12 ? "PM" : "AM";
-      const displayHour = targetHour % 12 === 0 ? 12 : targetHour % 12;
-      const timeLabel = `${displayHour.toString().padStart(2, "0")}:00 ${ampm}`;
-
-      const busyAccounts: string[] = [];
-      const availableAccounts: string[] = [];
-
-      activeAccountKeys.forEach((accId) => {
-        const accInfo = poolData[accId];
-        const meetings = accInfo?.classes || [];
-        
-        const isBusy = meetings.some((m) => {
-          if (isMeetingEnded(m)) return false;
-
-          const mStart = parseTimeToMinutes(m.time);
-          const mDuration = Number(m.duration) || 60;
-          const mEnd = mStart + mDuration;
-
-          const bufferedStart = mStart - 60;
-          const bufferedEnd = mEnd + 120;
-
-          return bufferedStart < slotEndMins && bufferedEnd > slotStartMins;
-        });
-
-        if (isBusy) busyAccounts.push(accId);
-        else availableAccounts.push(accId);
-      });
-
-      hourlySlots.push({
-        timeLabel,
-        hour: targetHour,
-        totalAccounts,
-        availableCount: availableAccounts.length,
-        busyCount: busyAccounts.length,
-        availableAccounts,
-        busyAccounts,
-      });
-    }
-
-    return hourlySlots;
-  };
-
-  const get30MinuteEndingSlots = () => {
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-
-    const allEndingItems: Array<{
-      accId: string;
-      poolType: string;
-      meeting: SlotMeeting;
-      startMins: number;
-      durationMins: number;
-      endMins: number;
-      exactEndTimeStr: string;
-      slotMins: number;
-      slotLabel: string;
-      isEnded: boolean;
-      isLive: boolean;
-    }> = [];
-
-    Object.entries(poolData || {}).forEach(([accId, accInfo]) => {
-      (accInfo?.classes || []).forEach((m) => {
+  // 🎯 EARLY ENDED CLASSES CALCULATION WITH START & SCHEDULED END TIMES
+  const earlyEndedClasses = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
+    (accInfo?.classes || [])
+      .filter((m) => {
+        const st = String(m.status || m.Status || "").trim().toUpperCase();
+        return st === "EARLY_ENDED" || st === "ENDED_EARLY" || st.includes("EARLY");
+      })
+      .map((m) => {
         const startMins = parseTimeToMinutes(m.time);
         const durationMins = Number(m.duration) || 60;
         const endMins = startMins + durationMins;
+        const scheduledEndTimeStr = formatMinutesToTime(endMins);
 
-        const slotMins = Math.round(endMins / 30) * 30;
-        const slotLabel = formatMinutesToTime(slotMins);
-        const exactEndTimeStr = formatMinutesToTime(endMins);
+        const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const isStillInWindow = currentMins < endMins;
+        const minsRemaining = isStillInWindow ? endMins - currentMins : 0;
 
-        allEndingItems.push({
+        return {
           accId,
           poolType: accInfo?.pool_type || "Zoom",
-          meeting: m,
           startMins,
           durationMins,
           endMins,
-          exactEndTimeStr,
-          slotMins,
-          slotLabel,
-          isEnded: isMeetingEnded(m),
-          isLive: isMeetingLiveNow(m),
-        });
-      });
-    });
-
-    const groups: { [slotMins: number]: typeof allEndingItems } = {};
-    allEndingItems.forEach((item) => {
-      const q = (endingSearchTerm || "").trim().toLowerCase();
-      const acc = String(item.accId || "").toLowerCase();
-      const tid = String(item.meeting?.teacher_id || "").toLowerCase();
-      const top = String(item.meeting?.topic || "").toLowerCase();
-
-      const matchesSearch = acc.includes(q) || tid.includes(q) || top.includes(q);
-
-      if (!matchesSearch) return;
-
-      if (endingFilter === "active" && item.isEnded) return;
-      if (endingFilter === "ended" && !item.isEnded) return;
-
-      if (!groups[item.slotMins]) groups[item.slotMins] = [];
-      groups[item.slotMins].push(item);
-    });
-
-    return Object.keys(groups)
-      .map(Number)
-      .sort((a, b) => a - b)
-      .map((slotMins) => {
-        const classes = groups[slotMins].sort((a, b) => String(a.accId).localeCompare(String(b.accId)));
-        const timeLabel = formatMinutesToTime(slotMins);
-        const isPast = currentMins > slotMins;
-        const isEndingSoon = currentMins >= slotMins - 30 && currentMins <= slotMins;
-
-        return {
-          slotMins,
-          timeLabel,
-          classes,
-          isPast,
-          isEndingSoon,
-        };
-      });
-  };
-
-  const earlyEndedMeetings = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
-    (accInfo?.classes || [])
-      .filter((m) => {
-        const status = String(m.status || m.Status || "").trim().toUpperCase();
-        return status === "EARLY_ENDED";
-      })
-      .map((m) => {
-        const startMins = parseTimeToMinutes(m.time);
-        const durationMins = Number(m.duration) || 60;
-        const endMins = startMins + durationMins;
-        const scheduledEndTimeStr = formatMinutesToTime(endMins);
-
-        return {
-          accId,
-          poolType: accInfo?.pool_type || "Zoom",
           scheduledEndTimeStr,
+          isStillInWindow,
+          minsRemaining,
           ...m,
         };
       })
   );
 
-  const unstartedOverdueMeetings = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
-    (accInfo?.classes || [])
-      .filter((m) => isMeetingUnstartedOverdue(m))
-      .map((m) => {
-        const startMins = parseTimeToMinutes(m.time);
-        const durationMins = Number(m.duration) || 60;
-        const endMins = startMins + durationMins;
-        const scheduledEndTimeStr = formatMinutesToTime(endMins);
+  // Zoom Accounts Array
+  const allZoomAccountsList = Object.keys(poolData || {}).map((accId) => {
+    const acc = poolData[accId];
+    const daysLeft = getDaysRemaining(acc.expire_date);
+    const isActive = isAccountActive(acc);
+    return {
+      accId,
+      poolType: acc.pool_type || "100p",
+      status: isActive ? "ACTIVE" : "INACTIVE",
+      expireDate: acc.expire_date || "",
+      email: acc.email || "",
+      daysLeft,
+      classesCount: (acc.classes || []).length,
+    };
+  });
 
-        return {
-          accId,
-          poolType: accInfo?.pool_type || "Zoom",
-          scheduledEndTimeStr,
-          ...m,
-        };
-      })
-  );
+  const expiredZoomAccountsCount = allZoomAccountsList.filter((a) => a.daysLeft !== null && a.daysLeft <= 0).length;
 
-  const busyAccountsNowCount = activeAccountKeys.filter((accId) => {
-    const accInfo = poolData[accId];
-    return isAccountBusyRightNow(accInfo?.classes || []);
-  }).length;
-
-  const activeClassesToday = activeAccountKeys.reduce((acc, key) => {
-    const meetings = poolData[key]?.classes || [];
-    return acc + meetings.filter(m => !isMeetingEnded(m)).length;
-  }, 0);
-
-  const upcoming4HoursSlots = calculateNext4HoursAvailability();
-  const endingTimelineSlots = get30MinuteEndingSlots();
-
-  // Teachers Processing with Safe String Conversions
+  // Teachers Processing
   const processedTeachers = (teachersList || []).map((t) => {
     const daysLeft = getDaysRemaining(t.expiry_date);
     const isReminded = remindedTeacherIds.includes(String(t.teacher_id));
     const slipUrl = getTeacherSlipUrl(t);
-    return { ...t, daysLeft, isReminded, slipUrl };
+    const slipStatus = getTeacherSlipStatus(t);
+    return { ...t, daysLeft, isReminded, slipUrl, slipStatus };
   }).sort((a, b) => {
     if (a.daysLeft === null) return 1;
     if (b.daysLeft === null) return -1;
@@ -750,57 +504,46 @@ export default function AdminPoolPage() {
   });
 
   const expiredCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft <= 0).length;
-  const expiringSoonCount = processedTeachers.filter(t => t.daysLeft !== null && t.daysLeft > 0 && t.daysLeft <= 7).length;
-  const unpaidCount = processedTeachers.filter(t => String(t.payment_status || "UNPAID").toUpperCase() === "UNPAID").length;
-  const paidCount = processedTeachers.filter(t => String(t.payment_status || "").toUpperCase() === "PAID").length;
-  const remindedCount = processedTeachers.filter(t => t.isReminded).length;
   const needReminderCount = processedTeachers.filter(t => !t.isReminded && (t.daysLeft !== null && t.daysLeft <= 7)).length;
-  
-  // Teachers With Slips Categorization
+
   const teachersWithSlips = processedTeachers.filter(t => Boolean(t.slipUrl));
-
-  const pendingSlips = teachersWithSlips.filter(t => {
-    const currentUrl = t.slipUrl;
-    const isApproved = approvedSlips[t.teacher_id] === currentUrl;
-    const isRejected = rejectedSlips[t.teacher_id] === currentUrl;
-    return !isApproved && !isRejected;
-  });
-
-  const approvedSlipsList = teachersWithSlips.filter(t => {
-    const currentUrl = t.slipUrl;
-    return approvedSlips[t.teacher_id] === currentUrl;
-  });
-
-  const rejectedSlipsList = teachersWithSlips.filter(t => {
-    const currentUrl = t.slipUrl;
-    return rejectedSlips[t.teacher_id] === currentUrl;
-  });
+  const pendingSlips = teachersWithSlips.filter(t => t.slipStatus === "PENDING" || !t.slipStatus);
+  const approvedSlipsList = teachersWithSlips.filter(t => t.slipStatus === "APPROVED");
+  const rejectedSlipsList = teachersWithSlips.filter(t => t.slipStatus === "REJECTED");
 
   const currentSlipsToDisplay = 
     slipSubTab === "pending" ? pendingSlips :
     slipSubTab === "approved" ? approvedSlipsList :
     rejectedSlipsList;
 
-  // 🎯 ULTRA-SMART SEARCH FILTER (Matches '69', '169', 'teach_69', names, etc.)
+  const filteredSlips = currentSlipsToDisplay.filter((t) => {
+    const q = (slipSearchTerm || "").trim().toLowerCase();
+    const id = String(t.teacher_id || "").toLowerCase();
+    const idDigits = id.replace(/\D/g, "");
+    const name = String(t.teacher_name || "").toLowerCase();
+    const user = String(t.username || "").toLowerCase();
+
+    if (/^\d+$/.test(q)) {
+      return idDigits === q || id.endsWith(`_${q}`) || id.includes(q);
+    }
+    return id.includes(q) || name.includes(q) || user.includes(q);
+  });
+
   const filteredTeachers = processedTeachers.filter((t) => {
     const rawQ = (searchTerm || "").trim().toLowerCase();
-    
     if (rawQ) {
       const id = String(t.teacher_id || "").toLowerCase();
       const idDigits = id.replace(/\D/g, "");
       const name = String(t.teacher_name || "").toLowerCase();
       const user = String(t.username || "").toLowerCase();
 
-      // Check if user typed numeric ID like "69" or "169"
       const isNumericQuery = /^\d+$/.test(rawQ);
       let matchesSearch = false;
-
       if (isNumericQuery) {
         matchesSearch = idDigits === rawQ || id.endsWith(`_${rawQ}`) || id.includes(rawQ);
       } else {
         matchesSearch = id.includes(rawQ) || name.includes(rawQ) || user.includes(rawQ);
       }
-
       if (!matchesSearch) return false;
     }
 
@@ -816,79 +559,18 @@ export default function AdminPoolPage() {
     return true;
   });
 
-  const processedZoomAccounts = Object.entries(poolData || {}).map(([accId, accInfo]) => {
-    const rawStatus = String(
-      accInfo?.status || 
-      accInfo?.Status || 
-      accInfo?.account_status || 
-      ""
-    ).trim();
-    const isActive = rawStatus.toUpperCase() === "ACTIVE";
-    const expDateStr = accInfo?.expire_date || accInfo?.expiry_date || accInfo?.["Expire Date"] || "";
-    const daysLeft = getDaysRemaining(expDateStr);
-
-    return {
-      accId,
-      poolType: accInfo?.pool_type || "100P",
-      status: rawStatus || "Inactive",
-      isActive,
-      expireDate: expDateStr,
-      email: accInfo?.email || (accInfo as any)?.["Email"] || "",
-      classesCount: (accInfo?.classes || []).length,
-      daysLeft,
-    };
-  }).sort((a, b) => {
-    if (a.daysLeft !== null && b.daysLeft !== null) {
-      return a.daysLeft - b.daysLeft;
-    }
-    if (a.daysLeft !== null) return -1;
-    if (b.daysLeft !== null) return 1;
-    return String(a.accId).localeCompare(String(b.accId));
-  });
-
-  const zoomExpiredCount = processedZoomAccounts.filter(a => a.daysLeft !== null && a.daysLeft <= 0).length;
-  const zoomExpiringSoonCount = processedZoomAccounts.filter(a => a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 7).length;
-
-  const filteredZoomAccounts = processedZoomAccounts.filter((a) => {
-    const q = (zoomSearchTerm || "").trim().toLowerCase();
-    const acc = String(a.accId || "").toLowerCase();
-    const email = String(a.email || "").toLowerCase();
-    const matchesSearch = acc.includes(q) || email.includes(q);
-    if (!matchesSearch) return false;
-
-    if (zoomFilterType === "expired") return a.daysLeft !== null && a.daysLeft <= 0;
-    if (zoomFilterType === "soon") return a.daysLeft !== null && a.daysLeft > 0 && a.daysLeft <= 7;
-    if (zoomFilterType === "active") return a.isActive;
-    if (zoomFilterType === "inactive") return !a.isActive;
-
-    return true;
-  });
-
-  const filteredSlips = currentSlipsToDisplay.filter((t) => {
-    const q = (slipSearchTerm || "").trim().toLowerCase();
-    const id = String(t.teacher_id || "").toLowerCase();
-    const idDigits = id.replace(/\D/g, "");
-    const name = String(t.teacher_name || "").toLowerCase();
-    const user = String(t.username || "").toLowerCase();
-
-    if (/^\d+$/.test(q)) {
-      return idDigits === q || id.endsWith(`_${q}`) || id.includes(q);
-    }
-    return id.includes(q) || name.includes(q) || user.includes(q);
-  });
-
   return (
     <div className="min-h-screen bg-[#070b19] text-white p-4 sm:p-6 font-sans selection:bg-blue-600/30">
-      <div className="max-w-[1500px] mx-auto space-y-6">
+      <div className="max-w-[1550px] mx-auto space-y-6">
         
-        {/* HEADER */}
+        {/* TOP HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-900 pb-5 gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200">
               ⚡ Digimart Admin Management Hub
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              Zoom Pool Slots, Bank Slip Verifications, Teacher Subscriptions සහ Zoom Accounts Expirations එකම තැනින් සජීවීව Manage කරන්න.
+              Zoom Pool Slots, Bank Slip Verifications, Teacher Subscriptions සහ Zoom Accounts Expirations සජීවීව Manage කරන්න.
             </p>
           </div>
 
@@ -900,7 +582,7 @@ export default function AdminPoolPage() {
               <span>🔄</span> Refresh Data
             </button>
 
-            {activeTab !== "expirations" && activeTab !== "zoom_accounts" && activeTab !== "bank_slips" && (
+            {activeTab === "pool" && (
               <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-xl flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-bold pl-2">📅 Date:</span>
                 <input 
@@ -914,7 +596,7 @@ export default function AdminPoolPage() {
           </div>
         </div>
 
-        {/* ERROR NOTICE BANNER */}
+        {/* ERROR BANNER */}
         {fetchError && (
           <div className="p-4 bg-rose-950/80 border border-rose-700 rounded-2xl flex items-center justify-between gap-3 text-xs text-rose-300">
             <div className="flex items-center gap-2">
@@ -930,11 +612,11 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* TAB NAVIGATION HEADER */}
+        {/* 5-TAB NAVIGATION */}
         <div className="flex items-center gap-2 border-b border-slate-900 pb-3 flex-wrap">
           <button
             onClick={() => setActiveTab("pool")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "pool" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -945,23 +627,18 @@ export default function AdminPoolPage() {
 
           <button
             onClick={() => setActiveTab("ending_schedule")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "ending_schedule" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
             }`}
           >
             <span>⏱️</span> Class End Timeline (30 Min)
-            {activeClassesToday > 0 && (
-              <span className="bg-blue-950 border border-blue-700 text-blue-300 px-2 py-0.5 rounded-full text-[10px] font-black">
-                {activeClassesToday}
-              </span>
-            )}
           </button>
 
           <button
             onClick={() => setActiveTab("bank_slips")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
               activeTab === "bank_slips" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
@@ -977,208 +654,303 @@ export default function AdminPoolPage() {
 
           <button
             onClick={() => setActiveTab("expirations")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
               activeTab === "expirations" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
             }`}
           >
             <span>📅</span> Teacher Expirations Tracker
-            {needReminderCount > 0 ? (
+            {needReminderCount > 0 && (
               <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
                 {needReminderCount} Need Remind
               </span>
-            ) : expiringSoonCount > 0 ? (
-              <span className="bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black">
-                All Reminded
-              </span>
-            ) : null}
+            )}
           </button>
 
           <button
             onClick={() => setActiveTab("zoom_accounts")}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
               activeTab === "zoom_accounts" 
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
                 : "bg-slate-900/60 text-gray-400 hover:bg-slate-900 hover:text-white border border-slate-800"
             }`}
           >
             <span>🛡️</span> Zoom Accounts Tracker
-            {zoomExpiredCount > 0 ? (
-              <span className="bg-rose-500 text-white px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                {zoomExpiredCount} Expired
+            {expiredZoomAccountsCount > 0 && (
+              <span className="bg-rose-500 text-white px-2 py-0.5 rounded-full text-[10px] font-black">
+                {expiredZoomAccountsCount} Expired
               </span>
-            ) : zoomExpiringSoonCount > 0 ? (
-              <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                {zoomExpiringSoonCount} Expiring Soon
-              </span>
-            ) : null}
+            )}
           </button>
         </div>
 
         {/* LOADING INDICATOR */}
         {loading && (
           <div className="p-12 text-center text-blue-400 font-mono text-sm animate-pulse">
-            ⚙️ Fetching Pool Slot &amp; Teacher Data from Server...
+            ⚙️ Fetching Realtime Data from Server...
           </div>
         )}
 
         {/* ==================== TAB 1: ZOOM POOL VISUALIZER ==================== */}
         {!loading && activeTab === "pool" && (
           <div className="space-y-6 animate-fadeIn">
-            {unstartedOverdueMeetings.length > 0 && (
-              <div className="bg-gradient-to-r from-rose-950/60 via-[#0b132b] to-[#0b132b] border border-rose-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800/80 pb-3 gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl animate-bounce">🚨</span>
-                    <div>
-                      <h2 className="text-sm font-black text-rose-400 font-mono tracking-wide">
-                        OVERDUE UNSTARTED CLASSES ({unstartedOverdueMeetings.length}) - LOCKING ZOOM POOL
-                      </h2>
-                      <p className="text-[11px] text-gray-400">
-                        නියමිත වේලාව අවසන් වනතුරුත් ආරම්භ නොකළ පන්ති. Zoom Account එක නිදහස් කිරීමට "End &amp; Free Account" ඔබන්න.
-                      </p>
-                    </div>
+            
+            {/* ⚡ EARLY ENDED CLASSES TABLE WITH START & SCHEDULED END TIMES */}
+            {earlyEndedClasses.length > 0 && (
+              <div className="bg-[#0b132b]/95 border-2 border-amber-500/50 rounded-3xl p-5 shadow-2xl space-y-3 relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-amber-900/40 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl animate-bounce">⚡</span>
+                    <h2 className="text-sm font-black text-amber-400 uppercase tracking-wider">
+                      EARLY ENDED CLASSES ({earlyEndedClasses.length}) — AVAILABLE TO FREE SLOT
+                    </h2>
                   </div>
+                  <p className="text-[11px] text-amber-300/80 font-medium">
+                    ⚠️ Interval / Break එකක සිටින පන්ති Free Slot නොකිරීමට Start Time හා Scheduled End Time පරීක්ෂා කරන්න.
+                  </p>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-slate-800 bg-slate-950/80 text-gray-400 font-mono">
+                      <tr className="border-b border-slate-800 bg-slate-950/90 text-gray-400 font-mono text-[11px]">
                         <th className="p-3">ZOOM ACCOUNT</th>
-                        <th className="p-3">ZOOM MEETING ID</th>
+                        <th className="p-3">MEETING ID</th>
                         <th className="p-3">TEACHER ID</th>
                         <th className="p-3">TOPIC</th>
-                        <th className="p-3">SCHEDULED TIME</th>
-                        <th className="p-3">SCHEDULED END TIME</th>
-                        <th className="p-3 text-right">ACTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900 text-slate-200">
-                      {unstartedOverdueMeetings.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-rose-950/15">
-                          <td className="p-3">
-                            <span className="px-2.5 py-1 bg-blue-950 border border-blue-700 text-blue-300 font-black font-mono text-xs rounded-lg">
-                              ⚡ {item.accId}
-                            </span>
-                          </td>
-                          <td className="p-3 font-mono font-bold text-amber-300 tracking-wider">
-                            {item.zoom_id}
-                          </td>
-                          <td className="p-3 font-mono text-slate-300">
-                            👤 {item.teacher_id}
-                          </td>
-                          <td className="p-3 font-medium text-slate-300 max-w-xs truncate">
-                            {item.topic}
-                          </td>
-                          <td className="p-3 font-mono text-slate-300">
-                            ⏰ {item.time} ({formatDuration(item.duration)})
-                          </td>
-                          <td className="p-3 font-mono font-bold text-rose-400">
-                            🏁 {item.scheduledEndTimeStr} (Ended)
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => handleForceEndMeeting(item)}
-                              disabled={endingMeetingId === item.zoom_id}
-                              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white rounded-lg font-bold text-[11px] cursor-pointer"
-                            >
-                              {endingMeetingId === item.zoom_id ? "⏳ Freeing..." : "⏹️ End & Free Account"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {earlyEndedMeetings.length > 0 && (
-              <div className="bg-gradient-to-r from-amber-950/60 via-[#0b132b] to-[#0b132b] border border-amber-500/70 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
-                <div className="flex items-center gap-2.5 border-b border-slate-800 pb-3">
-                  <span className="text-xl">⚡</span>
-                  <h2 className="text-sm font-black text-amber-400 font-mono tracking-wide">
-                    EARLY ENDED CLASSES ({earlyEndedMeetings.length}) - AVAILABLE TO FREE SLOT
-                  </h2>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-800 bg-slate-950/80 text-gray-400 font-mono">
-                        <th className="p-3">ZOOM ACCOUNT</th>
-                        <th className="p-3">ZOOM MEETING ID</th>
-                        <th className="p-3">TEACHER ID</th>
-                        <th className="p-3">TOPIC</th>
+                        <th className="p-3">START TIME</th>
+                        <th className="p-3">SCHEDULED END</th>
+                        <th className="p-3">TIME STATUS / INTERVAL CHECK</th>
                         <th className="p-3 text-right">ACTION</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-900 text-slate-200">
-                      {earlyEndedMeetings.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-900/50 transition-colors bg-amber-950/15">
-                          <td className="p-3 font-mono text-blue-300">⚡ {item.accId}</td>
-                          <td className="p-3 font-mono text-amber-300 font-bold">{item.zoom_id}</td>
-                          <td className="p-3 font-mono text-slate-300">👤 {item.teacher_id}</td>
-                          <td className="p-3 truncate max-w-xs">{item.topic}</td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => handleForceEndMeeting(item)}
-                              disabled={endingMeetingId === item.zoom_id}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] cursor-pointer"
-                            >
-                              {endingMeetingId === item.zoom_id ? "⏳ Freeing..." : "⚡ Free Slot Now"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                      {earlyEndedClasses.map((item, idx) => {
+                        const isEndingThis = endingMeetingId === item.zoom_id;
+                        return (
+                          <tr key={idx} className="hover:bg-slate-900/60 transition-colors">
+                            <td className="p-3 font-mono font-bold text-amber-300 whitespace-nowrap">
+                              ⚡ {item.accId}
+                            </td>
+                            <td className="p-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                              {item.zoom_id}
+                            </td>
+                            <td className="p-3 font-mono text-blue-400 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1">
+                                <span>👤</span> {item.teacher_id}
+                              </span>
+                            </td>
+                            <td className="p-3 font-medium text-white max-w-[200px] truncate">
+                              {item.topic}
+                            </td>
+                            <td className="p-3 font-mono font-bold text-blue-300 whitespace-nowrap">
+                              🕒 {item.time || "N/A"}
+                            </td>
+                            <td className="p-3 font-mono whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-purple-300">
+                                  🏁 {item.scheduledEndTimeStr}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  ({formatDuration(item.durationMins)})
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              {item.isStillInWindow ? (
+                                <span className="px-2.5 py-1 bg-amber-950/90 border border-amber-600/90 text-amber-300 font-bold font-mono rounded-lg text-[10px] inline-flex items-center gap-1 animate-pulse">
+                                  ⏳ Break විය හැක (තව {item.minsRemaining}m)
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 bg-emerald-950/90 border border-emerald-700 text-emerald-300 font-bold font-mono rounded-lg text-[10px] inline-flex items-center gap-1">
+                                  ✅ Schedule අවසන් ({item.scheduledEndTimeStr})
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => handleFreeSlot(item)}
+                                disabled={isEndingThis}
+                                className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition-all shadow-md flex items-center gap-1.5 ml-auto cursor-pointer ${
+                                  item.isStillInWindow
+                                    ? "bg-amber-600 hover:bg-amber-500 text-slate-950"
+                                    : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white"
+                                } disabled:opacity-50`}
+                              >
+                                <span>⚡</span>
+                                <span>{isEndingThis ? "Freeing..." : "Free Slot Now"}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {activeAccountKeys.map((accId, idx) => {
-                const accInfo = poolData[accId];
-                const meetings = [...(accInfo?.classes || [])].sort(
-                  (a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time)
-                );
+            {/* ZOOM POOL ACCOUNTS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.keys(poolData || {}).map((accId) => {
+                const acc = poolData[accId];
+                const isActive = isAccountActive(acc);
+                const classes = acc?.classes || [];
 
                 return (
-                  <div key={idx} className="bg-[#0b132b] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                  <div
+                    key={accId}
+                    className="bg-[#0b132b]/80 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl"
+                  >
                     <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                       <div>
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-blue-400 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-900/50">
-                          {accInfo?.pool_type || "Zoom"}
-                        </span>
-                        <h3 className="text-sm font-black text-white mt-1 font-mono">{accId}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-blue-950 border border-blue-800 font-mono text-blue-300 font-bold">
+                            {acc.pool_type || "100p"}
+                          </span>
+                          <h3 className="text-base font-black text-white font-mono">{accId}</h3>
+                        </div>
+                        {acc.email && (
+                          <p className="text-[11px] text-gray-400 truncate max-w-[220px] mt-0.5 font-mono">
+                            {acc.email}
+                          </p>
+                        )}
                       </div>
-                      <span className="bg-slate-900 text-emerald-400 font-bold text-xs px-2.5 py-1 rounded-xl border border-slate-800">
-                        {meetings.length} Classes
-                      </span>
+                      <div className="text-right">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold ${
+                          isActive ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-rose-950 text-rose-400 border border-rose-800"
+                        }`}>
+                          {isActive ? "ACTIVE" : "INACTIVE"}
+                        </span>
+                        <p className="text-[10px] text-gray-500 mt-1 font-mono">
+                          {classes.length} Classes
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="space-y-3">
-                      {meetings.length === 0 ? (
-                        <p className="text-xs text-slate-500 italic py-4 text-center">No classes scheduled for today.</p>
+                    {/* Classes list in account */}
+                    <div className="space-y-2">
+                      {classes.length === 0 ? (
+                        <p className="text-xs text-gray-500 italic py-4 text-center">
+                          No classes scheduled for today.
+                        </p>
                       ) : (
-                        meetings.map((m, mIdx) => (
-                          <div key={mIdx} className="p-3 rounded-xl bg-slate-950/80 border border-slate-900 text-xs space-y-1">
-                            <div className="flex justify-between items-center font-mono">
-                              <span className="text-amber-400 font-bold">⏰ {m.time}</span>
-                              <span className="text-[10px] text-emerald-400 font-bold">🟢 {m.status || "SCHEDULED"}</span>
+                        classes.map((cls, cIdx) => {
+                          const isEnded = isMeetingEnded(cls);
+                          const st = String(cls.status || cls.Status || "").trim().toUpperCase();
+                          const isEarly = st === "EARLY_ENDED" || st.includes("EARLY");
+
+                          return (
+                            <div
+                              key={cIdx}
+                              className={`p-3 rounded-2xl border text-xs space-y-1.5 transition-all ${
+                                isEnded
+                                  ? "bg-slate-950/40 border-slate-900 opacity-60"
+                                  : isEarly
+                                  ? "bg-amber-950/40 border-amber-700/60"
+                                  : "bg-slate-950/90 border-slate-800"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono font-bold text-blue-400 flex items-center gap-1">
+                                  <span>⏰</span> {cls.time}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                                  isEnded ? "bg-slate-900 text-gray-400" :
+                                  isEarly ? "bg-amber-500 text-slate-950" :
+                                  "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                                }`}>
+                                  {cls.status || "SCHEDULED"}
+                                </span>
+                              </div>
+
+                              <p className="font-bold text-white truncate">{cls.topic}</p>
+
+                              <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono pt-1 border-t border-slate-900">
+                                <span>👤 {cls.teacher_id}</span>
+                                <span>Duration: {formatDuration(cls.duration)}</span>
+                              </div>
                             </div>
-                            <h4 className="font-bold text-slate-200 truncate">{m.topic}</h4>
-                            <p className="text-[10px] text-gray-400 font-mono">👤 {m.teacher_id}</p>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>
                 );
               })}
+            </div>
+
+          </div>
+        )}
+
+        {/* ==================== TAB 2: CLASS END TIMELINE ==================== */}
+        {!loading && activeTab === "ending_schedule" && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between gap-4">
+              <h3 className="text-sm font-black text-blue-400">⏱️ Scheduled Classes Timeline</h3>
+              <input
+                type="text"
+                placeholder="Search Class..."
+                value={endingSearchTerm}
+                onChange={(e) => setEndingSearchTerm(e.target.value)}
+                className="px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
+              />
+            </div>
+
+            <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
+                      <th className="p-4">ZOOM ACCOUNT</th>
+                      <th className="p-4">TEACHER ID</th>
+                      <th className="p-4">TOPIC</th>
+                      <th className="p-4">START TIME</th>
+                      <th className="p-4">SCHEDULED END</th>
+                      <th className="p-4">DURATION</th>
+                      <th className="p-4">STATUS</th>
+                      <th className="p-4 text-right">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900/60 text-slate-300">
+                    {Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
+                      (accInfo?.classes || []).map((m, idx) => {
+                        const startM = parseTimeToMinutes(m.time);
+                        const dur = Number(m.duration) || 60;
+                        const endM = startM + dur;
+                        const endStr = formatMinutesToTime(endM);
+
+                        return (
+                          <tr key={`${accId}-${idx}`} className="hover:bg-slate-900/40">
+                            <td className="p-4 font-mono font-bold text-blue-400">⚡ {accId}</td>
+                            <td className="p-4 font-mono text-purple-300">👤 {m.teacher_id}</td>
+                            <td className="p-4 font-bold text-white max-w-xs truncate">{m.topic}</td>
+                            <td className="p-4 font-mono text-blue-300">🕒 {m.time}</td>
+                            <td className="p-4 font-mono text-purple-300 font-bold">🏁 {endStr}</td>
+                            <td className="p-4 font-mono">{formatDuration(m.duration)}</td>
+                            <td className="p-4">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-900 text-slate-300 border border-slate-800">
+                                {m.status || "SCHEDULED"}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              {!isMeetingEnded(m) && (
+                                <button
+                                  onClick={() => handleForceEndMeeting({ ...m, accId })}
+                                  className="px-2.5 py-1 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-lg text-xs font-bold cursor-pointer"
+                                >
+                                  End Meeting
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -1250,69 +1022,77 @@ export default function AdminPoolPage() {
                       <th className="p-4">SLIP PREVIEW</th>
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">TEACHER NAME</th>
-                      <th className="p-4">STATUS</th>
+                      <th className="p-4">DATABASE STATUS</th>
                       <th className="p-4">EXPIRE DATE</th>
                       <th className="p-4 text-right">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    {filteredSlips.map((t, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="p-4">
-                          <button
-                            onClick={() => setSlipModalTeacher(t)}
-                            className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-blue-400 font-bold rounded-xl text-xs cursor-pointer flex items-center gap-1.5"
-                          >
-                            <span>👁️</span> View Slip
-                          </button>
-                        </td>
-                        <td className="p-4 font-mono font-bold text-blue-400">
-                          <button
-                            onClick={() => handleLoginAsTeacher(t)}
-                            title="Click to directly login to this teacher's dashboard"
-                            className="hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>{t.teacher_id}</span>
-                            <span className="text-[10px] text-amber-400 font-bold">↗</span>
-                          </button>
-                        </td>
-                        <td className="p-4 font-bold text-white">{t.teacher_name}</td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-black ${
-                            slipSubTab === "pending" ? "bg-amber-950 border border-amber-700 text-amber-300 animate-pulse" :
-                            slipSubTab === "approved" ? "bg-emerald-950 border border-emerald-700 text-emerald-300" :
-                            "bg-rose-950 border border-rose-700 text-rose-300"
-                          }`}>
-                            {slipSubTab.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="p-4 font-mono text-amber-400">{t.expiry_date || "Not Set"}</td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleExtendDays(t, 15)}
-                              className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900 border border-blue-700 text-blue-300 font-bold rounded-xl text-[11px] cursor-pointer"
-                            >
-                              +15D
-                            </button>
-                            <button
-                              onClick={() => handleExtendDays(t, 30)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-[11px] cursor-pointer shadow-md"
-                            >
-                              +30D Paid
-                            </button>
-                            {slipSubTab !== "rejected" && (
-                              <button
-                                onClick={() => handleRejectSlip(t)}
-                                className="px-2.5 py-1.5 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold rounded-xl text-[11px] cursor-pointer"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
+                    {filteredSlips.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center p-8 text-gray-500 italic">
+                          කිසිදු Bank Slip එකක් මෙම කාණ්ඩයේ හමු නොවීය.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredSlips.map((t, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="p-4">
+                            <button
+                              onClick={() => setSlipModalTeacher(t)}
+                              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-blue-400 font-bold rounded-xl text-xs cursor-pointer flex items-center gap-1.5"
+                            >
+                              <span>👁️</span> View Slip
+                            </button>
+                          </td>
+                          <td className="p-4 font-mono font-bold text-blue-400">
+                            <button
+                              onClick={() => handleLoginAsTeacher(t)}
+                              title="Click to directly login to this teacher's dashboard"
+                              className="hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>{t.teacher_id}</span>
+                              <span className="text-[10px] text-amber-400 font-bold">↗</span>
+                            </button>
+                          </td>
+                          <td className="p-4 font-bold text-white">{t.teacher_name}</td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-black ${
+                              t.slipStatus === "PENDING" || !t.slipStatus ? "bg-amber-950 border border-amber-700 text-amber-300 animate-pulse" :
+                              t.slipStatus === "APPROVED" ? "bg-emerald-950 border border-emerald-700 text-emerald-300" :
+                              "bg-rose-950 border border-rose-700 text-rose-300"
+                            }`}>
+                              {t.slipStatus}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono text-amber-400">{t.expiry_date || "Not Set"}</td>
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleExtendDays(t, 15)}
+                                className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900 border border-blue-700 text-blue-300 font-bold rounded-xl text-[11px] cursor-pointer"
+                              >
+                                +15D
+                              </button>
+                              <button
+                                onClick={() => handleExtendDays(t, 30)}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-[11px] cursor-pointer shadow-md"
+                              >
+                                +30D Approve
+                              </button>
+                              {t.slipStatus !== "REJECTED" && (
+                                <button
+                                  onClick={() => handleRejectSlip(t)}
+                                  className="px-2.5 py-1.5 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold rounded-xl text-[11px] cursor-pointer"
+                                >
+                                  ✕ Reject
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1320,11 +1100,11 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== TAB 4: TEACHER EXPIRATIONS TRACKER (WITH SEARCH & ONE-CLICK LOGIN) ==================== */}
+        {/* ==================== TAB 4: TEACHER EXPIRATIONS TRACKER ==================== */}
         {!loading && activeTab === "expirations" && (
           <div className="space-y-6 animate-fadeIn">
             {/* STAT CARDS */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Total Teachers</p>
@@ -1343,49 +1123,36 @@ export default function AdminPoolPage() {
 
               <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-400 font-medium">Expiring Soon (≤ 7D)</p>
-                  <h3 className="text-2xl font-black text-amber-400 mt-1">{expiringSoonCount}</h3>
-                </div>
-                <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">⚠️</div>
-              </div>
-
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
-                <div>
                   <p className="text-xs text-gray-400 font-medium">Pending Slips</p>
                   <h3 className="text-2xl font-black text-amber-400 mt-1">{pendingSlips.length}</h3>
                 </div>
                 <div className="w-10 h-10 bg-amber-950 border border-amber-900 rounded-xl flex items-center justify-center text-lg">💳</div>
               </div>
 
-              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between col-span-2 sm:col-span-1">
+              <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-400 font-medium">Active &amp; Paid</p>
-                  <h3 className="text-2xl font-black text-emerald-400 mt-1">{paidCount}</h3>
+                  <h3 className="text-2xl font-black text-emerald-400 mt-1">
+                    {processedTeachers.filter(t => String(t.payment_status || "").toUpperCase() === "PAID").length}
+                  </h3>
                 </div>
                 <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-xl flex items-center justify-center text-lg">✅</div>
               </div>
             </div>
 
-            {/* 🎯 ULTRA-PRO SEARCH & ACTION BAR (CLEAN, PROMINENT & HIGH VISIBILITY) */}
+            {/* SEARCH & FILTERS */}
             <div className="bg-[#0b132b] border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
               <div className="relative w-full md:w-96">
-                <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-sm">
-                  🔍
-                </span>
+                <span className="absolute inset-y-0 left-3 flex items-center text-slate-400 text-sm">🔍</span>
                 <input 
                   type="text"
-                  placeholder="Type ID Number (e.g. 69, 169) or Teacher Name..."
+                  placeholder="Type ID Number (e.g. 69, 169) or Name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-9 py-2.5 bg-slate-950 border-2 border-slate-800 focus:border-blue-500 rounded-xl text-xs font-mono font-bold text-white placeholder-slate-500 focus:outline-none transition-all shadow-inner"
                 />
                 {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-white text-xs cursor-pointer"
-                  >
-                    ✕
-                  </button>
+                  <button onClick={() => setSearchTerm("")} className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-white text-xs cursor-pointer">✕</button>
                 )}
               </div>
 
@@ -1393,7 +1160,7 @@ export default function AdminPoolPage() {
                 <button
                   onClick={() => setFilterType("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    filterType === "all" ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 font-black" : "bg-slate-900 text-gray-400 hover:text-white"
+                    filterType === "all" ? "bg-blue-600 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
                   All ({processedTeachers.length})
@@ -1407,15 +1174,6 @@ export default function AdminPoolPage() {
                 >
                   <span>📩 Need Remind</span>
                   <span className="bg-amber-400/30 px-1.5 py-0.2 rounded-full text-[10px]">{needReminderCount}</span>
-                </button>
-
-                <button
-                  onClick={() => setFilterType("reminded")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    filterType === "reminded" ? "bg-emerald-600 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  <span>🔔 Reminded ({remindedCount})</span>
                 </button>
 
                 <button
@@ -1433,12 +1191,12 @@ export default function AdminPoolPage() {
                     filterType === "paid" ? "bg-emerald-600 text-white font-black" : "bg-slate-900 text-gray-400 hover:text-white"
                   }`}
                 >
-                  🟢 Paid ({paidCount})
+                  🟢 Paid
                 </button>
               </div>
             </div>
 
-            {/* TEACHER LIST TABLE */}
+            {/* TEACHERS TABLE */}
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -1446,7 +1204,7 @@ export default function AdminPoolPage() {
                     <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
                       <th className="p-4">TEACHER ID</th>
                       <th className="p-4">USERNAME</th>
-                      <th className="p-4">STATUS / REMAINING DAYS</th>
+                      <th className="p-4">STATUS / DAYS LEFT</th>
                       <th className="p-4">REMINDER NOTICE</th>
                       <th className="p-4">TEACHER NAME</th>
                       <th className="p-4">PAYMENT STATUS</th>
@@ -1468,19 +1226,19 @@ export default function AdminPoolPage() {
                         statusBadge = <span className="text-gray-500 font-mono">N/A</span>;
                       } else if (days <= 0) {
                         statusBadge = (
-                          <span className="px-2.5 py-1 bg-rose-950/80 border border-rose-800 text-rose-400 font-bold font-mono rounded-lg inline-flex items-center gap-1">
+                          <span className="px-2.5 py-1 bg-rose-950/80 border border-rose-800 text-rose-400 font-bold font-mono rounded-lg">
                             🔴 Expired {Math.abs(days)}D ago
                           </span>
                         );
                       } else if (days <= 7) {
                         statusBadge = (
-                          <span className="px-2.5 py-1 bg-amber-950/80 border border-amber-800 text-amber-400 font-bold font-mono rounded-lg inline-flex items-center gap-1 animate-pulse">
+                          <span className="px-2.5 py-1 bg-amber-950/80 border border-amber-800 text-amber-400 font-bold font-mono rounded-lg animate-pulse">
                             ⚠️ {days} Days Left
                           </span>
                         );
                       } else {
                         statusBadge = (
-                          <span className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold font-mono rounded-lg inline-flex items-center gap-1">
+                          <span className="px-2.5 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold font-mono rounded-lg">
                             🟢 {days} Days Left
                           </span>
                         );
@@ -1488,7 +1246,6 @@ export default function AdminPoolPage() {
 
                       return (
                         <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                          {/* TEACHER ID WITH COPY BUTTON */}
                           <td className="p-4 font-mono font-bold text-blue-400 whitespace-nowrap">
                             <button
                               onClick={() => handleCopyTeacherIdOnly(t.teacher_id)}
@@ -1499,45 +1256,31 @@ export default function AdminPoolPage() {
                             </button>
                           </td>
 
-                          {/* USERNAME */}
                           <td className="p-4 font-mono font-semibold whitespace-nowrap text-purple-300">
                             {t.username ? `@${t.username}` : "N/A"}
                           </td>
 
-                          {/* STATUS */}
                           <td className="p-4 whitespace-nowrap">{statusBadge}</td>
 
-                          {/* WHATSAPP REMINDER */}
                           <td className="p-4 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <button 
-                                onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
-                                className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm ${
-                                  isCopied
-                                    ? "bg-emerald-600 border-emerald-400 text-white font-black"
-                                    : isReminded
-                                    ? "bg-emerald-950/50 border-emerald-800/70 text-emerald-300"
-                                    : (days !== null && days <= 7)
-                                    ? "bg-amber-600 hover:bg-amber-500 text-slate-950 font-black animate-pulse"
-                                    : "bg-slate-900 hover:bg-slate-800 text-emerald-400 border-slate-700"
-                                }`}
-                              >
-                                {isCopied ? "✅ Copied!" : isReminded ? "🔔 Reminded" : "📩 Send Remind"}
-                              </button>
-                              {isReminded && (
-                                <button
-                                  onClick={(e) => handleToggleRemindedStatus(e, t.teacher_id)}
-                                  className="text-[11px] text-gray-500 hover:text-rose-400 p-1"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
+                            <button 
+                              onClick={() => handleCopyReminder(t.teacher_name, t.teacher_id, days)}
+                              className={`px-3 py-1.5 border text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                                isCopied
+                                  ? "bg-emerald-600 border-emerald-400 text-white font-black"
+                                  : isReminded
+                                  ? "bg-emerald-950/50 border-emerald-800/70 text-emerald-300"
+                                  : (days !== null && days <= 7)
+                                  ? "bg-amber-600 hover:bg-amber-500 text-slate-950 font-black animate-pulse"
+                                  : "bg-slate-900 hover:bg-slate-800 text-emerald-400 border-slate-700"
+                              }`}
+                            >
+                              {isCopied ? "✅ Copied!" : isReminded ? "🔔 Reminded" : "📩 Send Remind"}
+                            </button>
                           </td>
 
                           <td className="p-4 font-bold text-white max-w-xs truncate">{t.teacher_name}</td>
 
-                          {/* PAYMENT STATUS */}
                           <td className="p-4 whitespace-nowrap">
                             <button
                               onClick={() => handleTogglePaymentStatus(t)}
@@ -1550,7 +1293,6 @@ export default function AdminPoolPage() {
                             </button>
                           </td>
 
-                          {/* EXPIRE DATE */}
                           <td className="p-4 whitespace-nowrap">
                             <input
                               type="date"
@@ -1561,7 +1303,6 @@ export default function AdminPoolPage() {
                             />
                           </td>
 
-                          {/* 🎯 ONE-CLICK DIRECT DASHBOARD LOGIN (LOGIN-FREE ACCESS) */}
                           <td className="p-4 text-right whitespace-nowrap">
                             <button
                               onClick={() => handleLoginAsTeacher(t)}
@@ -1585,41 +1326,61 @@ export default function AdminPoolPage() {
         {/* ==================== TAB 5: ZOOM ACCOUNTS TRACKER ==================== */}
         {!loading && activeTab === "zoom_accounts" && (
           <div className="space-y-6 animate-fadeIn">
+            <div className="bg-[#0b132b] border border-slate-900 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+              <h3 className="text-sm font-black text-blue-400">🛡️ Zoom Pool Accounts Expirations &amp; Status</h3>
+              <input
+                type="text"
+                placeholder="Search Account ID..."
+                value={zoomSearchTerm}
+                onChange={(e) => setZoomSearchTerm(e.target.value)}
+                className="px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
+              />
+            </div>
+
             <div className="bg-[#0b132b]/60 border border-slate-900 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-slate-900 bg-slate-950/80 text-gray-400 font-mono">
-                      <th className="p-4">ZOOM ACCOUNT ID</th>
-                      <th className="p-4">EMAIL</th>
-                      <th className="p-4">REMAINING DAYS</th>
+                      <th className="p-4">ACCOUNT ID</th>
+                      <th className="p-4">CAPACITY</th>
+                      <th className="p-4">STATUS</th>
                       <th className="p-4">EXPIRE DATE</th>
-                      <th className="p-4 text-right">ACTION</th>
+                      <th className="p-4">DAYS REMAINING</th>
+                      <th className="p-4">EMAIL</th>
+                      <th className="p-4 text-right">CLASSES TODAY</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 text-slate-300">
-                    {filteredZoomAccounts.map((a, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="p-4 font-mono font-bold text-blue-400">⚡ {a.accId}</td>
-                        <td className="p-4 font-mono text-slate-300">📧 {a.email || "N/A"}</td>
-                        <td className="p-4 font-mono">
-                          {a.daysLeft !== null && a.daysLeft <= 0 ? (
-                            <span className="text-rose-400 font-bold">🔴 Expired {Math.abs(a.daysLeft)}D ago</span>
-                          ) : (
-                            <span className="text-emerald-400 font-bold">🟢 {a.daysLeft}D Left</span>
-                          )}
-                        </td>
-                        <td className="p-4 font-mono font-bold text-amber-300">📅 {a.expireDate || "N/A"}</td>
-                        <td className="p-4 text-right">
-                          <button
-                            onClick={() => handleCopyZoomAccountId(a.accId)}
-                            className="px-3 py-1 bg-slate-900 border border-slate-700 text-blue-400 rounded-lg text-xs cursor-pointer"
-                          >
-                            📋 Copy
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {allZoomAccountsList
+                      .filter(a => !zoomSearchTerm || a.accId.toLowerCase().includes(zoomSearchTerm.toLowerCase()))
+                      .map((acc, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40">
+                          <td className="p-4 font-mono font-bold text-blue-400">⚡ {acc.accId}</td>
+                          <td className="p-4 font-mono">{acc.poolType}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                              acc.status === "ACTIVE" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-rose-950 text-rose-400 border border-rose-800"
+                            }`}>
+                              {acc.status}
+                            </span>
+                          </td>
+                          <td className="p-4 font-mono text-amber-400">{acc.expireDate || "Not Set"}</td>
+                          <td className="p-4 font-mono">
+                            {acc.daysLeft !== null ? (
+                              acc.daysLeft <= 0 ? (
+                                <span className="text-rose-400 font-bold">Expired</span>
+                              ) : acc.daysLeft <= 7 ? (
+                                <span className="text-amber-400 font-bold">{acc.daysLeft} Days</span>
+                              ) : (
+                                <span className="text-emerald-400">{acc.daysLeft} Days</span>
+                              )
+                            ) : "N/A"}
+                          </td>
+                          <td className="p-4 font-mono text-gray-400">{acc.email || "N/A"}</td>
+                          <td className="p-4 text-right font-mono font-bold text-blue-300">{acc.classesCount}</td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -1627,7 +1388,7 @@ export default function AdminPoolPage() {
           </div>
         )}
 
-        {/* ==================== 🖼️ ENHANCED BANK SLIP PREVIEW & APPROVAL MODAL ==================== */}
+        {/* MODAL PREVIEW FOR BANK SLIPS */}
         {slipModalTeacher && (
           <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
             <div className="bg-[#0b132b] border border-slate-800 w-full max-w-3xl rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
@@ -1691,19 +1452,19 @@ export default function AdminPoolPage() {
                   onClick={() => handleExtendDays(slipModalTeacher, 15)}
                   className="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
                 >
-                  +15 Days
+                  +15 Days Approve
                 </button>
                 <button
                   onClick={() => handleExtendDays(slipModalTeacher, 30)}
                   className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer"
                 >
-                  +30 Days Paid
+                  +30 Days Approve
                 </button>
                 <button
                   onClick={() => handleRejectSlip(slipModalTeacher)}
                   className="py-3 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition cursor-pointer"
                 >
-                  ❌ Reject
+                  ❌ Reject Slip
                 </button>
               </div>
             </div>
