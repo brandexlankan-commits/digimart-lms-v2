@@ -472,33 +472,49 @@ export default function AdminPoolPage() {
       })
   );
 
-  // Active Zoom Accounts
+  // 🎯 ONLY ACTIVE ACCOUNTS (Inactive accounts completely filtered out!)
   const activeAccountKeys = Object.keys(poolData || {}).filter((accId) => isAccountActive(poolData[accId]));
   const totalActivePool = activeAccountKeys.length;
 
-  // 🎯 LIVE AVAILABILITY IN NEXT 6 HOURS (Hourly Slots)
+  // 🎯 REALISTIC LIVE AVAILABILITY IN NEXT 6 HOURS (Includes Standard 2hr Duration + Buffer Rules)
   const getNextHoursAvailability = () => {
     const now = new Date();
     const currentHour = now.getHours();
     const intervals = [];
 
+    // පද්ධතියේ සාමාන්‍ය පන්තියක කාලය පැය 2ක් (120 min) සහ දෙපැත්තේ Buffer Time එක පැය 1 (60 min) බැගින්
+    const ESTIMATED_CLASS_DURATION_MINS = 120;
+    const BUFFER_MINS = 60;
+
     for (let i = 0; i < 6; i++) {
       const slotHour = (currentHour + i) % 24;
       const slotStart = slotHour * 60;
-      const slotEnd = slotStart + 60;
+
+      // මෙම පැය තුළ අලුත් පන්තියක් Schedule කරන්නේ නම් අවශ්‍ය සම්පූර්ණ අවහිරතා කවුළුව
+      const testWindowStart = slotStart - BUFFER_MINS;
+      const testWindowEnd = slotStart + ESTIMATED_CLASS_DURATION_MINS + BUFFER_MINS;
 
       let busyCount = 0;
       activeAccountKeys.forEach((accId) => {
         const classes = poolData[accId]?.classes || [];
-        const isBusy = classes.some((cls) => {
+        const hasConflict = classes.some((cls) => {
           if (isMeetingEnded(cls)) return false;
+
           const cStart = parseTimeToMinutes(cls.time);
-          const cDur = Number(cls.duration) || 60;
+          const cDur = Number(cls.duration) || 120;
           const cEnd = cStart + cDur;
-          // Overlap check with 1-hour window
-          return cStart < slotEnd && cEnd > slotStart;
+
+          // පවතින පන්තියේ Buffer සහිත කාලය
+          const cBufStart = cStart - BUFFER_MINS;
+          const cBufEnd = cEnd + BUFFER_MINS;
+
+          // දෙක අතර ගැටුමක් (Overlap) ඇත්නම්
+          return testWindowStart < cBufEnd && testWindowEnd > cBufStart;
         });
-        if (isBusy) busyCount++;
+
+        if (hasConflict) {
+          busyCount++;
+        }
       });
 
       const freeCount = Math.max(0, totalActivePool - busyCount);
@@ -545,7 +561,6 @@ export default function AdminPoolPage() {
       })
   );
 
-  // Unique end times sorted ascending
   const uniqueEndMinutes = Array.from(new Set(allActiveScheduledClasses.map((c) => c.endM))).sort((a, b) => a - b);
 
   const timelineGroups = uniqueEndMinutes.map((endM) => {
@@ -590,14 +605,12 @@ export default function AdminPoolPage() {
       };
     })
     .sort((a, b) => {
-      // 1. Expired first (<= 0)
       const aExpired = a.daysLeft !== null && a.daysLeft <= 0;
       const bExpired = b.daysLeft !== null && b.daysLeft <= 0;
       if (aExpired && !bExpired) return -1;
       if (!aExpired && bExpired) return 1;
       if (aExpired && bExpired) return (a.daysLeft || 0) - (b.daysLeft || 0);
 
-      // 2. Ascending order of days remaining (1 day, 2 days, 3 days...)
       if (a.daysLeft !== null && b.daysLeft !== null) {
         return a.daysLeft - b.daysLeft;
       }
@@ -933,7 +946,7 @@ export default function AdminPoolPage() {
               </div>
             )}
 
-            {/* 🎯 RESTORED: NEXT 6 HOURS LIVE AVAILABILITY PANEL */}
+            {/* 🎯 RESTORED & ACCURATE: NEXT 6 HOURS LIVE AVAILABILITY PANEL */}
             <div className="bg-[#0b132b] border border-blue-900/60 rounded-3xl p-5 shadow-2xl space-y-4">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -943,7 +956,7 @@ export default function AdminPoolPage() {
                       NEXT 6 HOURS LIVE AVAILABILITY FORECAST (ACTIVE POOL: {totalActivePool})
                     </h3>
                     <p className="text-[11px] text-gray-400">
-                      ඉදිරි පැය 6 තුළ ඕනෑම වෙලාවක අලුත් පන්තියක් Schedule කිරීම සඳහා පවතින ඉතිරි Free Zoom Accounts ප්‍රමාණය.
+                      ඉදිරි පැය 6 තුළ පැය 2ක පන්තියක් + Buffer එකක් සහිතව Schedule කිරීමට සැබවින්ම නිදහස් (Available) Zoom Accounts ගණන.
                     </p>
                   </div>
                 </div>
@@ -952,8 +965,8 @@ export default function AdminPoolPage() {
               {/* Hourly Forecast Grid Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {nextHoursAvailability.map((hourSlot, hIdx) => {
-                  const isHighDemand = hourSlot.freeCount <= 5;
-                  const isModerate = hourSlot.freeCount > 5 && hourSlot.freeCount <= 15;
+                  const isHighDemand = hourSlot.freeCount <= 10;
+                  const isModerate = hourSlot.freeCount > 10 && hourSlot.freeCount <= 25;
 
                   return (
                     <div 
@@ -997,11 +1010,10 @@ export default function AdminPoolPage() {
               </div>
             </div>
 
-            {/* ZOOM POOL ACCOUNTS GRID */}
+            {/* 🎯 ZOOM POOL ACCOUNTS GRID (ONLY ACTIVE ACCOUNTS DISPLAYED) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.keys(poolData || {}).map((accId) => {
+              {activeAccountKeys.map((accId) => {
                 const acc = poolData[accId];
-                const isActive = isAccountActive(acc);
                 const classes = acc?.classes || [];
 
                 return (
@@ -1024,10 +1036,8 @@ export default function AdminPoolPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold ${
-                          isActive ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-rose-950 text-rose-400 border border-rose-800"
-                        }`}>
-                          {isActive ? "ACTIVE" : "INACTIVE"}
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                          ACTIVE
                         </span>
                         <p className="text-[10px] text-gray-500 mt-1 font-mono">
                           {classes.length} Classes
