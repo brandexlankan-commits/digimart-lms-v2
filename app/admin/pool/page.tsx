@@ -361,6 +361,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // 🎯 REFINED: WORKS SEAMLESSLY FOR BOTH NEW AND SPECIAL/OLD TEACHERS
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -371,8 +372,7 @@ export default function AdminPoolPage() {
       daysText = `තව දින ${daysLeft}කින් අවසන් වීමට`;
     }
 
-    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "https://epanthiya.com";
-    const directPayLink = `${currentOrigin}/pay?id=${teacherId}`;
+    const directPayLink = `https://lms.epanthiya.com/pay?id=${teacherId}`;
 
     const reminderMsg = `👋 *Hi ${teacherName}!* (Teacher ID: ${teacherId})
 
@@ -383,6 +383,9 @@ export default function AdminPoolPage() {
 📦 *Renewal Packages:*
 • 15 Days Extension: *LKR 700*
 • 30 Days Extension: *LKR 1,400*
+
+💡 *විශේෂ දැනුම්දීමයි:*
+අපගේ විශේෂ සහන දීමනා (Special Offers / Promo Packages) යටතේ සේවාව ලබාගත් ගුරුභවතුන් සඳහා, ඔබගේ එම විශේෂ සහන මිල ගණන් යටතේම කිසිදු වෙනසක් හෝ මිල වැඩිවීමකින් තොරව අඛණ්ඩව Renewal ගෙවීම් සිදු කරගත හැක.
 
 🏛️ *Bank Details (Bank Transfer / Deposit):*
 • Bank: *Sampath Bank*
