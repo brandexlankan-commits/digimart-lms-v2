@@ -66,7 +66,7 @@ export default function AdminPoolPage() {
   const [filterType, setFilterType] = useState<"all" | "expired" | "soon" | "active" | "unpaid" | "paid" | "need_reminder" | "reminded" | "has_slip">("all");
   
   // Bank Slips Tab States
-  const [slipSubTab, setSlipSubTab] = useState<"pending" | "approved" | "rejected">("pending");
+  const [slipSubTab, setSlipSubTab] = useState<"pending" | "approved" | "rejected" | "dismissed">("pending");
   const [slipSearchTerm, setSlipSearchTerm] = useState("");
   const [slipModalTeacher, setSlipModalTeacher] = useState<TeacherExpiry | null>(null);
 
@@ -82,6 +82,7 @@ export default function AdminPoolPage() {
   // Copy Feedback States
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
   const [copiedIdOnly, setCopiedIdOnly] = useState<string | null>(null);
+  const [copiedUsername, setCopiedUsername] = useState<string | null>(null);
 
   // Reminded Teachers Set
   const [remindedTeacherIds, setRemindedTeacherIds] = useState<string[]>([]);
@@ -234,6 +235,17 @@ export default function AdminPoolPage() {
     setSlipModalTeacher(null);
   };
 
+  // 🎯 NEW: Dismiss Slip without affecting Expiry or Payment Status
+  const handleDismissSlip = async (teacher: TeacherExpiry) => {
+    if (!confirm(`⚠️ මෙම Slip එක පමණක් Dashboard එකෙන් ඉවත් කිරීමට අවශ්‍ය බව තහවුරු කරන්න. (Expiry Date හෝ Payment Status වෙනස් නොවේ)`)) return;
+
+    await handleUpdateTeacher(teacher.teacher_id, {
+      // payment_status: teacher.payment_status, // Don't touch payment status
+      slip_status: "Dismissed",
+    });
+    setSlipModalTeacher(null);
+  };
+
   const handleTogglePaymentStatus = (teacher: TeacherExpiry) => {
     const current = String(teacher.payment_status || "UNPAID").toUpperCase();
     const nextStatus = current === "PAID" ? "UNPAID" : "PAID";
@@ -361,7 +373,7 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 REFINED: WORKS SEAMLESSLY FOR BOTH NEW AND SPECIAL/OLD TEACHERS
+  // 🎯 REFINED REMINDER WITH NEW DISCOUNTED PRICES
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -380,18 +392,18 @@ export default function AdminPoolPage() {
 
 ඔබගේ Digimart LMS සේවාව ${daysText} පවතින බැවින්, Zoom Classes බාධාවකින් තොරව කරගෙන යාමට පහත විස්තර අනුව Renewal එක සිදු කරගන්න.
 
-📦 *Renewal Packages:*
-• 15 Days Extension: *LKR 700*
-• 30 Days Extension: *LKR 1,400*
+🎁 *අපෙන් ඔබට විශේෂ දීමනාවක්!*
+අප සමඟ අඛණ්ඩව රැඳී සිටින ඔබට කෘතගුණ සැලකීමක් වශයෙන්, ඔබගේ Package Renewal මිල ගණන් පහත පරිදි විශේෂ අඩු කිරීමක් කර ඇත.
 
-💡 *විශේෂ දැනුම්දීමයි:*
-අපගේ විශේෂ සහන දීමනා (Special Offers / Promo Packages) යටතේ සේවාව ලබාගත් ගුරුභවතුන් සඳහා, ඔබගේ එම විශේෂ සහන මිල ගණන් යටතේම කිසිදු වෙනසක් හෝ මිල වැඩිවීමකින් තොරව අඛණ්ඩව Renewal ගෙවීම් සිදු කරගත හැක.
+📦 *නව Renewal මිල ගණන් (Discounted):*
+- 15 Days Extension: *LKR 500*
+- 30 Days Extension: *LKR 1,000*
 
 🏛️ *Bank Details (Bank Transfer / Deposit):*
-• Bank: *Sampath Bank*
-• Account Name: *S.D.Nuwan Sameera Deshapriya*
-• Account No: *1188 5747 0946*
-• Branch: *Rambukkana Branch*
+- Bank: *Sampath Bank*
+- Account Name: *S.D.Nuwan Sameera Deshapriya*
+- Account No: *1188 5747 0946*
+- Branch: *Rambukkana Branch*
 
 🚀 *Instant Activation & Instructions:*
 1. මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip - JPG/PNG හෝ PDF) පහත ලින්ක් එකෙන් කෙලින්ම Upload කරන්න.
@@ -432,6 +444,15 @@ export default function AdminPoolPage() {
     setCopiedIdOnly(teacherId);
     setTimeout(() => {
       setCopiedIdOnly(null);
+    }, 2000);
+  };
+
+  // 🎯 NEW: Handle Username Copy
+  const handleCopyUsername = (username: string) => {
+    navigator.clipboard.writeText(String(username));
+    setCopiedUsername(username);
+    setTimeout(() => {
+      setCopiedUsername(null);
     }, 2000);
   };
 
@@ -661,11 +682,13 @@ export default function AdminPoolPage() {
   const pendingSlips = teachersWithSlips.filter(t => t.slipStatus === "PENDING" || !t.slipStatus);
   const approvedSlipsList = teachersWithSlips.filter(t => t.slipStatus === "APPROVED");
   const rejectedSlipsList = teachersWithSlips.filter(t => t.slipStatus === "REJECTED");
+  const dismissedSlipsList = teachersWithSlips.filter(t => t.slipStatus === "DISMISSED");
 
   const currentSlipsToDisplay = 
     slipSubTab === "pending" ? pendingSlips :
     slipSubTab === "approved" ? approvedSlipsList :
-    rejectedSlipsList;
+    slipSubTab === "rejected" ? rejectedSlipsList :
+    dismissedSlipsList;
 
   const filteredSlips = currentSlipsToDisplay.filter((t) => {
     const q = (slipSearchTerm || "").trim().toLowerCase();
@@ -1285,6 +1308,20 @@ export default function AdminPoolPage() {
                     {rejectedSlipsList.length}
                   </span>
                 </button>
+
+                <button
+                  onClick={() => setSlipSubTab("dismissed")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    slipSubTab === "dismissed"
+                      ? "bg-slate-600 text-white font-black shadow-lg shadow-slate-600/20"
+                      : "bg-slate-900 text-gray-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  <span>🗑️ Dismissed</span>
+                  <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    {dismissedSlipsList.length}
+                  </span>
+                </button>
               </div>
 
               <div className="w-full md:w-80">
@@ -1344,6 +1381,7 @@ export default function AdminPoolPage() {
                             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-black ${
                               t.slipStatus === "PENDING" || !t.slipStatus ? "bg-amber-950 border border-amber-700 text-amber-300 animate-pulse" :
                               t.slipStatus === "APPROVED" ? "bg-emerald-950 border border-emerald-700 text-emerald-300" :
+                              t.slipStatus === "DISMISSED" ? "bg-slate-800 border border-slate-600 text-slate-300" :
                               "bg-rose-950 border border-rose-700 text-rose-300"
                             }`}>
                               {t.slipStatus}
@@ -1364,6 +1402,15 @@ export default function AdminPoolPage() {
                               >
                                 +30D Approve
                               </button>
+                              {t.slipStatus !== "DISMISSED" && (
+                                <button
+                                  onClick={() => handleDismissSlip(t)}
+                                  title="Dismiss slip without rejecting or changing payment status"
+                                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 font-bold rounded-xl text-[11px] cursor-pointer"
+                                >
+                                  🗑️ Dismiss
+                                </button>
+                              )}
                               {t.slipStatus !== "REJECTED" && (
                                 <button
                                   onClick={() => handleRejectSlip(t)}
@@ -1504,6 +1551,7 @@ export default function AdminPoolPage() {
                       const isReminded = t.isReminded;
                       const isCopied = copiedTeacherId === t.teacher_id;
                       const isIdCopied = copiedIdOnly === t.teacher_id;
+                      const isUsernameCopied = copiedUsername === t.username;
 
                       let statusBadge = null;
                       if (days === null) {
@@ -1541,7 +1589,18 @@ export default function AdminPoolPage() {
                           </td>
 
                           <td className="p-4 font-mono font-semibold whitespace-nowrap text-purple-300">
-                            {t.username ? `@${t.username}` : "N/A"}
+                            {t.username ? (
+                              <button
+                                onClick={() => handleCopyUsername(t.username as string)}
+                                className="hover:text-purple-200 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Click to copy username"
+                              >
+                                <span>@{t.username}</span>
+                                {isUsernameCopied && <span className="text-[10px] text-emerald-400">✓</span>}
+                              </button>
+                            ) : (
+                              "N/A"
+                            )}
                           </td>
 
                           <td className="p-4 whitespace-nowrap">{statusBadge}</td>
@@ -1881,24 +1940,35 @@ export default function AdminPoolPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3 pt-1">
+              <div className="grid grid-cols-4 gap-3 pt-1">
                 <button
                   onClick={() => handleExtendDays(slipModalTeacher, 15)}
                   className="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
                 >
-                  +15 Days Approve
+                  +15D Approve
                 </button>
                 <button
                   onClick={() => handleExtendDays(slipModalTeacher, 30)}
                   className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer"
                 >
-                  +30 Days Approve
+                  +30D Approve
                 </button>
+                
+                {slipModalTeacher?.slip_status !== "DISMISSED" && (
+                  <button
+                    onClick={() => handleDismissSlip(slipModalTeacher)}
+                    title="Dismiss without changing payment/expiry"
+                    className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
+                  >
+                    🗑️ Dismiss
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleRejectSlip(slipModalTeacher)}
                   className="py-3 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition cursor-pointer"
                 >
-                  ❌ Reject Slip
+                  ❌ Reject
                 </button>
               </div>
             </div>
