@@ -447,13 +447,12 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 NEW: Handle Username Copy
+  // 🎯 UPDATED: Handle Username Copy with Persistent State
   const handleCopyUsername = (username: string) => {
     navigator.clipboard.writeText(String(username));
-    setCopiedUsername(username);
-    setTimeout(() => {
-      setCopiedUsername(null);
-    }, 2000);
+    setCopiedUsername(username); 
+    // මම මෙතන තිබුණු setTimeout එක අයින් කළා. 
+    // එතකොට ආයෙත් වෙන Username එකක් click කරනකම්ම මෙයාගේ Copied එක highlight වෙලා තියෙනවා.
   };
 
   const handleCopyZoomAccountId = (accId: string) => {
@@ -932,7 +931,7 @@ export default function AdminPoolPage() {
                               <div className="flex flex-col">
                                 <span className="font-bold text-purple-300">
                                   🏁 {item.scheduledEndTimeStr}
-                                </span>
+                                 </span>
                                 <span className="text-[10px] text-gray-400">
                                   ({formatDuration(item.durationMins)})
                                 </span>
@@ -1588,15 +1587,24 @@ export default function AdminPoolPage() {
                             </button>
                           </td>
 
+                          {/* 🎯 UPDATED: Username Button with Persistent Copied State */}
                           <td className="p-4 font-mono font-semibold whitespace-nowrap text-purple-300">
                             {t.username ? (
                               <button
                                 onClick={() => handleCopyUsername(t.username as string)}
-                                className="hover:text-purple-200 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer border ${
+                                  isUsernameCopied 
+                                    ? "bg-emerald-950/60 border-emerald-700/80 text-emerald-300 shadow-sm" 
+                                    : "hover:bg-slate-900 border-transparent text-purple-300 hover:text-purple-200"
+                                }`}
                                 title="Click to copy username"
                               >
                                 <span>@{t.username}</span>
-                                {isUsernameCopied && <span className="text-[10px] text-emerald-400">✓</span>}
+                                {isUsernameCopied && (
+                                  <span className="text-[10px] font-bold bg-emerald-900/50 px-1.5 py-0.5 rounded text-emerald-300">
+                                    ✓ Copied
+                                  </span>
+                                )}
                               </button>
                             ) : (
                               "N/A"
