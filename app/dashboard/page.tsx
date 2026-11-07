@@ -988,7 +988,7 @@ export default function DashboardPage() {
                       ⚠️ {t.daysLeftText.replace("{days}", remainingDays.toString())}
                     </h3>
                   ) : (
-                    // සාමාන්‍යයෙන් Expiry Date එක ඉකුත් වී ඇත්නම් නිවැරදිව "කාලය ඉකුත් වී ඇත" ලෙස පෙන්වයි
+                    // සාමාන්‍යයෙන් Expiry Date එක ඉකුත් වී ඇත්නම් நிවැරදිව "කාලය ඉකුත් වී ඇත" ලෙස පෙන්වයි
                     <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1">
                       {t.expiredText}
                     </h3>
@@ -1370,6 +1370,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Mobile View */}
                 <div className="block sm:hidden space-y-3">
                   {recordings.map((rec, idx) => (
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 rounded-2xl space-y-2.5">
@@ -1377,19 +1378,24 @@ export default function DashboardPage() {
                         <span className="text-[10px] font-mono text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded border border-blue-900/30">{rec.date}</span>
                       </div>
                       <h4 className="text-xs font-bold text-slate-200">{rec.title}</h4>
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(rec.link);
-                            alert(t.alertCopyVideoSuccess);
-                          }}
-                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors text-center cursor-pointer"
-                        >
-                          {t.copyLinkBtn}
-                        </button>
+                      <div className="flex flex-col gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2">
+                          {rec.link.split(/\r?\n+/).filter(url => url.trim() !== '').map((url, urlIndex, array) => (
+                            <button
+                              key={urlIndex}
+                              onClick={() => {
+                                navigator.clipboard.writeText(url.trim());
+                                alert(t.alertCopyVideoSuccess);
+                              }}
+                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors text-center cursor-pointer min-w-[120px]"
+                            >
+                              {t.copyLinkBtn} {array.length > 1 ? `(Part ${urlIndex + 1})` : ''}
+                            </button>
+                          ))}
+                        </div>
                         <button
                           onClick={() => handleDeleteRecording(rec)}
-                          className="px-3 py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-900/50 text-rose-400 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
+                          className="w-full py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-900/50 text-rose-400 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
                         >
                           {t.deleteBtn}
                         </button>
@@ -1398,13 +1404,14 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
+                {/* Desktop View */}
                 <div className="hidden sm:block bg-[#0b132b]/40 border border-slate-900 rounded-2xl overflow-hidden shadow-sm">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-900 bg-slate-950/50 text-gray-400 font-medium">
                         <th className="p-4 w-[25%]" suppressHydrationWarning>{t.colDate}</th>
-                        <th className="p-4 w-[50%]" suppressHydrationWarning>{t.colTitle}</th>
-                        <th className="p-4 w-[25%] text-right" suppressHydrationWarning>{t.colAction}</th>
+                        <th className="p-4 w-[40%]" suppressHydrationWarning>{t.colTitle}</th>
+                        <th className="p-4 w-[35%] text-right" suppressHydrationWarning>{t.colAction}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900/60 text-slate-300">
@@ -1412,16 +1419,19 @@ export default function DashboardPage() {
                         <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
                           <td className="p-4 font-mono text-gray-400" suppressHydrationWarning>{rec.date}</td>
                           <td className="p-4 font-bold text-slate-200" suppressHydrationWarning>{rec.title}</td>
-                          <td className="p-4 text-right flex items-center justify-end gap-2" suppressHydrationWarning>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(rec.link);
-                                alert(t.alertCopyVideoSuccess);
-                              }}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors cursor-pointer"
-                            >
-                              {t.copyLinkBtn}
-                            </button>
+                          <td className="p-4 text-right flex flex-wrap items-center justify-end gap-2" suppressHydrationWarning>
+                            {rec.link.split(/\r?\n+/).filter(url => url.trim() !== '').map((url, urlIndex, array) => (
+                              <button
+                                key={urlIndex}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(url.trim());
+                                  alert(t.alertCopyVideoSuccess);
+                                }}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors cursor-pointer"
+                              >
+                                {t.copyLinkBtn} {array.length > 1 ? `(Part ${urlIndex + 1})` : ''}
+                              </button>
+                            ))}
                             <button
                               onClick={() => handleDeleteRecording(rec)}
                               className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-900/50 text-rose-400 rounded-lg font-bold text-[10px] transition-colors cursor-pointer"
