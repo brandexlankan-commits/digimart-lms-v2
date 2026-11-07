@@ -582,6 +582,37 @@ export default function DashboardPage() {
     }
   };
 
+  // 🎯 NEW: Function to Mark Early Ended Class as Completed (Release Slot)
+  const handleMarkAsCompleted = async (item: Meeting) => {
+    const isConfirmed = confirm(
+      "⚠️ මෙම පන්තිය සම්පූර්ණයෙන්ම අවසන් කර Slot එක නිදහස් කිරීමට අවශ්‍යද?\n\n• පන්තියේ Recording එක සාමාන්‍ය පරිදි ලැබෙනු ඇත.\n• ඔබට මෙම වෙලාව තුළ අලුත් පන්තියක් Schedule කළ හැකි වනු ඇත."
+    );
+    if (!isConfirmed) return;
+
+    try {
+      const response = await fetch("https://n8n.epanthiya.com/webhook/mark-zoom-class-completed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meeting_id_row: item.meeting_id_row,
+          zoom_meeting_id: item.zoom_id,
+          teacher_id: teacherId,
+          status: "ENDED"
+        })
+      });
+
+      if (response.ok) {
+        alert("✅ Slot එක සාර්ථකව නිදහස් කරන ලදී. ඔබට දැන් අලුත් පන්තියක් Schedule කළ හැක.");
+        fetchTeacherData(teacherId);
+      } else {
+        alert("❌ දෝෂයක් සිදුවිය. කරුණාකර නැවත උත්සාහ කරන්න.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert(t.alertServerError);
+    }
+  };
+
   const fetchTeacherData = async (id: string) => {
     try {
       const response = await fetch(`/api/teacher/data?teacher_id=${id}&t=${Date.now()}`, {
@@ -956,7 +987,6 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-950/60 border border-purple-900/40 rounded-xl flex items-center justify-center text-lg sm:text-xl">⚡</div>
               </div>
 
-              {/* 🎯 ACCURATE ACCOUNT STATUS CARD */}
               <div 
                 onClick={handleGoToPay}
                 className="bg-[#0b132b] hover:bg-[#0f1a3d] border border-slate-900 p-4 sm:p-5 rounded-2xl flex items-center justify-between cursor-pointer transition-colors group"
@@ -1260,6 +1290,7 @@ export default function DashboardPage() {
                             </span>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                               rawStatus === "STARTED" ? "bg-emerald-950/80 text-emerald-400 border-emerald-800/50" :
+                              rawStatus === "EARLY_ENDED" ? "bg-amber-950/80 text-amber-400 border-amber-800/50" :
                               rawStatus === "SCHEDULED" ? "bg-blue-950/80 text-blue-400 border-blue-900/50" :
                               "bg-amber-950/80 text-amber-400 border-amber-800/50"
                             }`}>
@@ -1285,6 +1316,13 @@ export default function DashboardPage() {
                             <span>⏳</span>
                             <span>Class Ended / Recording Processing...</span>
                           </div>
+                        ) : rawStatus === "EARLY_ENDED" ? (
+                          <button
+                            onClick={() => handleMarkAsCompleted(item)}
+                            className="w-full py-1.5 bg-emerald-950/30 hover:bg-emerald-900/50 border border-emerald-900/40 text-emerald-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
+                          >
+                            ✅ Release Slot & Process Recording
+                          </button>
                         ) : rawStatus === "STARTED" && isTimeExpired ? (
                           <div className="space-y-2">
                             <div className="w-full py-2.5 bg-blue-950/40 border border-blue-800/50 text-blue-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
