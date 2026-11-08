@@ -353,6 +353,13 @@ export default function AdminPoolPage() {
     }
   };
 
+  // 🎯 Function to Start Class again
+  const handleStartClass = (item: any) => {
+    const cleanZoomId = item.zoom_id ? item.zoom_id.toString().replace(/\D/g, "") : item.meeting_id_row;
+    const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${cleanZoomId}`;
+    window.open(startUrl, "_blank");
+  };
+
   const isMeetingEnded = (m: SlotMeeting) => {
     const rawStatus = String(m.status || m.Status || "").trim().toUpperCase();
     return rawStatus === "ENDED";
@@ -1223,18 +1230,31 @@ export default function AdminPoolPage() {
                               )}
                             </td>
                             <td className="p-3 text-right whitespace-nowrap">
-                              <button
-                                onClick={() => handleFreeSlot(item)}
-                                disabled={isEndingThis}
-                                className={`px-3.5 py-1.5 rounded-xl font-black text-xs transition-all shadow-md flex items-center gap-1.5 ml-auto cursor-pointer ${
-                                  item.isStillInWindow
-                                    ? "bg-amber-600 hover:bg-amber-500 text-slate-950"
-                                    : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white"
-                                } disabled:opacity-50`}
-                              >
-                                <span>⚡</span>
-                                <span>{isEndingThis ? "Freeing..." : "Free Slot Now"}</span>
-                              </button>
+                              {/* 🎯 UPDATE: Added Start Class option for EARLY_ENDED status (Matched with Dashboard logic) */}
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    const cleanZoomId = item.zoom_id ? item.zoom_id.toString().replace(/\D/g, "") : item.meeting_id_row;
+                                    const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${cleanZoomId}`;
+                                    window.open(startUrl, "_blank");
+                                  }}
+                                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white rounded-xl font-black text-[11px] transition-all cursor-pointer shadow-md"
+                                >
+                                  ▶️ Start
+                                </button>
+                                <button
+                                  onClick={() => handleFreeSlot(item)}
+                                  disabled={isEndingThis}
+                                  className={`px-3.5 py-1.5 rounded-xl font-black text-[11px] transition-all shadow-md flex items-center gap-1.5 cursor-pointer ${
+                                    item.isStillInWindow
+                                      ? "bg-amber-600 hover:bg-amber-500 text-slate-950"
+                                      : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white"
+                                  } disabled:opacity-50`}
+                                >
+                                  <span>✅</span>
+                                  <span>{isEndingThis ? "Freeing..." : "Release Slot"}</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );

@@ -582,7 +582,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 🎯 NEW: Function to Mark Early Ended Class as Completed (Release Slot)
   const handleMarkAsCompleted = async (item: Meeting) => {
     const isConfirmed = confirm(
       "⚠️ මෙම පන්තිය සම්පූර්ණයෙන්ම අවසන් කර Slot එක නිදහස් කිරීමට අවශ්‍යද?\n\n• පන්තියේ Recording එක සාමාන්‍ය පරිදි ලැබෙනු ඇත.\n• ඔබට මෙම වෙලාව තුළ අලුත් පන්තියක් Schedule කළ හැකි වනු ඇත."
@@ -1002,7 +1001,6 @@ export default function DashboardPage() {
                       ❌ UNPAID (Upload Slip)
                     </h3>
                   ) : isSlipUploadedJustNow ? (
-                    // Slip එක Upload කළ පසු Admin විසින් Expiry Date Update කරන තුරු පමණක්
                     <h3 className="text-xs sm:text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1">
                       <span className="animate-spin text-xs">⏳</span>
                       <span>{t.updatingExpiryText}</span>
@@ -1018,7 +1016,6 @@ export default function DashboardPage() {
                       ⚠️ {t.daysLeftText.replace("{days}", remainingDays.toString())}
                     </h3>
                   ) : (
-                    // සාමාන්‍යයෙන් Expiry Date එක ඉකුත් වී ඇත්නම් நிවැරදිව "කාලය ඉකුත් වී ඇත" ලෙස පෙන්වයි
                     <h3 className="text-sm sm:text-base font-bold text-rose-500 mt-1">
                       {t.expiredText}
                     </h3>
@@ -1310,6 +1307,7 @@ export default function DashboardPage() {
                           <p className="text-[10px] text-blue-400 font-bold">⚙️ Acc: {item.zoom_account_id || "Pool Acc"}</p>
                         </div>
                       </div>
+                      
                       <div className="space-y-2 pt-1">
                         {isClassEnded ? (
                           <div className="w-full py-2.5 bg-amber-950/40 border border-amber-800/50 text-amber-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
@@ -1317,12 +1315,21 @@ export default function DashboardPage() {
                             <span>Class Ended / Recording Processing...</span>
                           </div>
                         ) : rawStatus === "EARLY_ENDED" ? (
-                          <button
-                            onClick={() => handleMarkAsCompleted(item)}
-                            className="w-full py-1.5 bg-emerald-950/30 hover:bg-emerald-900/50 border border-emerald-900/40 text-emerald-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
-                          >
-                            ✅ Release Slot & Process Recording
-                          </button>
+                          // 🎯 UPDATE: Added Start Class option for EARLY_ENDED status
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => handleStartClass(item)}
+                              className="w-full py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-white rounded-xl text-[10px] font-bold transition-colors text-center cursor-pointer"
+                            >
+                              {t.startClassBtn}
+                            </button>
+                            <button
+                              onClick={() => handleMarkAsCompleted(item)}
+                              className="w-full py-1.5 bg-emerald-950/30 hover:bg-emerald-900/50 border border-emerald-900/40 text-emerald-400 text-[10px] font-bold rounded-xl transition-all text-center cursor-pointer"
+                            >
+                              ✅ Release Slot & Process Recording
+                            </button>
+                          </div>
                         ) : rawStatus === "STARTED" && isTimeExpired ? (
                           <div className="space-y-2">
                             <div className="w-full py-2.5 bg-blue-950/40 border border-blue-800/50 text-blue-400 text-[11px] font-bold rounded-xl text-center select-none flex items-center justify-center gap-1.5 shadow-inner">
