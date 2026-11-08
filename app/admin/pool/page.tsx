@@ -136,7 +136,6 @@ export default function AdminPoolPage() {
         if (Array.isArray(data?.teachers)) {
           setTeachersList(data.teachers);
         } else if (data?.teachersList && Array.isArray(data.teachersList)) {
-            // Some API responses might nest it differently
             setTeachersList(data.teachersList);
         }
       } else {
@@ -305,7 +304,6 @@ export default function AdminPoolPage() {
       if (res.ok) {
         const data = await res.json();
         setPoolData(data?.accounts || {});
-        // Do not overwrite teachersList here if it's not provided to prevent resetting max ID
         if (Array.isArray(data?.teachers) && data.teachers.length > 0) {
             setTeachersList(data.teachers);
         }
@@ -813,7 +811,6 @@ export default function AdminPoolPage() {
   const handleRegisterTeacher = async () => {
     if (!regGeneratedId || !regUsername || !regPassword) return alert("⚠️ කරුණාකර පළමුව Credentials Generate කරන්න.");
     
-    // We make the picture optional, but show a warning if it's missing.
     if (!regFile) {
         const proceedWithoutPic = confirm("⚠️ ඔබ Profile Picture එකක් තෝරා නොමැත. පින්තූරයක් නොමැතිව ඉදිරියට යාමට අවශ්‍යද?");
         if (!proceedWithoutPic) return;
@@ -835,12 +832,14 @@ export default function AdminPoolPage() {
             body: formData
           });
 
+          // API එකෙන් එන නියම Error Message එක අල්ලා ගැනීම
+          const uploadData = await uploadRes.json().catch(() => ({}));
+
           if (!uploadRes.ok) {
-            console.error("Upload response not OK:", uploadRes.status);
-            throw new Error("Image Upload Failed. Please check Vercel logs and R2 credentials.");
+            // තිරයේ Error එක පැහැදිලිව පෙන්වීම
+            throw new Error(`R2 දෝෂයකි: ${uploadData.details || uploadData.error || uploadRes.statusText || "Vercel Environment Variables වල ගැටලුවක් විය හැක"}`);
           }
           
-          const uploadData = await uploadRes.json();
           profileUrl = uploadData.url;
       }
 
@@ -855,7 +854,7 @@ export default function AdminPoolPage() {
           password: regPassword,
           zoom_account_status: "Active",
           payment_status: "Paid",
-          profile_picture_url: profileUrl, // Will be empty string if no image was uploaded
+          profile_picture_url: profileUrl, // පින්තූරයක් නැත්නම් හිස්ව යයි
           max_concurrent_hosts: 1
         })
       });
@@ -873,12 +872,12 @@ export default function AdminPoolPage() {
         // Refresh the dashboard data
         fetchPoolData(selectedDate); 
       } else {
-        throw new Error("n8n Webhook failed to update Google Sheet.");
+        throw new Error("n8n Webhook එක Google Sheet එකට දත්ත යැවීමට අසමත් විය.");
       }
 
     } catch (error: any) {
-      console.error(error);
-      alert(`❌ ලියාපදිංචි කිරීමේදී දෝෂයක් සිදුවිය: ${error.message}`);
+      console.error("Registration Error:", error);
+      alert(`❌ ලියාපදිංචි කිරීමේදී දෝෂයක් සිදුවිය:\n\n${error.message}`);
     } finally {
       setIsRegistering(false);
     }
