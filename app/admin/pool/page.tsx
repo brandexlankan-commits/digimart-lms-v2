@@ -1,9 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // 🎯 Live n8n Production Webhook URLs
 const N8N_FORCE_END_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-force-end";
 const N8N_UPDATE_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-update-teacher";
+const N8N_REGISTER_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/register-new-teacher"; // අලුත් Webhook එක
 
 interface SlotMeeting {
   teacher_id: string;
@@ -54,7 +56,9 @@ interface TeacherExpiry {
 }
 
 export default function AdminPoolPage() {
-  const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "bank_slips" | "expirations" | "zoom_accounts">("pool");
+  const router = useRouter();
+  // 🎯 Add "register" to activeTab states
+  const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "bank_slips" | "expirations" | "zoom_accounts" | "register">("pool");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [poolData, setPoolData] = useState<PoolData>({});
   const [teachersList, setTeachersList] = useState<TeacherExpiry[]>([]);
@@ -90,6 +94,16 @@ export default function AdminPoolPage() {
   // Action Loading States
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
   const [savingTeacherId, setSavingTeacherId] = useState<string | null>(null);
+
+  // 🎯 NEW: Registration Tab States
+  const [regName, setRegName] = useState("");
+  const [regFile, setRegFile] = useState<File | null>(null);
+  const [regPreview, setRegPreview] = useState("");
+  const [regGeneratedId, setRegGeneratedId] = useState("");
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regMessage, setRegMessage] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -160,7 +174,6 @@ export default function AdminPoolPage() {
     return clean || "PENDING";
   };
 
-  // Direct Teacher Login
   const handleLoginAsTeacher = (t: TeacherExpiry) => {
     try {
       localStorage.setItem("teacher_id", t.teacher_id);
@@ -172,7 +185,6 @@ export default function AdminPoolPage() {
     }
   };
 
-  // Google Sheet Update
   const handleUpdateTeacher = async (
     teacherId: string, 
     updates: { expiry_date?: string; payment_status?: string; slip_status?: string }
@@ -235,12 +247,10 @@ export default function AdminPoolPage() {
     setSlipModalTeacher(null);
   };
 
-  // 🎯 NEW: Dismiss Slip without affecting Expiry or Payment Status
   const handleDismissSlip = async (teacher: TeacherExpiry) => {
     if (!confirm(`⚠️ මෙම Slip එක පමණක් Dashboard එකෙන් ඉවත් කිරීමට අවශ්‍ය බව තහවුරු කරන්න. (Expiry Date හෝ Payment Status වෙනස් නොවේ)`)) return;
 
     await handleUpdateTeacher(teacher.teacher_id, {
-      // payment_status: teacher.payment_status, // Don't touch payment status
       slip_status: "Dismissed",
     });
     setSlipModalTeacher(null);
@@ -304,6 +314,36 @@ export default function AdminPoolPage() {
       if (!confirm(confirmMsg)) return;
     }
     await handleForceEndMeeting(meeting);
+  };
+
+  const handleMarkAsCompleted = async (item: any) => {
+    const isConfirmed = confirm(
+      "⚠️ මෙම පන්තිය සම්පූර්ණයෙන්ම අවසන් කර Slot එක නිදහස් කිරීමට අවශ්‍යද?\n\n• පන්තියේ Recording එක සාමාන්‍ය පරිදි ලැබෙනු ඇත.\n• ඔබට මෙම වෙලාව තුළ අලුත් පන්තියක් Schedule කළ හැකි වනු ඇත."
+    );
+    if (!isConfirmed) return;
+
+    try {
+      const response = await fetch("https://n8n.epanthiya.com/webhook/mark-zoom-class-completed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meeting_id_row: item.meeting_id_row,
+          zoom_meeting_id: item.zoom_id,
+          teacher_id: item.teacher_id,
+          status: "ENDED"
+        })
+      });
+
+      if (response.ok) {
+        alert("✅ Slot එක සාර්ථකව නිදහස් කරන ලදී. ඔබට දැන් අලුත් පන්තියක් Schedule කළ හැක.");
+        fetchPoolData(selectedDate);
+      } else {
+        alert("❌ දෝෂයක් සිදුවිය. කරුණාකර නැවත උත්සාහ කරන්න.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("⚠️ සේවාදායකය සමඟ සම්බන්ධ වීමේ දෝෂයකි.");
+    }
   };
 
   const isMeetingEnded = (m: SlotMeeting) => {
@@ -373,7 +413,6 @@ export default function AdminPoolPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 🎯 REFINED REMINDER WITH NEW DISCOUNTED PRICES
   const handleCopyReminder = (teacherName: string, teacherId: string, daysLeft: number | null) => {
     let daysText = "";
     if (daysLeft === null) {
@@ -393,17 +432,17 @@ export default function AdminPoolPage() {
 ඔබගේ Digimart LMS සේවාව ${daysText} පවතින බැවින්, Zoom Classes බාධාවකින් තොරව කරගෙන යාමට පහත විස්තර අනුව Renewal එක සිදු කරගන්න.
 
 🎁 *අපෙන් ඔබට විශේෂ දීමනාවක්!*
-අප සමඟ අඛණ්ඩව රැඳී සිටින ඔබට කෘතගුණ සැලකීමක් වශයෙන්, ඔබගේ Package Renewal මිල ගණන් පහත පරිදි විශේෂ අඩු කිරීමක් කර ඇත.
+අපගේ විශේෂ සහන දීමනා (Special Offers / Promo Packages) යටතේ සේවාව ලබාගත් ගුරුභවතුන් සඳහා, ඔබගේ එම විශේෂ සහන මිල ගණන් යටතේම කිසිදු වෙනසක් හෝ මිල වැඩිවීමකින් තොරව අඛණ්ඩව Renewal ගෙවීම් සිදු කරගත හැක.
 
-📦 *නව Renewal මිල ගණන් (Discounted):*
-- 15 Days Extension: *LKR 500*
-- 30 Days Extension: *LKR 1,000*
+📦 *Renewal Packages (සාමාන්‍ය මිල):*
+• 15 Days Extension: *LKR 700*
+• 30 Days Extension: *LKR 1,400*
 
 🏛️ *Bank Details (Bank Transfer / Deposit):*
-- Bank: *Sampath Bank*
-- Account Name: *S.D.Nuwan Sameera Deshapriya*
-- Account No: *1188 5747 0946*
-- Branch: *Rambukkana Branch*
+• Bank: *Sampath Bank*
+• Account Name: *S.D.Nuwan Sameera Deshapriya*
+• Account No: *1188 5747 0946*
+• Branch: *Rambukkana Branch*
 
 🚀 *Instant Activation & Instructions:*
 1. මුදල් තැන්පත් කළ පසු රිසිට්පත (Bank Slip - JPG/PNG හෝ PDF) පහත ලින්ක් එකෙන් කෙලින්ම Upload කරන්න.
@@ -447,12 +486,9 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 UPDATED: Handle Username Copy with Persistent State
   const handleCopyUsername = (username: string) => {
     navigator.clipboard.writeText(String(username));
     setCopiedUsername(username); 
-    // මම මෙතන තිබුණු setTimeout එක අයින් කළා. 
-    // එතකොට ආයෙත් වෙන Username එකක් click කරනකම්ම මෙයාගේ Copied එක highlight වෙලා තියෙනවා.
   };
 
   const handleCopyZoomAccountId = (accId: string) => {
@@ -463,7 +499,6 @@ export default function AdminPoolPage() {
     }, 2000);
   };
 
-  // 🎯 EARLY ENDED CLASSES CALCULATION WITH START & SCHEDULED END TIMES
   const earlyEndedClasses = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => {
@@ -495,17 +530,14 @@ export default function AdminPoolPage() {
       })
   );
 
-  // 🎯 ONLY ACTIVE ACCOUNTS (Inactive accounts completely filtered out!)
   const activeAccountKeys = Object.keys(poolData || {}).filter((accId) => isAccountActive(poolData[accId]));
   const totalActivePool = activeAccountKeys.length;
 
-  // 🎯 REALISTIC LIVE AVAILABILITY IN NEXT 6 HOURS (Includes Standard 2hr Duration + Buffer Rules)
   const getNextHoursAvailability = () => {
     const now = new Date();
     const currentHour = now.getHours();
     const intervals = [];
 
-    // පද්ධතියේ සාමාන්‍ය පන්තියක කාලය පැය 2ක් (120 min) සහ දෙපැත්තේ Buffer Time එක පැය 1 (60 min) බැගින්
     const ESTIMATED_CLASS_DURATION_MINS = 120;
     const BUFFER_MINS = 60;
 
@@ -513,7 +545,6 @@ export default function AdminPoolPage() {
       const slotHour = (currentHour + i) % 24;
       const slotStart = slotHour * 60;
 
-      // මෙම පැය තුළ අලුත් පන්තියක් Schedule කරන්නේ නම් අවශ්‍ය සම්පූර්ණ අවහිරතා කවුළුව
       const testWindowStart = slotStart - BUFFER_MINS;
       const testWindowEnd = slotStart + ESTIMATED_CLASS_DURATION_MINS + BUFFER_MINS;
 
@@ -527,11 +558,9 @@ export default function AdminPoolPage() {
           const cDur = Number(cls.duration) || 120;
           const cEnd = cStart + cDur;
 
-          // පවතින පන්තියේ Buffer සහිත කාලය
           const cBufStart = cStart - BUFFER_MINS;
           const cBufEnd = cEnd + BUFFER_MINS;
 
-          // දෙක අතර ගැටුමක් (Overlap) ඇත්නම්
           return testWindowStart < cBufEnd && testWindowEnd > cBufStart;
         });
 
@@ -559,7 +588,6 @@ export default function AdminPoolPage() {
 
   const nextHoursAvailability = getNextHoursAvailability();
 
-  // 🎯 30-MIN TIMELINE GROUPED DATA (Chronological Grouping)
   const allActiveScheduledClasses = Object.entries(poolData || {}).flatMap(([accId, accInfo]) =>
     (accInfo?.classes || [])
       .filter((m) => !isMeetingEnded(m))
@@ -611,7 +639,6 @@ export default function AdminPoolPage() {
     };
   }).filter((g) => g.classes.length > 0);
 
-  // 🎯 ZOOM ACCOUNTS TRACKER (PRIORITIZED SORTING: EXPIRED FIRST, THEN 1-3 DAYS, THEN REST)
   const allZoomAccountsList = Object.keys(poolData || {})
     .map((accId) => {
       const acc = poolData[accId];
@@ -661,7 +688,6 @@ export default function AdminPoolPage() {
     return true;
   });
 
-  // Teachers Processing
   const processedTeachers = (teachersList || []).map((t) => {
     const daysLeft = getDaysRemaining(t.expiry_date);
     const isReminded = remindedTeacherIds.includes(String(t.teacher_id));
@@ -731,6 +757,99 @@ export default function AdminPoolPage() {
 
     return true;
   });
+
+  // 🎯 NEW: TEACHER REGISTRATION LOGIC
+  const handleGenerateCredentials = () => {
+    if (!regName.trim()) {
+      alert("⚠️ කරුණාකර ගුරුවරයාගේ නම ඇතුළත් කරන්න.");
+      return;
+    }
+
+    const maxId = teachersList.reduce((max, t) => {
+      const num = parseInt(t.teacher_id.replace(/\D/g, "") || "0", 10);
+      return num > max ? num : max;
+    }, 0);
+    const nextId = `teach_${maxId + 1}`;
+
+    const cleanName = regName.trim().split(" ")[0].toLowerCase().replace(/[^a-z]/g, "");
+    const randomNum = Math.floor(Math.random() * 90) + 10;
+    const newUsername = `${cleanName}${randomNum}`;
+    const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
+
+    setRegGeneratedId(nextId);
+    setRegUsername(newUsername);
+    setRegPassword(newPassword);
+
+    const msg = `🎉 *Welcome to Digimart LMS!* 🎉\n\nආයුබෝවන් ${regName} ගුරුතුමනි/ගුරුතුමියනි,\nඔබගේ Digimart LMS ගිණුම සාර්ථකව සක්‍රීය කර ඇත. පහත විස්තර භාවිතා කර ඔබගේ ගිණුමට ලොග් වන්න.\n\n🌐 *LMS Portal:* https://lms.epanthiya.com/login\n👤 *Username:* ${newUsername}\n🔑 *Password:* ${newPassword}\n🆔 *Teacher ID:* ${nextId}\n\n(මෙම පණිවිඩය සුරක්ෂිතව තබාගන්න).`;
+    setRegMessage(msg);
+  };
+
+  const handleRegisterTeacher = async () => {
+    if (!regGeneratedId || !regUsername || !regPassword) return alert("⚠️ කරුණාකර පළමුව Credentials Generate කරන්න.");
+    if (!regFile) return alert("⚠️ කරුණාකර Profile Picture එකක් තෝරන්න.");
+
+    setIsRegistering(true);
+
+    try {
+      // 1. Image Upload via API
+      const formData = new FormData();
+      formData.append("file", regFile);
+      formData.append("teacher_id", regGeneratedId);
+
+      const uploadRes = await fetch("/api/admin/upload-r2", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!uploadRes.ok) throw new Error("Image Upload Failed");
+      const uploadData = await uploadRes.json();
+      const profileUrl = uploadData.url;
+
+      // 2. Add to Google Sheet via n8n Webhook
+      const sheetRes = await fetch(N8N_REGISTER_TEACHER_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacher_id: regGeneratedId,
+          teacher_name: regName,
+          username: regUsername,
+          password: regPassword,
+          zoom_account_status: "Active",
+          payment_status: "Paid",
+          profile_picture_url: profileUrl,
+          max_concurrent_hosts: 1
+        })
+      });
+
+      if (sheetRes.ok) {
+        alert("✅ ගුරුවරයා සාර්ථකව ලියාපදිංචි කරන ලදී!");
+        setRegName("");
+        setRegFile(null);
+        setRegPreview("");
+        setRegGeneratedId("");
+        setRegUsername("");
+        setRegPassword("");
+        setRegMessage("");
+        fetchPoolData(selectedDate); // Refresh the list
+      } else {
+        throw new Error("Sheet Update Failed");
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("❌ ලියාපදිංචි කිරීමේදී දෝෂයක් සිදුවිය.");
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#070b19] flex items-center justify-center text-white font-sans p-4">
+        <p className="text-sm animate-pulse flex items-center gap-2">⚙️ Loading Dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#070b19] text-white p-4 sm:p-6 font-sans selection:bg-blue-600/30">
@@ -861,12 +980,127 @@ export default function AdminPoolPage() {
               </span>
             )}
           </button>
+
+          {/* 🎯 NEW TAB: REGISTRATION */}
+          <button
+            onClick={() => setActiveTab("register")}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
+              activeTab === "register" 
+                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20" 
+                : "bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/60 border border-emerald-900/50"
+            }`}
+          >
+            <span>👤➕</span> New Registration
+          </button>
         </div>
 
-        {/* LOADING INDICATOR */}
-        {loading && (
-          <div className="p-12 text-center text-blue-400 font-mono text-sm animate-pulse">
-            ⚙️ Fetching Realtime Data from Server...
+        {/* 🎯 TAB 6: REGISTRATION TAB CONTENT */}
+        {activeTab === "register" && (
+          <div className="space-y-6 animate-fadeIn max-w-5xl mx-auto">
+            <div className="bg-[#0b132b] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
+              <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+                <span className="text-2xl">📝</span>
+                <div>
+                  <h2 className="text-lg font-black text-emerald-400">Register New Teacher</h2>
+                  <p className="text-[11px] text-gray-400">අලුත් ගුරුවරයෙකු ලියාපදිංචි කර, Username හා Password ස්වයංක්‍රීයව සකසන්න.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                
+                {/* 1. Data Input Area */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Teacher Name</label>
+                    <input
+                      type="text"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder="Enter full name"
+                      className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Profile Picture</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setRegFile(file);
+                          setRegPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-800 file:text-blue-400 hover:file:bg-slate-700 cursor-pointer"
+                    />
+                    {regPreview && (
+                      <div className="mt-3">
+                        <img src={regPreview} alt="Preview" className="w-16 h-16 rounded-xl object-cover border border-slate-700 shadow-md" />
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleGenerateCredentials}
+                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-blue-300 font-bold text-xs rounded-xl transition-colors cursor-pointer border border-slate-700"
+                  >
+                    ⚙️ Generate Credentials
+                  </button>
+
+                  {regGeneratedId && (
+                    <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2 mt-4">
+                      <div className="flex justify-between items-center text-xs font-mono">
+                        <span className="text-gray-500">Teacher ID:</span>
+                        <span className="text-amber-400 font-bold">{regGeneratedId}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-mono">
+                        <span className="text-gray-500">Username:</span>
+                        <span className="text-blue-400 font-bold">{regUsername}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-mono">
+                        <span className="text-gray-500">Password:</span>
+                        <span className="text-emerald-400 font-bold">{regPassword}</span>
+                      </div>
+                      
+                      <button
+                        onClick={handleRegisterTeacher}
+                        disabled={isRegistering}
+                        className="w-full py-3 mt-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-gray-500 text-white font-black text-xs rounded-xl shadow-lg transition-colors cursor-pointer"
+                      >
+                        {isRegistering ? "⏳ Uploading & Registering..." : "🚀 Confirm & Save to Database"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Message Output Area */}
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col h-full">
+                  <h3 className="text-xs font-bold text-gray-400 mb-3 flex items-center gap-1.5">
+                    <span>💬</span> WhatsApp Welcome Message Preview
+                  </h3>
+                  <textarea
+                    value={regMessage}
+                    onChange={(e) => setRegMessage(e.target.value)}
+                    placeholder="Generate credentials to see the message..."
+                    className="w-full flex-grow p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-gray-300 focus:outline-none resize-none h-48"
+                  />
+                  {regMessage && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(regMessage);
+                        alert("✅ Message copied to clipboard!");
+                      }}
+                      className="mt-3 w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                    >
+                      📋 Copy Message
+                    </button>
+                  )}
+                </div>
+
+              </div>
+            </div>
           </div>
         )}
 
@@ -931,7 +1165,7 @@ export default function AdminPoolPage() {
                               <div className="flex flex-col">
                                 <span className="font-bold text-purple-300">
                                   🏁 {item.scheduledEndTimeStr}
-                                 </span>
+                                </span>
                                 <span className="text-[10px] text-gray-400">
                                   ({formatDuration(item.durationMins)})
                                 </span>
@@ -1587,7 +1821,6 @@ export default function AdminPoolPage() {
                             </button>
                           </td>
 
-                          {/* 🎯 UPDATED: Username Button with Persistent Copied State */}
                           <td className="p-4 font-mono font-semibold whitespace-nowrap text-purple-300">
                             {t.username ? (
                               <button
@@ -1965,7 +2198,7 @@ export default function AdminPoolPage() {
                 {slipModalTeacher?.slip_status !== "DISMISSED" && (
                   <button
                     onClick={() => handleDismissSlip(slipModalTeacher)}
-                    title="Dismiss without changing payment/expiry"
+                    title="Dismiss slip without rejecting or changing payment status"
                     className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
                   >
                     🗑️ Dismiss
