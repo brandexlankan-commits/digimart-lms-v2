@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 // 🎯 Live n8n Production Webhook URLs
 const N8N_FORCE_END_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-force-end";
 const N8N_UPDATE_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/admin-update-teacher";
-const N8N_REGISTER_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/register-new-teacher"; // අලුත් Webhook එක
+const N8N_REGISTER_TEACHER_WEBHOOK_URL = "https://n8n.epanthiya.com/webhook/register-new-teacher";
 
 interface SlotMeeting {
   teacher_id: string;
@@ -57,7 +57,6 @@ interface TeacherExpiry {
 
 export default function AdminPoolPage() {
   const router = useRouter();
-  // 🎯 Add "register" to activeTab states
   const [activeTab, setActiveTab] = useState<"pool" | "ending_schedule" | "bank_slips" | "expirations" | "zoom_accounts" | "register">("pool");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [poolData, setPoolData] = useState<PoolData>({});
@@ -95,7 +94,7 @@ export default function AdminPoolPage() {
   const [endingMeetingId, setEndingMeetingId] = useState<string | null>(null);
   const [savingTeacherId, setSavingTeacherId] = useState<string | null>(null);
 
-  // 🎯 NEW: Registration Tab States
+  // 🎯 Registration Tab States
   const [regName, setRegName] = useState("");
   const [regFile, setRegFile] = useState<File | null>(null);
   const [regPreview, setRegPreview] = useState("");
@@ -758,19 +757,26 @@ export default function AdminPoolPage() {
     return true;
   });
 
-  // 🎯 NEW: TEACHER REGISTRATION LOGIC
+  // 🎯 REFINED: TEACHER REGISTRATION LOGIC WITH CORRECT ID GENERATION
   const handleGenerateCredentials = () => {
     if (!regName.trim()) {
       alert("⚠️ කරුණාකර ගුරුවරයාගේ නම ඇතුළත් කරන්න.");
       return;
     }
 
+    // 1. Get exact Max ID accurately across ALL teachers in sheet
     const maxId = teachersList.reduce((max, t) => {
-      const num = parseInt(t.teacher_id.replace(/\D/g, "") || "0", 10);
+      if (!t.teacher_id) return max;
+      const numMatch = t.teacher_id.match(/\d+/);
+      const num = numMatch ? parseInt(numMatch[0], 10) : 0;
       return num > max ? num : max;
     }, 0);
-    const nextId = `teach_${maxId + 1}`;
+    
+    // Fallback if list is empty (which shouldn't happen unless database fails)
+    const baseId = maxId > 0 ? maxId : 496; 
+    const nextId = `teach_${baseId + 1}`;
 
+    // 2. Generate Username and Password
     const cleanName = regName.trim().split(" ")[0].toLowerCase().replace(/[^a-z]/g, "");
     const randomNum = Math.floor(Math.random() * 90) + 10;
     const newUsername = `${cleanName}${randomNum}`;
@@ -780,7 +786,9 @@ export default function AdminPoolPage() {
     setRegUsername(newUsername);
     setRegPassword(newPassword);
 
-    const msg = `🎉 *Welcome to Digimart LMS!* 🎉\n\nආයුබෝවන් ${regName} ගුරුතුමනි/ගුරුතුමියනි,\nඔබගේ Digimart LMS ගිණුම සාර්ථකව සක්‍රීය කර ඇත. පහත විස්තර භාවිතා කර ඔබගේ ගිණුමට ලොග් වන්න.\n\n🌐 *LMS Portal:* https://lms.epanthiya.com/login\n👤 *Username:* ${newUsername}\n🔑 *Password:* ${newPassword}\n🆔 *Teacher ID:* ${nextId}\n\n(මෙම පණිවිඩය සුරක්ෂිතව තබාගන්න).`;
+    // 3. Exact Format Message for WhatsApp
+    const msg = `🎉 ඔබගේ Digimart LMS Control Panel ගිණුම සාර්ථකව සක්‍රීය කරන ලදී! 🚀✨\n\nගුරුතුමනි / ගුරුතුමියනි,\n\nඔබගේ Zoom Profile එක සහ LMS Control Panel එක සාර්ථකව Setup කර ඇත. දැන් ඔබට පහත Login Details භාවිත කර System එකට Log වී ඉතා පහසුවෙන් ඔබගේ Zoom Classes Schedule කරගත හැක.\n\n---\n\n🌐 Login Web Portal: https://lms.epanthiya.com/login\n\n👤 Username : ${newUsername}\n\n🔑 Password: ${newPassword}\n---\n\n🎥 Control Panel එක භාවිතා කරන ආකාරය (Demo Video):\nSystem එකට Log වී Class Schedule කරන ආකාරය සහ Features භාවිත කරන ආකාරය නරඹන්න:\n👉 https://youtu.be/4vaWvjBITII\n\n📌 පහසුවෙන් භාවිතා කරන ආකාරය:\n1️⃣ ඉහත Login Link එක ක්ලික් කර Portal එකට යන්න.\n2️⃣ ඔබගේ Username සහ Password යොදා Sign In වන්න.\n3️⃣ "Schedule Class" වෙත ගොස් තත්පර කිහිපයකින් ඔබගේ Class එක සාදාගන්න!\n\n💡 Special Note: පන්තිය නිමවී පැය 12ක් ඇතුළත එහි Video Recording Link එක ස්වයංක්‍රීයවම ඔබගේ Dashboard එකට ලැබෙන අතර, එතැනින් එක Click එකෙන් Copy කර ළමයින්ට Share කළ හැක.\n\nලොග් වීමේදී හෝ භාවිතා කිරීමේදී යම් ගැටලුවක් ආවොත් ඕනෑම වෙලාවක මේ Chat එකටම Message එකක් දාන්න! 💬🤝\n\n*අධ්‍යාපනික ක්ෂේත්‍රයේ විශ්වාසනීයම ස්වයංක්‍රීයකරණ සහකරු - Digimart Automation Solutions* 🌐`;
+    
     setRegMessage(msg);
   };
 
