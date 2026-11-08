@@ -1028,7 +1028,6 @@ export default function AdminPoolPage() {
             )}
           </button>
 
-          {/* 🎯 NEW TAB: REGISTRATION */}
           <button
             onClick={() => setActiveTab("register")}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
