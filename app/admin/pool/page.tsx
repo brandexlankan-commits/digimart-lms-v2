@@ -131,7 +131,14 @@ export default function AdminPoolPage() {
       if (res.ok) {
         const data = await res.json();
         setPoolData(data?.accounts || {});
-        setTeachersList(Array.isArray(data?.teachers) ? data.teachers : []);
+        
+        // 🚨 IMPORTANT: Store all teachers for accurate max ID calculation
+        if (Array.isArray(data?.teachers)) {
+          setTeachersList(data.teachers);
+        } else if (data?.teachersList && Array.isArray(data.teachersList)) {
+            // Some API responses might nest it differently
+            setTeachersList(data.teachersList);
+        }
       } else {
         setFetchError(`දත්ත ලබාගැනීමට නොහැකි විය (Server Status: ${res.status}).`);
       }
@@ -298,7 +305,10 @@ export default function AdminPoolPage() {
       if (res.ok) {
         const data = await res.json();
         setPoolData(data?.accounts || {});
-        setTeachersList(Array.isArray(data?.teachers) ? data.teachers : []);
+        // Do not overwrite teachersList here if it's not provided to prevent resetting max ID
+        if (Array.isArray(data?.teachers) && data.teachers.length > 0) {
+            setTeachersList(data.teachers);
+        }
       }
     } catch (error) {
       console.error("Failed to update status in background:", error);
@@ -757,26 +767,34 @@ export default function AdminPoolPage() {
     return true;
   });
 
-  // 🎯 REFINED: TEACHER REGISTRATION LOGIC WITH CORRECT ID GENERATION
+  // 🎯 REFINED: TEACHER REGISTRATION LOGIC
   const handleGenerateCredentials = () => {
     if (!regName.trim()) {
       alert("⚠️ කරුණාකර ගුරුවරයාගේ නම ඇතුළත් කරන්න.");
       return;
     }
 
-    // 1. Get exact Max ID accurately across ALL teachers in sheet
-    const maxId = teachersList.reduce((max, t) => {
-      if (!t.teacher_id) return max;
-      const numMatch = t.teacher_id.match(/\d+/);
-      const num = numMatch ? parseInt(numMatch[0], 10) : 0;
-      return num > max ? num : max;
-    }, 0);
+    // 1. Calculate Maximum ID robustly
+    let maxId = 0;
+    if (teachersList && teachersList.length > 0) {
+      teachersList.forEach((t) => {
+        if (t && t.teacher_id) {
+          const numMatch = String(t.teacher_id).match(/\d+/);
+          if (numMatch) {
+            const num = parseInt(numMatch[0], 10);
+            if (num > maxId) {
+              maxId = num;
+            }
+          }
+        }
+      });
+    }
     
-    // Fallback if list is empty (which shouldn't happen unless database fails)
+    // Fallback: If for some reason the array is empty, default to 496. Otherwise, use the maxId found.
     const baseId = maxId > 0 ? maxId : 496; 
     const nextId = `teach_${baseId + 1}`;
 
-    // 2. Generate Username and Password
+    // 2. Generate Credentials
     const cleanName = regName.trim().split(" ")[0].toLowerCase().replace(/[^a-z]/g, "");
     const randomNum = Math.floor(Math.random() * 90) + 10;
     const newUsername = `${cleanName}${randomNum}`;
@@ -794,24 +812,37 @@ export default function AdminPoolPage() {
 
   const handleRegisterTeacher = async () => {
     if (!regGeneratedId || !regUsername || !regPassword) return alert("⚠️ කරුණාකර පළමුව Credentials Generate කරන්න.");
-    if (!regFile) return alert("⚠️ කරුණාකර Profile Picture එකක් තෝරන්න.");
+    
+    // We make the picture optional, but show a warning if it's missing.
+    if (!regFile) {
+        const proceedWithoutPic = confirm("⚠️ ඔබ Profile Picture එකක් තෝරා නොමැත. පින්තූරයක් නොමැතිව ඉදිරියට යාමට අවශ්‍යද?");
+        if (!proceedWithoutPic) return;
+    }
 
     setIsRegistering(true);
 
     try {
-      // 1. Image Upload via API
-      const formData = new FormData();
-      formData.append("file", regFile);
-      formData.append("teacher_id", regGeneratedId);
+      let profileUrl = "";
 
-      const uploadRes = await fetch("/api/admin/upload-r2", {
-        method: "POST",
-        body: formData
-      });
+      // 1. Image Upload via API (Only if a file is selected)
+      if (regFile) {
+          const formData = new FormData();
+          formData.append("file", regFile);
+          formData.append("teacher_id", regGeneratedId);
 
-      if (!uploadRes.ok) throw new Error("Image Upload Failed");
-      const uploadData = await uploadRes.json();
-      const profileUrl = uploadData.url;
+          const uploadRes = await fetch("/api/admin/upload-r2", {
+            method: "POST",
+            body: formData
+          });
+
+          if (!uploadRes.ok) {
+            console.error("Upload response not OK:", uploadRes.status);
+            throw new Error("Image Upload Failed. Please check Vercel logs and R2 credentials.");
+          }
+          
+          const uploadData = await uploadRes.json();
+          profileUrl = uploadData.url;
+      }
 
       // 2. Add to Google Sheet via n8n Webhook
       const sheetRes = await fetch(N8N_REGISTER_TEACHER_WEBHOOK_URL, {
@@ -824,13 +855,14 @@ export default function AdminPoolPage() {
           password: regPassword,
           zoom_account_status: "Active",
           payment_status: "Paid",
-          profile_picture_url: profileUrl,
+          profile_picture_url: profileUrl, // Will be empty string if no image was uploaded
           max_concurrent_hosts: 1
         })
       });
 
       if (sheetRes.ok) {
         alert("✅ ගුරුවරයා සාර්ථකව ලියාපදිංචි කරන ලදී!");
+        // Reset the form
         setRegName("");
         setRegFile(null);
         setRegPreview("");
@@ -838,14 +870,15 @@ export default function AdminPoolPage() {
         setRegUsername("");
         setRegPassword("");
         setRegMessage("");
-        fetchPoolData(selectedDate); // Refresh the list
+        // Refresh the dashboard data
+        fetchPoolData(selectedDate); 
       } else {
-        throw new Error("Sheet Update Failed");
+        throw new Error("n8n Webhook failed to update Google Sheet.");
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("❌ ලියාපදිංචි කිරීමේදී දෝෂයක් සිදුවිය.");
+      alert(`❌ ලියාපදිංචි කිරීමේදී දෝෂයක් සිදුවිය: ${error.message}`);
     } finally {
       setIsRegistering(false);
     }
