@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+function hasPdfMagicBytes(buf: Buffer): boolean {
+  return (
+    buf.length >= 5 &&
+    buf[0] === 0x25 && // %
+    buf[1] === 0x50 && // P
+    buf[2] === 0x44 && // D
+    buf[3] === 0x46 && // F
+    buf[4] === 0x2d    // -
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -15,7 +26,7 @@ export async function GET(request: Request) {
     const upstreamRes = await fetch(fileUrl, { cache: "no-store" });
     if (!upstreamRes.ok) {
       return NextResponse.json(
-        { error: `Failed to fetch slip (${upstreamRes.status})` },
+        { error: `Failed to fetch slip from storage (${upstreamRes.status})` },
         { status: upstreamRes.status }
       );
     }
@@ -23,28 +34,48 @@ export async function GET(request: Request) {
     const arrayBuffer = await upstreamRes.arrayBuffer();
     let finalBuffer: Buffer = Buffer.from(arrayBuffer);
 
-    // Base64 text ලෙස save වී ඇත්නම් binary බවට පත් කිරීම
-    const headText = finalBuffer.subarray(0, 80).toString("utf8").trim();
-    if (headText.startsWith("data:") && headText.includes(";base64,")) {
-      const fullText = finalBuffer.toString("utf8").trim();
-      const base64Part = fullText.slice(fullText.indexOf(";base64,") + 8);
-      finalBuffer = Buffer.from(base64Part, "base64");
-    } else if (headText.startsWith("JVBERi0")) {
-      const fullText = finalBuffer.toString("utf8").trim();
-      finalBuffer = Buffer.from(fullText, "base64");
+    // 1. Plain Base64 text ලෙස save වී ඇත්නම් (data:application/pdf;base64,JVBERi... හෝ JVBERi...)
+    if (!hasPdfMagicBytes(finalBuffer)) {
+      const headUtf8 = finalBuffer.subarray(0, 300).toString("utf8");
+      const jvIndex = headUtf8.indexOf("JVBERi");
+      if (jvIndex !== -1) {
+        const fullUtf8 = finalBuffer.toString("utf8");
+        const b64Start = fullUtf8.indexOf("JVBERi");
+        const cleanB64 = fullUtf8
+          .slice(b64Start)
+          .replace(/["'\s\r\n]+$/g, "")
+          .trim();
+        const decoded = Buffer.from(cleanB64, "base64");
+        if (hasPdfMagicBytes(decoded)) {
+          finalBuffer = decoded;
+        }
+      }
     }
 
-    // File signature (Magic bytes) පරීක්ෂා කර නිවැරදි Content-Type හඳුනා ගැනීම
-    let contentType = "application/pdf";
-    let ext = "pdf";
+    // 2. n8n හිදී "data:application/pdf;base64," ඉවත් නොකර Base64 decode කර R2 වෙත save වී ඇත්නම්
+    if (!hasPdfMagicBytes(finalBuffer)) {
+      const reEncodedB64 = finalBuffer.toString("base64");
+      const jvInReEncoded = reEncodedB64.indexOf("JVBERi");
+      if (jvInReEncoded > 0 && jvInReEncoded < 200) {
+        const recovered = Buffer.from(reEncodedB64.slice(jvInReEncoded), "base64");
+        if (hasPdfMagicBytes(recovered)) {
+          finalBuffer = recovered;
+        }
+      }
+    }
 
-    const isPdfBytes =
-      finalBuffer.length >= 4 &&
-      finalBuffer[0] === 0x25 && // %
-      finalBuffer[1] === 0x50 && // P
-      finalBuffer[2] === 0x44 && // D
-      finalBuffer[3] === 0x46;   // F
+    // 3. Latin1 -> UTF-8 mojibake ලෙස binary PDF bytes වෙනස් වී ඇත්නම් නිවැරදි කිරීම
+    if (hasPdfMagicBytes(finalBuffer)) {
+      const headHex = finalBuffer.subarray(0, 64).toString("hex");
+      if (headHex.includes("c3a2c3a3")) {
+        const fixedMojibake = Buffer.from(finalBuffer.toString("utf8"), "latin1");
+        if (hasPdfMagicBytes(fixedMojibake)) {
+          finalBuffer = fixedMojibake;
+        }
+      }
+    }
 
+    // 4. Magic bytes අනුව නිවැරදි Content-Type හඳුනා ගැනීම
     const isPngBytes =
       finalBuffer.length >= 4 &&
       finalBuffer[0] === 0x89 &&
@@ -69,33 +100,60 @@ export async function GET(request: Request) {
       finalBuffer[10] === 0x42 &&
       finalBuffer[11] === 0x50;
 
-    if (isPdfBytes || fileUrl.toLowerCase().includes(".pdf")) {
-      contentType = "application/pdf";
-      ext = "pdf";
-    } else if (isPngBytes) {
-      contentType = "image/png";
-      ext = "png";
-    } else if (isJpegBytes) {
-      contentType = "image/jpeg";
-      ext = "jpg";
-    } else if (isWebpBytes) {
-      contentType = "image/webp";
-      ext = "webp";
+    if (hasPdfMagicBytes(finalBuffer)) {
+      const disposition = isDownload
+        ? 'attachment; filename="bank-slip.pdf"'
+        : 'inline; filename="bank-slip.pdf"';
+
+      return new NextResponse(new Uint8Array(finalBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": disposition,
+          "Content-Length": String(finalBuffer.length),
+          "X-Content-Type-Options": "nosniff",
+          "Cache-Control": "no-store, max-age=0",
+        },
+      });
     }
 
-    const disposition = isDownload
-      ? `attachment; filename="bank-slip.${ext}"`
-      : `inline; filename="bank-slip.${ext}"`;
+    if (isPngBytes || isJpegBytes || isWebpBytes) {
+      const imgType = isPngBytes ? "image/png" : isJpegBytes ? "image/jpeg" : "image/webp";
+      const imgExt = isPngBytes ? "png" : isJpegBytes ? "jpg" : "webp";
+      const disposition = isDownload
+        ? `attachment; filename="bank-slip.${imgExt}"`
+        : `inline; filename="bank-slip.${imgExt}"`;
 
-    return new NextResponse(new Uint8Array(finalBuffer), {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Disposition": disposition,
-        "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "no-store, max-age=0",
-      },
-    });
+      return new NextResponse(new Uint8Array(finalBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": imgType,
+          "Content-Disposition": disposition,
+          "Cache-Control": "no-store, max-age=0",
+        },
+      });
+    }
+
+    // 5. ගොනුව සම්පූර්ණයෙන්ම හිස් හෝ වෙනත් දෝෂයක් නම් පැහැදිලි පණිවිඩයක් පෙන්වීම
+    const previewSnippet = finalBuffer
+      .subarray(0, 120)
+      .toString("utf8")
+      .replace(/[<>&]/g, "");
+
+    return new NextResponse(
+      `<!DOCTYPE html>
+      <html>
+        <body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;padding:24px;">
+          <h3 style="color:#f87171;">⚠️ මෙම PDF ගොනුව Storage හි නිවැරදිව Save වී නොමැත</h3>
+          <p style="font-size:13px;color:#cbd5e1;">File Size: ${finalBuffer.length} bytes</p>
+          <pre style="background:#020617;padding:12px;border-radius:8px;font-size:11px;overflow:auto;color:#94a3b8;">${previewSnippet}</pre>
+        </body>
+      </html>`,
+      {
+        status: 422,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      }
+    );
   } catch (error) {
     console.error("View slip proxy error:", error);
     return NextResponse.json({ error: "Failed to load bank slip" }, { status: 500 });
