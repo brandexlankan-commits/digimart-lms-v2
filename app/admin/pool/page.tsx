@@ -2182,98 +2182,116 @@ export default function AdminPoolPage() {
         )}
 
         {/* MODAL PREVIEW FOR BANK SLIPS */}
-        {slipModalTeacher && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
-            <div className="bg-[#0b132b] border border-slate-800 w-full max-w-3xl rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
-              <button
-                onClick={() => setSlipModalTeacher(null)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs cursor-pointer"
-              >
-                ✕
-              </button>
+        {slipModalTeacher && (() => {
+          const slipUrl = getTeacherSlipUrl(slipModalTeacher);
+          const isPdfSlip = slipUrl.toLowerCase().includes(".pdf");
+          const pdfViewUrl = `/api/admin/view-slip?url=${encodeURIComponent(slipUrl)}`;
+          const pdfDownloadUrl = `/api/admin/view-slip?url=${encodeURIComponent(slipUrl)}&download=1`;
 
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2">
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                    <span>💳</span> Bank Slip Verification
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Teacher: <strong className="text-blue-400">{slipModalTeacher.teacher_name}</strong> (ID: <strong className="text-amber-400">{slipModalTeacher.teacher_id}</strong>)
-                  </p>
+          return (
+            <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+              <div className="bg-[#0b132b] border border-slate-800 w-full max-w-3xl rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl relative">
+                <button
+                  onClick={() => setSlipModalTeacher(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2 pr-10">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                      <span>💳</span> Bank Slip Verification
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Teacher: <strong className="text-blue-400">{slipModalTeacher.teacher_name}</strong> (ID: <strong className="text-amber-400">{slipModalTeacher.teacher_id}</strong>)
+                    </p>
+                  </div>
+
+                  {slipUrl && (
+                    <button
+                      onClick={() => window.open(isPdfSlip ? pdfViewUrl : slipUrl, "_blank")}
+                      className="px-3 py-1.5 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/80 text-blue-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <span>🔍</span> Open in New Tab
+                    </button>
+                  )}
                 </div>
 
-                {getTeacherSlipUrl(slipModalTeacher) && (
-                  <button
-                    onClick={() => window.open(getTeacherSlipUrl(slipModalTeacher), "_blank")}
-                    className="px-3 py-1.5 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/80 text-blue-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                  >
-                    <span>🔍</span> Open in New Tab
-                  </button>
-                )}
-              </div>
-
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex items-center justify-center min-h-[300px] max-h-[520px] overflow-hidden relative">
-                {getTeacherSlipUrl(slipModalTeacher) ? (
-                  getTeacherSlipUrl(slipModalTeacher).toLowerCase().includes(".pdf") ? (
-                    <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
-                      <span className="text-5xl animate-bounce">📄</span>
-                      <h4 className="text-sm font-bold text-white">PDF Bank Receipt Document</h4>
-                      <a
-                        href={getTeacherSlipUrl(slipModalTeacher)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition"
-                      >
-                        Open / Download PDF ↗
-                      </a>
-                    </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 flex flex-col items-center justify-center min-h-[300px] max-h-[540px] overflow-hidden relative">
+                  {slipUrl ? (
+                    isPdfSlip ? (
+                      <div className="w-full space-y-3">
+                        <iframe
+                          src={pdfViewUrl}
+                          title="Bank Slip PDF Preview"
+                          className="w-full h-[430px] rounded-xl border border-slate-800 bg-white"
+                        />
+                        <div className="flex flex-wrap items-center justify-center gap-3">
+                          <a
+                            href={pdfViewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition"
+                          >
+                            🔍 Open Full PDF in New Tab ↗
+                          </a>
+                          <a
+                            href={pdfDownloadUrl}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-300 font-bold text-xs rounded-xl shadow-md transition"
+                          >
+                            ⬇️ Download PDF
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={slipUrl}
+                        alt="Bank Slip Full"
+                        onClick={() => window.open(slipUrl, "_blank")}
+                        className="max-h-[500px] w-auto object-contain rounded-xl cursor-zoom-in"
+                      />
+                    )
                   ) : (
-                    <img
-                      src={getTeacherSlipUrl(slipModalTeacher)}
-                      alt="Bank Slip Full"
-                      onClick={() => window.open(getTeacherSlipUrl(slipModalTeacher), "_blank")}
-                      className="max-h-[500px] w-auto object-contain rounded-xl cursor-zoom-in"
-                    />
-                  )
-                ) : (
-                  <div className="py-20 text-slate-500 text-xs italic">Slip image not available.</div>
-                )}
-              </div>
+                    <div className="py-20 text-slate-500 text-xs italic">Slip image not available.</div>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-4 gap-3 pt-1">
-                <button
-                  onClick={() => handleExtendDays(slipModalTeacher, 15)}
-                  className="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
-                >
-                  +15D Approve
-                </button>
-                <button
-                  onClick={() => handleExtendDays(slipModalTeacher, 30)}
-                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer"
-                >
-                  +30D Approve
-                </button>
-                
-                {slipModalTeacher?.slip_status !== "DISMISSED" && (
+                <div className="grid grid-cols-4 gap-3 pt-1">
                   <button
-                    onClick={() => handleDismissSlip(slipModalTeacher)}
-                    title="Dismiss slip without rejecting or changing payment status"
-                    className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
+                    onClick={() => handleExtendDays(slipModalTeacher, 15)}
+                    className="py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
                   >
-                    🗑️ Dismiss
+                    +15D Approve
                   </button>
-                )}
+                  <button
+                    onClick={() => handleExtendDays(slipModalTeacher, 30)}
+                    className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition shadow-md cursor-pointer"
+                  >
+                    +30D Approve
+                  </button>
+                  
+                  {slipModalTeacher?.slip_status !== "DISMISSED" && (
+                    <button
+                      onClick={() => handleDismissSlip(slipModalTeacher)}
+                      title="Dismiss slip without rejecting or changing payment status"
+                      className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition shadow-md cursor-pointer"
+                    >
+                      🗑️ Dismiss
+                    </button>
+                  )}
 
-                <button
-                  onClick={() => handleRejectSlip(slipModalTeacher)}
-                  className="py-3 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition cursor-pointer"
-                >
-                  ❌ Reject
-                </button>
+                  <button
+                    onClick={() => handleRejectSlip(slipModalTeacher)}
+                    className="py-3 bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                  >
+                    ❌ Reject
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
       </div>
     </div>
