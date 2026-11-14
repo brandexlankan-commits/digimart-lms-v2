@@ -35,6 +35,7 @@ export async function GET(request: Request) {
   try {
     const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
     const cacheBuster = Date.now();
+    const cleanTeacherId = String(teacherId).trim();
 
     // ⚡ Button click කරන විට ඉක්මනින්ම Paid/Unpaid status එක පමණක් Google Sheet එකෙන් බැලීම
     if (checkStatusOnly) {
@@ -51,7 +52,12 @@ export async function GET(request: Request) {
       const teachersData = JSON.parse(teachersJsonString);
       const teacherRows = teachersData.table.rows || [];
 
-      const teacherRow = teacherRows.find((r: any) => String(r.c?.[0]?.v || "").trim() === String(teacherId).trim());
+      const teacherRow = teacherRows.find(
+        (r: any) =>
+          String(r.c?.[0]?.v || "").trim() === cleanTeacherId ||
+          r.c?.some((cell: any) => String(cell?.v || "").trim() === cleanTeacherId)
+      );
+
       const paymentStatus = extractPaymentStatus(teacherRow);
 
       return NextResponse.json(
@@ -181,7 +187,11 @@ export async function GET(request: Request) {
       const teachersData = JSON.parse(teachersJsonString);
       const teacherRows = teachersData.table.rows || [];
 
-      const teacherRow = teacherRows.find((r: any) => r.c?.some((cell: any) => cell?.v === teacherId));
+      const teacherRow = teacherRows.find(
+        (r: any) =>
+          String(r.c?.[0]?.v || "").trim() === cleanTeacherId ||
+          r.c?.some((cell: any) => String(cell?.v || "").trim() === cleanTeacherId)
+      );
 
       if (teacherRow) {
         paymentStatus = extractPaymentStatus(teacherRow);
