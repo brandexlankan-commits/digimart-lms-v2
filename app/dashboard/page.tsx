@@ -375,6 +375,7 @@ export default function DashboardPage() {
   const [muteOnEntry, setMuteOnEntry] = useState(true);
   const [autoRecording, setAutoRecording] = useState<"none" | "cloud" | "local">("none");
   const [formLoading, setFormLoading] = useState(false);
+  const [checkingCopyBtnKey, setCheckingCopyBtnKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -438,6 +439,67 @@ export default function DashboardPage() {
 
   const handleGoToPay = () => {
     router.push(`/pay?id=${teacherId}`);
+  };
+
+  // 🛡️ REAL-TIME GOOGLE SHEET PAID/UNPAID VERIFICATION
+  const verifyLivePaidStatus = async (): Promise<boolean> => {
+    if (!teacherId) return false;
+    try {
+      const res = await fetch(
+        `/api/teacher/data?teacher_id=${encodeURIComponent(teacherId)}&check_status_only=1&t=${Date.now()}`,
+        {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache"
+          }
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const liveStatus = String(data.paymentStatus || "").trim();
+        if (liveStatus) {
+          setPaymentStatus(liveStatus);
+        }
+
+        if (liveStatus.toUpperCase() !== "PAID") {
+          const confirmMsg =
+            lang === "si"
+              ? "🚫 ඔබගේ ගිණුම දැනට UNPAID (කාලය ඉකුත් වී) තත්ත්වයේ පවතී!\n\nපන්ති සෑදීමට හෝ Recording Links ලබාගැනීමට කරුණාකර ගෙවීම් සිදු කර Bank Slip එක Upload කරන්න.\n\n👉 දැන්ම Payment පිටුවට යාමට OK ඔබන්න."
+              : lang === "ta"
+              ? "🚫 உங்கள் கணக்கு தற்போது UNPAID நிலையில் உள்ளது!\n\nவகுப்புகளை உருவாக்க அல்லது பதிவுகளை நகலெடுக்க வங்கி ரசீதை பதிவேற்றவும்.\n\n👉 இப்போது Payment பக்கத்திற்குச் செல்ல OK அழுத்தவும்."
+              : "🚫 Your account is currently UNPAID!\n\nPlease upload your Bank Slip to create classes or copy recording links.\n\n👉 Click OK to go to the Payment page now.";
+
+          if (confirm(confirmMsg)) {
+            router.push(`/pay?id=${encodeURIComponent(teacherId)}`);
+          }
+          return false;
+        }
+        return true;
+      }
+    } catch (err) {
+      console.error("Live payment check error:", err);
+    }
+
+    if (paymentStatus.toUpperCase() === "UNPAID") {
+      alert(t.unpaidAlertText);
+      return false;
+    }
+    return true;
+  };
+
+  const handleCopyRecordingLink = async (rawUrl: string, btnKey: string) => {
+    setCheckingCopyBtnKey(btnKey);
+    try {
+      const isPaidNow = await verifyLivePaidStatus();
+      if (!isPaidNow) return;
+
+      await navigator.clipboard.writeText(rawUrl.trim());
+      alert(t.alertCopyVideoSuccess);
+    } finally {
+      setCheckingCopyBtnKey(null);
+    }
   };
 
   const getMeetingPasscode = (item: Meeting) => {
@@ -704,6 +766,13 @@ export default function DashboardPage() {
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
+
+    // 🛡️ Click කරන මොහොතේම Google Sheet එකෙන් Paid/Unpaid තත්ත්වය සජීවීව පරීක්ෂා කිරීම
+    const isPaidNow = await verifyLivePaidStatus();
+    if (!isPaidNow) {
+      setFormLoading(false);
+      return;
+    }
 
     const formattedTime = `${selectedHour}:${selectedMinute} ${selectedAmPm}`;
 
@@ -1315,7 +1384,6 @@ export default function DashboardPage() {
                             <span>Class Ended / Recording Processing...</span>
                           </div>
                         ) : rawStatus === "EARLY_ENDED" ? (
-                          // 🎯 UPDATE: Added Start Class option for EARLY_ENDED status
                           <div className="space-y-2">
                             <button
                               onClick={() => handleStartClass(item)}
@@ -1425,18 +1493,22 @@ export default function DashboardPage() {
                       <h4 className="text-xs font-bold text-slate-200">{rec.title}</h4>
                       <div className="flex flex-col gap-2 pt-1">
                         <div className="flex flex-wrap gap-2">
-                          {rec.link.split(/\r?\n+/).filter(url => url.trim() !== '').map((url, urlIndex, array) => (
-                            <button
-                              key={urlIndex}
-                              onClick={() => {
-                                navigator.clipboard.writeText(url.trim());
-                                alert(t.alertCopyVideoSuccess);
-                              }}
-                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors text-center cursor-pointer min-w-[120px]"
-                            >
-                              {t.copyLinkBtn} {array.length > 1 ? `(Part ${urlIndex + 1})` : ''}
-                            </button>
-                          ))}
+                          {rec.link.split(/\r?\n+/).filter(url => url.trim() !== '').map((url, urlIndex, array) => {
+                            const btnKey = `m-${idx}-${urlIndex}`;
+                            const isChecking = checkingCopyBtnKey === btnKey;
+                            return (
+                              <button
+                                key={urlIndex}
+                                disabled={isChecking}
+                                onClick={() => handleCopyRecordingLink(url, btnKey)}
+                                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-xl font-bold text-[11px] transition-colors text-center cursor-pointer min-w-[120px]"
+                              >
+                                {isChecking
+                                  ? "⏳ Checking..."
+                                  : `${t.copyLinkBtn} ${array.length > 1 ? `(Part ${urlIndex + 1})` : ""}`}
+                              </button>
+                            );
+                          })}
                         </div>
                         <button
                           onClick={() => handleDeleteRecording(rec)}
@@ -1465,18 +1537,22 @@ export default function DashboardPage() {
                           <td className="p-4 font-mono text-gray-400" suppressHydrationWarning>{rec.date}</td>
                           <td className="p-4 font-bold text-slate-200" suppressHydrationWarning>{rec.title}</td>
                           <td className="p-4 text-right flex flex-wrap items-center justify-end gap-2" suppressHydrationWarning>
-                            {rec.link.split(/\r?\n+/).filter(url => url.trim() !== '').map((url, urlIndex, array) => (
-                              <button
-                                key={urlIndex}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(url.trim());
-                                  alert(t.alertCopyVideoSuccess);
-                                }}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] transition-colors cursor-pointer"
-                              >
-                                {t.copyLinkBtn} {array.length > 1 ? `(Part ${urlIndex + 1})` : ''}
-                              </button>
-                            ))}
+                            {rec.link.split(/\r?\n+/).filter(url => url.trim() !== '').map((url, urlIndex, array) => {
+                              const btnKey = `d-${idx}-${urlIndex}`;
+                              const isChecking = checkingCopyBtnKey === btnKey;
+                              return (
+                                <button
+                                  key={urlIndex}
+                                  disabled={isChecking}
+                                  onClick={() => handleCopyRecordingLink(url, btnKey)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-lg font-bold text-[10px] transition-colors cursor-pointer"
+                                >
+                                  {isChecking
+                                    ? "⏳ Checking..."
+                                    : `${t.copyLinkBtn} ${array.length > 1 ? `(Part ${urlIndex + 1})` : ""}`}
+                                </button>
+                              );
+                            })}
                             <button
                               onClick={() => handleDeleteRecording(rec)}
                               className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-900/50 text-rose-400 rounded-lg font-bold text-[10px] transition-colors cursor-pointer"

@@ -3,9 +3,30 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function extractPaymentStatus(teacherRow: any): string {
+  if (!teacherRow || !Array.isArray(teacherRow.c)) return "Unpaid";
+
+  // Column G (Index 6) හි ඇති payment_status පරීක්ෂා කිරීම
+  const colG = String(teacherRow.c[6]?.v || "").trim();
+  if (colG.toLowerCase() === "paid" || colG.toLowerCase() === "unpaid") {
+    return colG;
+  }
+
+  // Fallback: වෙනත් cell එකක PAID / UNPAID ඇත්නම් සොයාගැනීම
+  for (const cell of teacherRow.c) {
+    const val = String(cell?.v || "").trim().toUpperCase();
+    if (val === "PAID" || val === "UNPAID") {
+      return val;
+    }
+  }
+
+  return colG || "Unpaid";
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const teacherId = searchParams.get('teacher_id');
+  const checkStatusOnly = searchParams.get('check_status_only') === '1';
 
   if (!teacherId) {
     return NextResponse.json({ error: 'Teacher ID අත්‍යවශ්‍යයි' }, { status: 400 });
@@ -14,6 +35,34 @@ export async function GET(request: Request) {
   try {
     const spreadsheetId = "1iQeY5nyGO2pPU_Romyf3-px0pL9KYDEuJ_yyBu6VglM";
     const cacheBuster = Date.now();
+
+    // ⚡ Button click කරන විට ඉක්මනින්ම Paid/Unpaid status එක පමණක් Google Sheet එකෙන් බැලීම
+    if (checkStatusOnly) {
+      const teachersRes = await fetch(
+        `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=Teachers&nocache=${cacheBuster}`,
+        {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+        }
+      );
+
+      const teachersText = await teachersRes.text();
+      const teachersJsonString = teachersText.substring(teachersText.indexOf("{"), teachersText.lastIndexOf("}") + 1);
+      const teachersData = JSON.parse(teachersJsonString);
+      const teacherRows = teachersData.table.rows || [];
+
+      const teacherRow = teacherRows.find((r: any) => String(r.c?.[0]?.v || "").trim() === String(teacherId).trim());
+      const paymentStatus = extractPaymentStatus(teacherRow);
+
+      return NextResponse.json(
+        { paymentStatus },
+        {
+          headers: {
+            'Cache-Control': 'no-store, max-age=0, must-revalidate',
+          }
+        }
+      );
+    }
 
     // 🚀 Meetings සහ Teachers කියන ෂීට් දෙකෙන්ම එකවර ඩේටා ලබාගනිමු (Cache Disabled)
     const [meetingsRes, teachersRes] = await Promise.all([
@@ -94,7 +143,6 @@ export async function GET(request: Request) {
         join_url: row.c[8]?.v,  
         recording_url: row.c[9]?.v, 
         zoom_account_id: row.c[10]?.v || "Pool Account",
-        // 🎯 CRITICAL FIX: Google Sheet එකේ Status Column එක (Index 11 / Column L) එකතු කරන ලදී
         status: row.c[11]?.v || row.c[10]?.v || ""
       };
 
@@ -125,6 +173,7 @@ export async function GET(request: Request) {
     let teacherName = "";
     let maxConcurrentHosts = "1";
     let expiryDate = "";
+    let paymentStatus = "Paid";
 
     try {
       const teachersText = await teachersRes.text();
@@ -135,6 +184,8 @@ export async function GET(request: Request) {
       const teacherRow = teacherRows.find((r: any) => r.c?.some((cell: any) => cell?.v === teacherId));
 
       if (teacherRow) {
+        paymentStatus = extractPaymentStatus(teacherRow);
+
         const picCell = teacherRow.c?.find((cell: any) => 
           cell?.v && typeof cell.v === 'string' && (cell.v.startsWith('http://') || cell.v.startsWith('https://'))
         );
@@ -178,7 +229,8 @@ export async function GET(request: Request) {
       profilePic,
       teacherName,
       maxConcurrentHosts,
-      expiryDate
+      expiryDate,
+      paymentStatus
     }, {
       headers: {
         'Cache-Control': 'no-store, max-age=0, must-revalidate',
