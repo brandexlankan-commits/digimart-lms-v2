@@ -32,7 +32,6 @@ function PayContent() {
       if (clean.toLowerCase().startsWith("teach_")) {
         setTeacherIdInput(clean);
       } else {
-        // 🎯 Username එකක් ආවොත් ක්ෂණිකව Teacher ID එක සොයාගෙන Input එකට දැමීම
         resolveAndSetTeacherId(clean);
       }
     }
@@ -46,7 +45,6 @@ function PayContent() {
         const data = await res.json();
         const realId = data?.teacher_id || data?.teacherId;
         if (realId) {
-          // 🚀 මෙතැනදී Input එකේ අගය කෙලින්ම සැබෑ Teacher ID (e.g. teach_86) බවට පත් වේ!
           setTeacherIdInput(realId);
           return;
         }
@@ -76,8 +74,14 @@ function PayContent() {
     }
   };
 
-  const price15 = appliedPromo ? 700 - (DISCOUNT_PROMOS[appliedPromo]?.discount15 || 0) : 700;
-  const price30 = appliedPromo ? 1400 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : 1400;
+  // 🎯 Default Special Pricing (Loyalty Promo)
+  const defaultPrice15 = 500; // Was 700
+  const defaultPrice30 = 1000; // Was 1400
+  const originalPrice15 = 700;
+  const originalPrice30 = 1400;
+
+  const price15 = appliedPromo ? defaultPrice15 - (DISCOUNT_PROMOS[appliedPromo]?.discount15 || 0) : defaultPrice15;
+  const price30 = appliedPromo ? defaultPrice30 - (DISCOUNT_PROMOS[appliedPromo]?.discount30 || 0) : defaultPrice30;
   const finalPayableAmount = selectedPlanDays === 15 ? price15 : price30;
 
   const handleSlipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,7 +111,6 @@ function PayContent() {
     try {
       const fileExt = slipFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       
-      // 🎯 n8n එකට අනිවාර්යයෙන්ම teach_... අගයම යවයි!
       const response = await fetch("https://n8n.epanthiya.com/webhook/upload-bank-slip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,68 +227,70 @@ function PayContent() {
               </div>
             </div>
 
-            {/* SELECTABLE PLAN CARDS */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-gray-300">
-                පැකේජය තෝරන්න (Click to Select)
-              </label>
+            {/* SELECTABLE PLAN CARDS - 🔥 UPDATED PROMO UI 🔥 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-gray-300">
+                  පැකේජය තෝරන්න (Click to Select)
+                </label>
+                <span className="bg-rose-950/80 text-rose-300 border border-rose-800/60 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider animate-pulse">
+                  🎁 Promo Active
+                </span>
+              </div>
+              
               <div className="grid grid-cols-2 gap-3">
                 <div
                   onClick={() => setSelectedPlanDays(15)}
-                  className={`p-3.5 rounded-2xl cursor-pointer transition-all border text-center relative ${
+                  className={`p-4 rounded-2xl cursor-pointer transition-all border text-center relative overflow-hidden ${
                     selectedPlanDays === 15
-                      ? "bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/40 shadow-lg shadow-blue-900/30"
-                      : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-75 hover:opacity-100"
+                      ? "bg-gradient-to-br from-blue-950/80 to-[#0b132b] border-blue-500 ring-2 ring-blue-500/40 shadow-lg shadow-blue-900/30"
+                      : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-80 hover:opacity-100"
                   }`}
                 >
                   {selectedPlanDays === 15 && (
-                    <span className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center font-bold">
-                      ✓
-                    </span>
+                    <div className="absolute -top-6 -right-6 w-12 h-12 bg-blue-600 rounded-full flex items-end justify-start p-2.5 z-10 shadow-md">
+                      <span className="text-[10px] font-black text-white ml-0.5 mb-0.5">✓</span>
+                    </div>
                   )}
                   <p className="text-[11px] font-bold text-gray-400">15 Days Extension</p>
-                  <div className="mt-1 flex items-center justify-center gap-1.5">
-                    {appliedPromo && (
-                      <span className="text-xs text-gray-500 line-through font-mono">LKR 700</span>
-                    )}
-                    <p className="font-black text-blue-400 text-base font-mono">
+                  
+                  <div className="mt-2 flex flex-col items-center justify-center gap-0.5">
+                    <span className="text-[11px] text-gray-500 line-through font-mono">LKR {originalPrice15.toLocaleString()}</span>
+                    <p className="font-black text-blue-400 text-lg font-mono">
                       LKR {price15.toLocaleString()}
                     </p>
                   </div>
-                  {appliedPromo && (
-                    <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded mt-1 inline-block">
-                      Save Rs. {700 - price15}
-                    </span>
-                  )}
+                  
+                  <span className="text-[9px] text-emerald-400 font-black bg-emerald-950/80 px-2 py-1 rounded mt-2 inline-block border border-emerald-800/50 uppercase tracking-wide">
+                    Save Rs. {originalPrice15 - price15}
+                  </span>
                 </div>
 
                 <div
                   onClick={() => setSelectedPlanDays(30)}
-                  className={`p-3.5 rounded-2xl cursor-pointer transition-all border text-center relative ${
+                  className={`p-4 rounded-2xl cursor-pointer transition-all border text-center relative overflow-hidden ${
                     selectedPlanDays === 30
-                      ? "bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-900/30"
-                      : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-75 hover:opacity-100"
+                      ? "bg-gradient-to-br from-indigo-950/80 to-[#0b132b] border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-900/30"
+                      : "bg-slate-950/60 border-slate-800/90 hover:border-slate-700 opacity-80 hover:opacity-100"
                   }`}
                 >
                   {selectedPlanDays === 30 && (
-                    <span className="absolute -top-2 -right-2 bg-indigo-600 text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center font-bold">
-                      ✓
-                    </span>
+                    <div className="absolute -top-6 -right-6 w-12 h-12 bg-indigo-600 rounded-full flex items-end justify-start p-2.5 z-10 shadow-md">
+                      <span className="text-[10px] font-black text-white ml-0.5 mb-0.5">✓</span>
+                    </div>
                   )}
                   <p className="text-[11px] font-bold text-gray-400">30 Days Extension</p>
-                  <div className="mt-1 flex items-center justify-center gap-1.5">
-                    {appliedPromo && (
-                      <span className="text-xs text-gray-500 line-through font-mono">LKR 1,400</span>
-                    )}
-                    <p className="font-black text-indigo-300 text-base font-mono">
+                  
+                  <div className="mt-2 flex flex-col items-center justify-center gap-0.5">
+                    <span className="text-[11px] text-gray-500 line-through font-mono">LKR {originalPrice30.toLocaleString()}</span>
+                    <p className="font-black text-indigo-300 text-lg font-mono">
                       LKR {price30.toLocaleString()}
                     </p>
                   </div>
-                  {appliedPromo && (
-                    <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded mt-1 inline-block">
-                      Save Rs. {1400 - price30}
-                    </span>
-                  )}
+                  
+                  <span className="text-[9px] text-emerald-400 font-black bg-emerald-950/80 px-2 py-1 rounded mt-2 inline-block border border-emerald-800/50 uppercase tracking-wide">
+                    🔥 Best Value (Save Rs. {originalPrice30 - price30})
+                  </span>
                 </div>
               </div>
             </div>
@@ -293,7 +298,7 @@ function PayContent() {
             {/* DISCOUNT PROMO INPUT */}
             <div className="space-y-1.5 bg-slate-950/50 p-3 rounded-2xl border border-slate-900">
               <label className="block text-[11px] font-bold text-gray-400">
-                🏷️ Discount Code (Optional)
+                🏷️ Extra Discount Code (Optional)
               </label>
               <div className="flex gap-2">
                 <input
