@@ -445,12 +445,12 @@ export default function AdminPoolPage() {
 
 ඔබගේ Digimart LMS සේවාව ${daysText} පවතින බැවින්, Zoom Classes බාධාවකින් තොරව කරගෙන යාමට පහත විස්තර අනුව Renewal එක සිදු කරගන්න.
 
-🎁 *අපෙන් ඔබට විශේෂ දීමනාවක්!*
-අපගේ විශේෂ සහන දීමනා (Special Offers / Promo Packages) යටතේ සේවාව ලබාගත් ගුරුභවතුන් සඳහා, ඔබගේ එම විශේෂ සහන මිල ගණන් යටතේම කිසිදු වෙනසක් හෝ මිල වැඩිවීමකින් තොරව අඛණ්ඩව Renewal ගෙවීම් සිදු කරගත හැක.
+🎁 *අප සමඟ රැඳී සිටින ගුරුභවතුන්ට සුවිශේෂී මිල අඩු කිරීමක්!* 🎉
+Digimart LMS සමඟ අඛණ්ඩව රැඳී සිටින ඔබ වෙනුවෙන්ම, අපගේ සාමාන්‍ය Renewal පැකේජ මිල ගණන් **විශේෂ සහන මිලක් දක්වා අඩු කිරීමට** අපි තීරණය කළෙමු! (විශේෂ Promo Packages යටතේ සේවාව ලබාගත් ගුරුභවතුන්ටද තමන්ගේ එම සහන මිල ගණන් යටතේම කිසිදු මිල වැඩිවීමකින් තොරව Renewal කරගත හැක.)
 
-📦 *Renewal Packages (සාමාන්‍ය මිල):*
-• 15 Days Extension: *LKR 700*
-• 30 Days Extension: *LKR 1,400*
+🔥 *Special Loyalty Renewal Packages (නව අඩු කළ මිල):*
+• 15 Days Extension: ~LKR 700~ ➔ *LKR 500 පමණයි!* (රු. 200ක ඉතිරියක්)
+• 30 Days Extension: ~LKR 1,400~ ➔ *LKR 1,000 පමණයි!* (රු. 400ක ඉතිරියක්)
 
 🏛️ *Bank Details (Bank Transfer / Deposit):*
 • Bank: *Sampath Bank*
