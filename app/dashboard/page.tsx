@@ -167,7 +167,6 @@ const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
     daysLeftText: "දින {days} ක් ඉතිරියි",
     expiredText: "❌ කාලය ඉකුත් වී ඇත",
     updatingExpiryText: "● Active (Expiry Updating...)",
-
     alertSuccessCreate: "📹 සූම් පන්තිය සාර්ථකව සකස් කර දත්ත ගොනුවට ඇතුලත් කරන ලදී.",
     alertHostLimitError: "🚫 ඔබගේ ගිණුමේ දැනට පවතින්නේ Single Host Package එකකි.\n\nඑම නිසා ඔබට එකවර පැවැත්විය හැක්කේ එක් රැස්වීමක් (Meeting එකක්) පමණි.\n\nDual Host හෝ ඊට වැඩි Package එකක් Active කරගැනීමට Digimart Support අමතන්න.",
     whatsappConfirm: "👉 ඔබට දැන්ම WhatsApp හරහා Digimart Support සම්බන්ධ කර ගැනීමට අවශ්‍යද?",
@@ -181,7 +180,6 @@ const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
     alertCopyVideoSuccess: "🎬 පටිගත කිරීමේ සබැඳිය (Video Link) සාර්ථකව Copy කරගන්න ලදී.",
     alertDeleteSuccess: "✅ Recording එක සාර්ථකව මකා දමන ලදී!",
     alertDeleteError: "❌ Recording එක මකා දැමීමට නොහැකි විය.",
-
     paySlipBtn: "💳 Pay / Upload Slip",
     unpaidAlertText: "⚠️ ඔබගේ ගිණුම UNPAID තත්ත්වයේ පවතී. අඛණ්ඩව පන්ති පැවැත්වීමට කරුණාකර Bank Slip එක Upload කරන්න."
   },
@@ -246,7 +244,6 @@ const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
     daysLeftText: "{days} Days Left",
     expiredText: "❌ Account Expired",
     updatingExpiryText: "● Active (Expiry Updating...)",
-
     alertSuccessCreate: "📹 Zoom class scheduled and saved successfully.",
     alertHostLimitError: "🚫 Your account currently has a Single Host Package.\n\nTherefore, you can only run one meeting at a time.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
     whatsappConfirm: "👉 Would you like to contact Digimart Support via WhatsApp now?",
@@ -260,7 +257,6 @@ const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
     alertCopyVideoSuccess: "🎬 Video Recording link copied to Clipboard.",
     alertDeleteSuccess: "✅ Recording deleted successfully!",
     alertDeleteError: "❌ Failed to delete recording.",
-
     paySlipBtn: "💳 Pay / Upload Slip",
     unpaidAlertText: "⚠️ Your account is currently UNPAID. Please upload a bank slip to continue classes."
   },
@@ -325,7 +321,6 @@ const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
     daysLeftText: "{days} நாட்கள் மீதமுள்ளன",
     expiredText: "❌ கணக்கு காலாவதியானது",
     updatingExpiryText: "● Active (Expiry Updating...)",
-
     alertSuccessCreate: "📹 Zoom வகுப்பு வெற்றிகரமாக திட்டமிடப்பட்டு சேமிக்கப்பட்டது.",
     alertHostLimitError: "🚫 உங்கள் கணக்கில் தற்போது Single Host Package மட்டுமே உள்ளது.\n\nஎனவே உங்களால் ஒரே நேரத்தில் ஒரு கூட்டத்தை மட்டுமே நடத்த முடியும்.\n\nPlease contact Digimart Support to activate a Dual Host or higher package.",
     whatsappConfirm: "👉 இப்போது WhatsApp மூலம் Digimart Support-ஐ தொடர்பு கொள்ள விரும்புகிறீர்களா?",
@@ -339,7 +334,6 @@ const translations: Record<"si" | "en" | "ta", TranslationStrings> = {
     alertCopyVideoSuccess: "🎬 பதிவு செய்யப்பட்ட வீடியோ லிங்க் நகலெடுக்கப்பட்டது.",
     alertDeleteSuccess: "✅ பதிவு வெற்றிகரமாக நீக்கப்பட்டது!",
     alertDeleteError: "❌ பதிவை நீக்க முடியவில்லை.",
-
     paySlipBtn: "💳 Pay / Upload Slip",
     unpaidAlertText: "⚠️ உங்கள் கணக்கு செலுத்தப்படாத நிலையில் உள்ளது. ரசீதை பதிவேற்றவும்."
   }
@@ -375,6 +369,7 @@ export default function DashboardPage() {
   const [muteOnEntry, setMuteOnEntry] = useState(true);
   const [autoRecording, setAutoRecording] = useState<"none" | "cloud" | "local">("none");
   const [formLoading, setFormLoading] = useState(false);
+  const [startingClassKey, setStartingClassKey] = useState<string | null>(null);
   const [checkingCopyBtnKey, setCheckingCopyBtnKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -386,7 +381,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // Check if user has uploaded a slip and is awaiting admin expiry date update
       const storedSlipFlag = localStorage.getItem("digimart_slip_uploaded");
       if (storedSlipFlag === "true") {
         setIsSlipUploadedJustNow(true);
@@ -463,26 +457,27 @@ export default function DashboardPage() {
           setPaymentStatus(liveStatus);
         }
 
-        if (liveStatus.toUpperCase() !== "PAID") {
-          const confirmMsg =
-            lang === "si"
-              ? "🚫 ඔබගේ ගිණුම දැනට UNPAID (කාලය ඉකුත් වී) තත්ත්වයේ පවතී!\n\nපන්ති සෑදීමට හෝ Recording Links ලබාගැනීමට කරුණාකර ගෙවීම් සිදු කර Bank Slip එක Upload කරන්න.\n\n👉 දැන්ම Payment පිටුවට යාමට OK ඔබන්න."
-              : lang === "ta"
-              ? "🚫 உங்கள் கணக்கு தற்போது UNPAID நிலையில் உள்ளது!\n\nவகுப்புகளை உருவாக்க அல்லது பதிவுகளை நகலெடுக்க வங்கி ரசீதை பதிவேற்றவும்.\n\n👉 இப்போது Payment பக்கத்திற்குச் செல்ல OK அழுத்தவும்."
-              : "🚫 Your account is currently UNPAID!\n\nPlease upload your Bank Slip to create classes or copy recording links.\n\n👉 Click OK to go to the Payment page now.";
-
-          if (confirm(confirmMsg)) {
-            router.push(`/pay?id=${encodeURIComponent(teacherId)}`);
-          }
-          return false;
+        if (liveStatus.toUpperCase() === "PAID") {
+          return true;
         }
-        return true;
+
+        const confirmMsg =
+          lang === "si"
+            ? "🚫 ඔබගේ ගිණුම දැනට UNPAID (කාලය ඉකුත් වී) තත්ත්වයේ පවතී!\n\nපන්ති සෑදීමට, පන්ති ආරම්භ කිරීමට (Start Class) හෝ Recording Links ලබාගැනීමට කරුණාකර ගෙවීම් සිදු කර Bank Slip එක Upload කරන්න.\n\n👉 දැන්ම Payment පිටුවට යාමට OK ඔබන්න."
+            : lang === "ta"
+            ? "🚫 உங்கள் கணக்கு தற்போது UNPAID நிலையில் உள்ளது!\n\nவகுப்புகளை உருவாக்க, தொடங்க அல்லது பதிவுகளை நகலெடுக்க வங்கி ரசீதை பதிவேற்றவும்.\n\n👉 இப்போது Payment பக்கத்திற்குச் செல்ல OK அழுத்தவும்."
+            : "🚫 Your account is currently UNPAID!\n\nPlease upload your Bank Slip to create classes, start classes, or copy recording links.\n\n👉 Click OK to go to the Payment page now.";
+
+        if (confirm(confirmMsg)) {
+          router.push(`/pay?id=${encodeURIComponent(teacherId)}`);
+        }
+        return false;
       }
     } catch (err) {
       console.error("Live payment check error:", err);
     }
 
-    if (paymentStatus.toUpperCase() === "UNPAID") {
+    if (paymentStatus.toUpperCase() !== "PAID") {
       alert(t.unpaidAlertText);
       return false;
     }
@@ -587,29 +582,40 @@ export default function DashboardPage() {
     return id;
   };
 
-  const handleStartClass = (item: Meeting) => {
-    const startTimeMs = parseDateTimeToTimestamp(item);
-    const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
-    const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
-    const nowMs = Date.now();
-    const ONE_HOUR_MS = 60 * 60 * 1000;
+  const handleStartClass = async (item: Meeting, btnKey: string) => {
+    setStartingClassKey(btnKey);
+    try {
+      // 🛡️ Start Class click කරන මොහොතේම Google Sheet එකෙන් Paid/Unpaid තත්ත්වය සජීවීව පරීක්ෂා කිරීම
+      const isPaidNow = await verifyLivePaidStatus();
+      if (!isPaidNow) {
+        return;
+      }
 
-    const earliestAllowed = startTimeMs - ONE_HOUR_MS;
-    const latestAllowed = endTimeMs;
+      const startTimeMs = parseDateTimeToTimestamp(item);
+      const durationMin = parseInt(String(item.duration || "120").replace(/\D/g, ""), 10) || 120;
+      const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
+      const nowMs = Date.now();
+      const ONE_HOUR_MS = 60 * 60 * 1000;
 
-    if (nowMs < earliestAllowed) {
-      alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
-      return;
+      const earliestAllowed = startTimeMs - ONE_HOUR_MS;
+      const latestAllowed = endTimeMs;
+
+      if (nowMs < earliestAllowed) {
+        alert("⏰ මෙම පන්තිය ආරම්භ කිරීමට තවමත් වේලාව පැමිණ නැත.\n\nපන්තිය ආරම්භ කළ හැක්කේ නියමිත වේලාවට පැයකට පෙර සිට පමණි.");
+        return;
+      }
+
+      if (nowMs > latestAllowed) {
+        alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත (Expired Class).\n\nවෙන් කළ කාලය අවසන් වී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
+        return;
+      }
+
+      const cleanZoomId = item.zoom_id ? item.zoom_id.toString().replace(/\D/g, "") : item.meeting_id_row;
+      const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${cleanZoomId}`;
+      window.open(startUrl, "_blank");
+    } finally {
+      setStartingClassKey(null);
     }
-
-    if (nowMs > latestAllowed) {
-      alert("🚫 මෙම පන්තියේ සක්‍රීය කාල රාමුව (Time Frame) ඉක්මවා ඇත (Expired Class).\n\nවෙන් කළ කාලය අවසන් වී ඇති බැවින් මෙම පන්තිය ආරම්භ කළ නොහැක. කරුණාකර අලුතෙන් Class එකක් Schedule කරගන්න.");
-      return;
-    }
-
-    const cleanZoomId = item.zoom_id ? item.zoom_id.toString().replace(/\D/g, "") : item.meeting_id_row;
-    const startUrl = `https://n8n.epanthiya.com/webhook/start-zoom-class?meeting_id=${cleanZoomId}`;
-    window.open(startUrl, "_blank");
   };
 
   const handleDeleteRecording = async (rec: Recording) => {
@@ -735,7 +741,6 @@ export default function DashboardPage() {
           if (data.daysRemaining !== undefined) {
             const daysNum = Number(data.daysRemaining);
             setRemainingDays(daysNum);
-            // If admin extended days successfully, reset the temporary slip upload flag
             if (daysNum > 0) {
               localStorage.removeItem("digimart_slip_uploaded");
               setIsSlipUploadedJustNow(false);
@@ -767,7 +772,6 @@ export default function DashboardPage() {
     e.preventDefault();
     setFormLoading(true);
 
-    // 🛡️ Click කරන මොහොතේම Google Sheet එකෙන් Paid/Unpaid තත්ත්වය සජීවීව පරීක්ෂා කිරීම
     const isPaidNow = await verifyLivePaidStatus();
     if (!isPaidNow) {
       setFormLoading(false);
@@ -1345,6 +1349,8 @@ export default function DashboardPage() {
                   const endTimeMs = startTimeMs + (durationMin * 60 * 1000);
                   const nowMs = Date.now();
                   const isTimeExpired = nowMs > endTimeMs;
+                  const btnKey = `sc-${idx}`;
+                  const isStarting = startingClassKey === btnKey;
 
                   return (
                     <div key={idx} className="bg-[#0b132b]/60 border border-slate-900 p-4 sm:p-5 rounded-2xl space-y-3.5 shadow-sm relative hover:border-slate-800 transition-colors flex flex-col justify-between">
@@ -1386,10 +1392,11 @@ export default function DashboardPage() {
                         ) : rawStatus === "EARLY_ENDED" ? (
                           <div className="space-y-2">
                             <button
-                              onClick={() => handleStartClass(item)}
-                              className="w-full py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-white rounded-xl text-[10px] font-bold transition-colors text-center cursor-pointer"
+                              disabled={isStarting}
+                              onClick={() => handleStartClass(item, btnKey)}
+                              className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-700 border border-slate-800 text-white rounded-xl text-[10px] font-bold transition-colors text-center cursor-pointer"
                             >
-                              {t.startClassBtn}
+                              {isStarting ? "⏳ Checking..." : t.startClassBtn}
                             </button>
                             <button
                               onClick={() => handleMarkAsCompleted(item)}
@@ -1420,10 +1427,11 @@ export default function DashboardPage() {
                           <div className="space-y-2">
                             <div className="grid grid-cols-2 gap-2">
                               <button
-                                onClick={() => handleStartClass(item)}
-                                className="py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
+                                disabled={isStarting}
+                                onClick={() => handleStartClass(item, btnKey)}
+                                className="py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-700 border border-slate-800 rounded-xl text-[10px] font-bold transition-colors text-center block text-white w-full cursor-pointer"
                               >
-                                {t.startClassBtn}
+                                {isStarting ? "⏳ Checking..." : t.startClassBtn}
                               </button>
 
                               <button
